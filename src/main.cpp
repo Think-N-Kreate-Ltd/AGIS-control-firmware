@@ -504,10 +504,10 @@ void Motor_Run() {
 void Motor_Mode() {
   if (DripMode == LOW) {
     DripMode = HIGH;
-    but_state++;
+    but_state = true;
   } else {
     DripMode = LOW;
-    but_state = 0;
+    but_state = false;
     Motor_Off();
   }
 }
