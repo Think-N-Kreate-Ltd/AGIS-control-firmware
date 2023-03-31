@@ -36,7 +36,6 @@ https://RandomNerdTutorials.com/esp32-esp8266-input-data-html-form/
 #include <Arduino.h>
 #include <AsyncTCP.h>
 #include <WiFiManager.h>
-#define WEBSERVER_H  // This define is required to avoid conflict between WifiManager and ESPAsyncWebServer
 #include <ESPAsyncWebServer.h>
 #include <SPIFFS.h>
 #include <WiFi.h>
