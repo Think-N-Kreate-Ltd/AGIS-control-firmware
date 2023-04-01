@@ -11,27 +11,11 @@ https://RandomNerdTutorials.com/esp32-esp8266-input-data-html-form/
 *********/
 /*
   wifi ssid:AutoConnectAP, password:password.
-  GPIO2 -> reading sensor data (Change in L40)
+  GPIO2 -> reading sensor data (Change in L28)
   timer0 -> read sensor & time measure
   timer1 -> not used currently
   timer2 -> control the motor
-  should work, but haven't practically tested yet
-  do not use delay()
-    because it may cause problem on measuring the time, just add var to
-  PrintForDebug() to control the time (current is 5s run 1loop) sth improving:
-  - will save the wifi connected but there may be a bug when first connected
-  (should already be fixed)
-  - use 3 button and one page only (done)
-  - press -> action, release -> stop (finish half?), use toggle switch instead
-  - the button have higher priority (done)
-  - but stop up_and_down, just press once (normal case) (done)
-  - use array to do the web page (seems not in needed, cause there are only 4
-  timers, only 3 motor(or even less) can br controled at the same time)
-  - use SPIFFS to store the data about drop time
-  - update the data on web page without refreshing the whole page(AJAX) (done)
-  - nothing in main loop (done)
 */
-// uncomment L93-95 (the String storing the html code) before upload
 
 #include <Arduino.h>
 #include <AsyncTCP.h>
@@ -52,6 +36,8 @@ volatile bool print_state = false; // true if it is printing currently
 volatile int time_5ms = 0;         // count for every 5ms passed
 
 // var for timer0 interrupt
+// for reading the sensor value
+volatile int occur;                
 // for measuring the time that sensor detect a drop
 unsigned long start_time = 0;
 // for measuring the time that sensor detect a drop is disappear
@@ -60,8 +46,8 @@ unsigned long leave_time = 0;
 unsigned long next_time = 0;
 unsigned long total_time = 0; // for calculating the time used within 15s
 unsigned int no_of_drop = 0;  // for counting the number of drops within 15s
-String time1 = "?";           // for storing the time of 1 drop
-String time2 = "?";           // for storing the time between 2 drop
+String time1 = "0";           // for storing the time of 1 drop
+String time2 = "inf ";           // for storing the time between 2 drop
 
 // var for timer2 interrupt
 int ADCValue = 0; // variable to store the value coming from the sensor
@@ -101,13 +87,194 @@ const char *PARAM_INPUT_3 = "input3";
 int check_state();
 void Motor_On_Up();
 void Motor_On_Down();
-void Motor_Run();
 void Motor_Off();
+void Motor_Run();
 void Motor_Mode();
 
 // HTML web page to handle 3 input fields (input1, input2, input3)
 const char index_html[] PROGMEM = R"rawliteral(
-  <!DOCTYPE HTML><html> <head> <title>ESP Input Form</title> <meta name="viewport" content="width=device-width, initial-scale=1"> <style>.switch{position: relative; display: inline-block; width: 120px; height: 68px}.switch input{display: none}.slider{position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; border-radius: 6px}.slider:before{position: absolute; content: ""; height: 52px; width: 52px; left: 8px; bottom: 8px; background-color: #fff; -webkit-transition: .4s; transition: .4s; border-radius: 3px}input:checked+.slider{background-color: #b30000}input:checked+.slider:before{-webkit-transform: translateX(52px); -ms-transform: translateX(52px); transform: translateX(52px)}</style> <script>setInterval(function(){refreshCount();}, 5000); function refreshCount(){var xhttp=new XMLHttpRequest(); xhttp.onreadystatechange=function(){document.getElementById("sendValue").innerHTML=this.responseText;}; xhttp.open("GET", "sendValue", true); xhttp.send();}function getValue(){setTimeout(function(){document.location.reload(false);}, 10);}function sendInput(element){var xhr=new XMLHttpRequest(); if(element.checked){xhr.open("GET", "/get?input1=" + element.id, true);}else{xhr.open("GET", "/get?input1=STOP", true);}xhr.send();}</script> </head> <body> AGIS 1 UP<label class='switch'><input type='checkbox' onchange='sendInput(this)' id='Up'><span class='slider'></span></label> AGIS 1 Up and Down<label class='switch'><input type='checkbox' onchange='sendInput(this)' id='Up_and_Down'><span class='slider'></span></label> AGIS 1 Down<label class='switch'><input type='checkbox' onchange='sendInput(this)' id='Down'><span class='slider'></span></label> <br><form action='/get' target='hidden-form'> AGIS 1 (current value %input1%): <input name="input1" type='submit' value='Up' onchange='getValue()'> <input name="input1" type='submit' value='Up_and_Down' onclick='getValue()'> <input name="input1" type='submit' value='Down' onclick='getValue()'> <input name="input1" type='submit' value='STOP' onclick='getValue()'> </form><br><div id='sendValue'> Time for 1 drop is %time1%ms. Time between 2 drop is %time2%ms. <br>15 seconds is passed, %no_of_drop% drops passed and use %total_time%ms (not include the first drop). <br><br></div><form action='/get' target='hidden-form'> AGIS 2 (current value %input2%): <input name='input2' type='submit' value='Up' onclick='getValue()'> <input name='input2' type='submit' value='Up_and_Down' onclick='getValue()'> <input name='input2' type='submit' value='Down' onclick='getValue()'> <input name='input2' type='submit' value='STOP' onclick='getValue()'> </form><br><form action='/get' target='hidden-form'> AGIS 3 (current value %input3%): <input name='input3' type='submit' value='Up' onclick='getValue()'> <input name='input3' type='submit' value='Up_and_Down' onclick='getValue()'> <input name='input3' type='submit' value='Down' onclick='getValue()'> <input name='input3' type='submit' value='STOP' onclick='getValue()'> </form><br><iframe style="display:none" name="hidden-form"></iframe> </body></html>
+<!DOCTYPE HTML>
+<html>
+
+  <head>
+    <title>ESP Input Form</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <script src="https://code.highcharts.com/modules/export-data.js"></script>
+    <script src="https://code.highcharts.com/modules/accessibility.js"></script>
+    <style>
+      .switch {position: relative; display: inline-block; width: 120px; height: 68px} 
+      .switch input {display: none}
+      .slider {position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; border-radius: 6px}
+      .slider:before {position: absolute; content: ""; height: 52px; width: 52px; left: 8px; bottom: 8px; background-color: #fff; -webkit-transition: .4s; transition: .4s; border-radius: 3px}
+      input:checked+.slider {background-color: #b30000}
+      input:checked+.slider:before {-webkit-transform: translateX(52px); -ms-transform: translateX(52px); transform: translateX(52px)}
+    </style>
+    <script>
+      setInterval(function(){ refreshtime1(); refreshtime2(); refreshno_of_drop(); refreshtotal_time();}, 3000);
+      function refreshtime1(){
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+            document.getElementById("sendtime1").innerHTML = this.responseText;
+        };
+        xhttp.open("GET", "sendtime1", true);
+        xhttp.send();
+      }
+      function refreshtime2(){
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+            document.getElementById("sendtime2").innerHTML = this.responseText;
+        };
+        xhttp.open("GET", "sendtime2", true);
+        xhttp.send();
+      }
+      function refreshno_of_drop(){
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+            document.getElementById("sendno_of_drop").innerHTML = this.responseText;
+        };
+        xhttp.open("GET", "sendno_of_drop", true);
+        xhttp.send();
+      }
+      function refreshtotal_time(){
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+            document.getElementById("sendtotal_time").innerHTML = this.responseText;
+        };
+        xhttp.open("GET", "sendtotal_time", true);
+        xhttp.send();
+      }
+      function getValue() {
+        setTimeout(function() {
+          document.location.reload(false);
+        }, 10);
+      }
+      function sendInput(element){
+        var xhr = new XMLHttpRequest();
+        if(element.checked){xhr.open("GET", "/get?input1=" + element.id, true);}
+        else{xhr.open("GET", "/get?input1=STOP", true);}
+        xhr.send();
+      }
+
+    </script>
+  </head>
+
+  <body>
+    AGIS 1 UP<label class='switch'><input type='checkbox' onchange='sendInput(this)' id='Up'><span class='slider'></span></label>
+    AGIS 1 Up and Down<label class='switch'><input type='checkbox' onchange='sendInput(this)' id='Up_and_Down'><span class='slider'></span></label>
+    AGIS 1 Down<label class='switch'><input type='checkbox' onchange='sendInput(this)' id='Down'><span class='slider'></span></label>
+    <br>
+    <form action='/get' target='hidden-form'> 
+    AGIS 1 (current value %input1%): 
+    <input name="input1" type='submit' value='Up' onchange='getValue()'> 
+    <input name="input1" type='submit' value='Up_and_Down' onclick='getValue()'> 
+    <input name="input1" type='submit' value='Down' onclick='getValue()'> 
+    <input name="input1" type='submit' value='STOP' onclick='getValue()'> 
+    </form><br>
+    <table>
+      <tr>
+        <td >Time for 1 drop: </td>
+        <td><div id='sendtime1'>%time1%ms</div></td>
+      </tr><tr>
+        <td>Time between 2 drop: </td>
+        <td><div id='sendtime2'>%time2%ms</div></td>
+      </tr><tr>
+        <td>No. of drop: </td>
+        <td><div id='sendno_of_drop'>%no_of_drop%</div></td>
+      </tr><tr>
+        <td>Total time: </td>
+        <td><div id='sendtotal_time'>%total_time%ms</div></td>
+      </tr>
+    </table>
+    <br><br>
+  
+    
+    <form action='/get' target='hidden-form'>
+    AGIS 2 (current value %input2%): 
+    <input name='input2' type='submit' value='Up' onclick='getValue()'> 
+    <input name='input2' type='submit' value='Up_and_Down' onclick='getValue()'> 
+    <input name='input2' type='submit' value='Down' onclick='getValue()'> 
+    <input name='input2' type='submit' value='STOP' onclick='getValue()'> 
+    </form><br>
+    
+    <form action='/get' target='hidden-form'> AGIS 3 (current value %input3%): 
+    <input name='input3' type='submit' value='Up' onclick='getValue()'>
+    <input name='input3' type='submit' value='Up_and_Down' onclick='getValue()'> 
+    <input name='input3' type='submit' value='Down' onclick='getValue()'> 
+    <input name='input3' type='submit' value='STOP' onclick='getValue()'> 
+    </form><br>
+    
+    <iframe style="display:none" name="hidden-form"></iframe> 
+
+    <div id='sendsensor'>testing value</div>
+    <figure class="highcharts-figure">
+      <div id="chart-reading" class="container">testing</div>
+    </figure>
+
+  </body>
+  <script>
+      var chartT = new Highcharts.Chart({
+        chart:{ renderTo :'chart-reading', marginRight: 10},
+        time: { useUTC: false },
+        title: { text:'Sensor Reading' },
+        plotOptions: {
+          line: { animation: false,
+            dataLabels: { enabled: false }
+          }
+        },
+        accessibility: {
+            announceNewData: {
+                enabled: true,
+                minAnnounceInterval: 15000,
+                announcementFormatter: function (allSeries, newSeries, newPoint) {
+                    if (newPoint) {
+                        return 'New point added. Value: ' + newPoint.y;
+                    }
+                    return false;
+                }
+            }
+        },
+        xAxis: { 
+          type:'datetime', tickPixelInterval: 150
+        },
+        yAxis: {
+          title: { text:'Drop detected' }, 
+          plotLines:[{ value: 0, width: 1, color:'#808080'}]
+        },
+        credits: { enabled: false },
+        legend: { enabled: true },
+        exporting: { enabled: false },
+        series: [{
+          name:'AGIS1',
+          data: ( function(){
+            var data = [], time = (new Date()).getTime(), i;
+            for ( i=-19; i<=0; i+=1){
+              data.push({ x: time + i * 1000,
+                          y: 0
+              });
+            }
+            return data;
+          }())
+        }]
+      });
+      var series = chartT.series[0];
+      setInterval(function(){ plotGraph();}, 500);
+      function plotGraph(){
+       var xhttp = new XMLHttpRequest();
+       xhttp.onreadystatechange = function() {
+          var sensorreading = parseInt(this.responseText);
+          var x = (new Date()).getTime(),
+              y = sensorreading;
+          chartT.series[0].addPoint([x, y], true, true);
+          document.getElementById("sendsensor").innerHTML = sensorreading;
+        };
+        xhttp.open("GET", "sendsensor", true);
+        xhttp.send();
+      }
+    </script>
+
+</html>
 )rawliteral";
 
 // goto 404 not found when 404 not found
@@ -174,7 +341,6 @@ hw_timer_t *Timer2_cfg = NULL; // create a pointer for timer2
 void IRAM_ATTR DropSensor() { // timer0 interrupt, for sensor detected drops and
   // measure the time
   static int phase;
-  static int occur;                // for reading the sensor value
   static bool occur_state = false; // true when obstacle detected
   if (phase == 0) {
     occur = digitalRead(SENSOR_PIN); // read the sensor value
@@ -329,14 +495,22 @@ void setup() {
     request->send_P(200, "text/html", index_html, processor);
   });
 
+  // send and data of sensor reading
+  server.on("/sendsensor", [](AsyncWebServerRequest *request) {
+    request->send(200, "text/html", String(occur));
+  });
   // send and update the data of drops
-  server.on("/sendValue", [](AsyncWebServerRequest *request) {
-    request->send(200, "text/html",
-                  "Time for 1 drop is " + time1 +
-                      "ms. Time between 2 drop is " + time2 +
-                      "ms. <br> 15 seconds is passed, " + no_of_drop +
-                      " drops passed and use " + total_time +
-                      "ms (not include the first drop). <br><br>");
+  server.on("/sendtime1", [](AsyncWebServerRequest *request) {
+    request->send(200, "text/html", time1 + "ms");
+  });
+  server.on("/sendtime2", [](AsyncWebServerRequest *request) {
+    request->send(200, "text/html", time2 + "ms");
+  });
+  server.on("/sendno_of_drop", [](AsyncWebServerRequest *request) {
+    request->send(200, "text/html", String(no_of_drop));
+  });
+  server.on("/sendtotal_time", [](AsyncWebServerRequest *request) {
+    request->send(200, "text/html", String(total_time) + "ms");
   });
 
   // Send a GET request to <ESP_IP>/get?input1=<inputMessage>
@@ -372,7 +546,7 @@ void setup() {
     Serial.println(inputMessage);
 
     // this page will br created after sending input, but I set that this page
-    // will never enter Therefore, can comment it but chrome will give
+    // will never enter Therefore, can comment it, but chrome will give
     // "net::ERR_EMPTY_RESPONSE" if don't add this page
     request->send(200, "text/html", "<a href=\"/\">Return to Home Page</a>");
     // request->send(200, "text/html", "Request Sent! <br>"
