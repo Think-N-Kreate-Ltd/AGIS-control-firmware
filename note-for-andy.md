@@ -13,17 +13,22 @@
     - ~~read the value of sensor~~
     - ~~measure the time~~
     - ~~display the value on web page~~
+    - update data when drop detected
     - ~~plot the graph with real time~~
     - ~~update the sensor reading frequently and cancel old data~~
     - ***need another method to plot graph as the above method is not practical***
-    - still thinking, maybe only update the time that drop appears
+    - use SPI & SD card to store the data
  - display on OLED
+    - ~~LCD display sensor value~~
+    - use OLED to display sensor value
     - display two graph: current & drop count(later)
-	 - INA219 (current sensor?)
-	 - the a, b, c of the square wave
+	  - INA219 (current sensor?)
+	  - the a, b, c of the square wave
  - other/overall
     - ~~put all the thing in INT (nothing in amin loop)~~
     - everyone can accese the web page
+    - OTA (sorry I forget what it is use for)
+    - test the motor
 
 ======================================
 # note for the code
@@ -83,6 +88,13 @@ may use for button
 
 plot graph by javascript:
  - https://www.highcharts.com/demo
+
+I2C: 
+ - https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-reference/peripherals/i2c.html
+ - https://esp32developer.com/programming-in-c-c/i2c-programming-in-c-c/our-i2c-master-universal-code
+
+OLED: 
+ - https://www.electronicshub.org/esp32-oled-display/
 
 ======================================
 # web page code
@@ -235,3 +247,20 @@ plot graph by javascript:
   </body>
 
 </html>
+
+===========================
+# result for test_i2c
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x1 (POWERON),boot:0x8 (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce3808,len:0x44c
+load:0x403c9700,len:0xbe4
+load:0x403cc700,len:0x2a38
+entry 0x403c98d4
+
+I2C Scanner
+Scanning...
+I2C device found at address 0x27
+done

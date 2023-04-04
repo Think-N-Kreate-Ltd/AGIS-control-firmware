@@ -46,8 +46,9 @@ unsigned long leave_time = 0;
 unsigned long next_time = 0;
 unsigned long total_time = 0; // for calculating the time used within 15s
 unsigned int no_of_drop = 0;  // for counting the number of drops within 15s
+long drop_rate = 0; // for calculating the drop rate
 String time1 = "0";           // for storing the time of 1 drop
-String time2 = "inf ";           // for storing the time between 2 drop
+String time2 = "inf ";        // for storing the time between 2 drop
 
 // var for timer2 interrupt
 int ADCValue = 0; // variable to store the value coming from the sensor
@@ -112,7 +113,10 @@ const char index_html[] PROGMEM = R"rawliteral(
       input:checked+.slider:before {-webkit-transform: translateX(52px); -ms-transform: translateX(52px); transform: translateX(52px)}
     </style>
     <script>
-      setInterval(function(){ refreshtime1(); refreshtime2(); refreshno_of_drop(); refreshtotal_time();}, 3000);
+      setInterval(function(){ refreshtime1(); refreshtime2(); refreshno_of_drop(); refreshtotal_time(); refreshdrop_rate();}, 3000);
+      var tot_time = 0;
+      var no_drop = 99;
+      var drop_rate = tot_time / no_drop;
       function refreshtime1(){
         var xhttp = new XMLHttpRequest();
         xhttp.onreadystatechange = function() {
@@ -133,6 +137,7 @@ const char index_html[] PROGMEM = R"rawliteral(
         var xhttp = new XMLHttpRequest();
         xhttp.onreadystatechange = function() {
             document.getElementById("sendno_of_drop").innerHTML = this.responseText;
+            no_drop = parseInt(this.responseText);
         };
         xhttp.open("GET", "sendno_of_drop", true);
         xhttp.send();
@@ -141,8 +146,17 @@ const char index_html[] PROGMEM = R"rawliteral(
         var xhttp = new XMLHttpRequest();
         xhttp.onreadystatechange = function() {
             document.getElementById("sendtotal_time").innerHTML = this.responseText;
+            tot_time = parseInt(this.responseText) / 1000;
         };
         xhttp.open("GET", "sendtotal_time", true);
+        xhttp.send();
+      }
+      function refreshdrop_rate(){
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+            document.getElementById("senddrop_rate").innerHTML = no_drop * 60 / tot_time;
+        };
+        xhttp.open("GET", "senddrop_rate", true);
         xhttp.send();
       }
       function getValue() {
@@ -185,6 +199,10 @@ const char index_html[] PROGMEM = R"rawliteral(
       </tr><tr>
         <td>Total time: </td>
         <td><div id='sendtotal_time'>%total_time%ms</div></td>
+      </tr>
+      <tr>
+        <td>Drip rate: </td>
+        <td><div id='senddrop_rate'>drop_rate</div></td>
       </tr>
     </table>
     <br><br>
@@ -331,6 +349,8 @@ String processor(const String &var) {
     return String(no_of_drop);
   } else if (var == "total_time") {
     return String(total_time);
+  } else if (var == "drop_rate") {
+    return String(drop_rate);
   }
   return String();
 }
@@ -354,6 +374,7 @@ void IRAM_ATTR DropSensor() { // timer0 interrupt, for sensor detected drops and
         next_time = millis();
         total_time += (next_time - start_time);
         no_of_drop++;
+        // drop_rate = total_time / no_of_drop;
         time2 = String(next_time - start_time);
         start_time = millis();
         if (total_time >= 15000) { // 15 seconds passed
@@ -369,6 +390,12 @@ void IRAM_ATTR DropSensor() { // timer0 interrupt, for sensor detected drops and
         occur_state = false;
         time1 = String(leave_time - start_time);
       }
+    }
+    phase++;
+  }
+  if (phase == 2) {
+    if(total_time < 15000){
+      // drop_rate = total_time / no_of_drop;
     }
     phase = 0;
   }
@@ -445,10 +472,10 @@ void setup() {
   pinMode(SENSOR_PIN, INPUT);
 
   // setup for timer0
-  Timer0_cfg = timerBegin(0, 400, true); // Prescaler = 400
+  Timer0_cfg = timerBegin(0, 80, true); // Prescaler = 400
   timerAttachInterrupt(Timer0_cfg, &DropSensor,
                        true);              // call the function DropSensor()
-  timerAlarmWrite(Timer0_cfg, 1000, true); // Time = 1000*500/80,000,000 = 5ms
+  timerAlarmWrite(Timer0_cfg, 1000, true); // Time = 1000*80/80,000,000 = 5ms
   timerAlarmEnable(Timer0_cfg);            // start the interrupt
 
   // setup for timer2
@@ -511,6 +538,9 @@ void setup() {
   });
   server.on("/sendtotal_time", [](AsyncWebServerRequest *request) {
     request->send(200, "text/html", String(total_time) + "ms");
+  });
+  server.on("/senddrop_rate", [](AsyncWebServerRequest *request) {
+    request->send(200, "text/html", String(drop_rate));
   });
 
   // Send a GET request to <ESP_IP>/get?input1=<inputMessage>
