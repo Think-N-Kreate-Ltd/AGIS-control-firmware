@@ -567,11 +567,11 @@ void setup() {
   timerAlarmWrite(Timer0_cfg, 1000, true); // Time = 1000*80/80,000,000 = 1ms
   timerAlarmEnable(Timer0_cfg);            // start the interrupt
 
-  // setup for timer
-  Timer1_cfg = timerBegin(0, 80, true); // Prescaler = 400
+  // setup for timer1
+  Timer1_cfg = timerBegin(1, 5000, true); // Prescaler = 5000
   timerAttachInterrupt(Timer1_cfg, &AutoControl,
-                       true);              // call the function DropSensor()
-  timerAlarmWrite(Timer1_cfg, 500000, true); // Time = 1000000*80/80,000,000 = 0.5s
+                       true);              // call the function AutoControl()
+  timerAlarmWrite(Timer1_cfg, 8000, true); // Time = 5000*8000/80,000,000 = 0.5s
   timerAlarmEnable(Timer1_cfg);            // start the interrupt
 
   // setup for timer2
