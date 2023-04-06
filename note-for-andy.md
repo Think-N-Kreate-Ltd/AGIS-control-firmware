@@ -26,7 +26,8 @@
 	  - the a, b, c of the square wave
  - auto system
     - compare the drip rate
-    - auto move
+    - add a field and the user input the drip he want
+    - it just run non-stop
     - set an alarm on web 
     - set an alarm on the board
  - other/overall
@@ -40,7 +41,7 @@
  - wifi ssid:AutoConnectAP, password:password.
  - GPIO2 -> reading sensor data (Change in L40)
  - timer0 -> read sensor & time measure
- - timer1 -> not used currently
+ - timer1 -> auto control
  - timer2 -> control the motor
  - **don't use delay**
 
@@ -109,6 +110,10 @@ OLED:
   <head>
     <title>ESP Input Form</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <script src="https://code.highcharts.com/modules/export-data.js"></script>
+    <script src="https://code.highcharts.com/modules/accessibility.js"></script>
     <style>
       .switch {position: relative; display: inline-block; width: 120px; height: 68px} 
       .switch input {display: none}
@@ -117,42 +122,47 @@ OLED:
       input:checked+.slider {background-color: #b30000}
       input:checked+.slider:before {-webkit-transform: translateX(52px); -ms-transform: translateX(52px); transform: translateX(52px)}
     </style>
-    <script src="https://code.highcharts.com/highcharts.js">
-      var chartT = new Highcharts.Chart({
-         chart:{ renderTo : 'chart-reading' },
-         title: { text: 'Sensor Reading' },
-         series: [{
-            showInLegend: false,
-            data: []
-         }],
-         plotOptions: {
-            line: { animation: false,
-               dataLabels: { enabled: true }
-            }
-         },
-         xAxis: { type: 'datetime',
-            dateTimeLabelFormats: { second: '%H:%M:%S' }
-         },
-         yAxis: {
-            title: { text: 'Reading' }
-         },
-         credits: { enabled: false }
-      });
-      setInterval(function(){ plotGraph();refreshtime1(); refreshtime2(); refreshno_of_drop(); refreshtotal_time();}, 3000);
-      function plotGraph(){
-         var xhttp = new XMLHttpRequest();
-         xhttp.onreadystatechange = function() {
-            var x = (new Date()).getTime(),
-               y = parseFloat(this.responseText);
-            if(chartT.series[0].data.length > 40) {
-               chartT.series[0].addPoint([x, y], true, true, true);
-            } else {
-               chartT.series[0].addPoint([x, y], true, false, true);
-            }
+    <script>
+      var state_change = false;
+    	var state_auto = false;
+      var DR = 0;
+      var drop_rate = 30;
+      function getDR(){
+        DR = parseInt(document.getElementById("AGIS1").value);
+        state_auto = true;
+        alert("clicked");
+      }
+      setInterval(function(){stateControl(); autoControl();}, 10000);
+      function stateControl(){
+      	state_change = true;
+      }
+      function autoControl(){
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+          if((state_auto) && (state_change)){
+          	if(DR < drop_rate){
+          	  drop_rate -= 2;
+          	}
+          	if(DR < (drop_rate - 5)){
+          	  drop_rate -= 2;
+          	}
+          	if(DR > drop_rate){
+          	  drop_rate += 2;
+          	}
+          	if(DR > (drop_rate + 5)){
+          	  drop_rate += 2;
+          	}
+            state_change = false;
+          }
+          document.getElementById("senddrop_rate").innerHTML = drop_rate;
         };
-        xhttp.open("GET", "sendsensor", true);
+        xhttp.open("GET", "a", true);
         xhttp.send();
       }
+      setInterval(function(){ refreshtime1(); refreshtime2(); refreshno_of_drop(); refreshtotal_time(); refreshdrop_rate();}, 3000);
+      var tot_time = 0;
+      var no_drop = 99;
+      var drop_rate = tot_time / no_drop;
       function refreshtime1(){
         var xhttp = new XMLHttpRequest();
         xhttp.onreadystatechange = function() {
@@ -173,6 +183,7 @@ OLED:
         var xhttp = new XMLHttpRequest();
         xhttp.onreadystatechange = function() {
             document.getElementById("sendno_of_drop").innerHTML = this.responseText;
+            no_drop = parseInt(this.responseText);
         };
         xhttp.open("GET", "sendno_of_drop", true);
         xhttp.send();
@@ -181,8 +192,17 @@ OLED:
         var xhttp = new XMLHttpRequest();
         xhttp.onreadystatechange = function() {
             document.getElementById("sendtotal_time").innerHTML = this.responseText;
+            tot_time = parseInt(this.responseText) / 1000;
         };
         xhttp.open("GET", "sendtotal_time", true);
+        xhttp.send();
+      }
+      function refreshdrop_rate(){
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+            document.getElementById("senddrop_rate").innerHTML = no_drop * 60 / tot_time;
+        };
+        xhttp.open("GET", "senddrop_rate", true);
         xhttp.send();
       }
       function getValue() {
@@ -212,6 +232,11 @@ OLED:
     <input name="input1" type='submit' value='Down' onclick='getValue()'> 
     <input name="input1" type='submit' value='STOP' onclick='getValue()'> 
     </form><br>
+
+    <label for="AGIS1">Enter Drip Rate:</label>
+    <input type="text" id="AGIS1" name="AGIS1">
+    <input type="submit" value="AGIS1" onclick="getDR()">
+    
     <table>
       <tr>
         <td >Time for 1 drop: </td>
@@ -225,6 +250,10 @@ OLED:
       </tr><tr>
         <td>Total time: </td>
         <td><div id='sendtotal_time'>%total_time%ms</div></td>
+      </tr>
+      <tr>
+        <td>Drip rate: </td>
+        <td><div id='senddrop_rate'>drop_rate</div></td>
       </tr>
     </table>
     <br><br>
@@ -247,9 +276,72 @@ OLED:
     
     <iframe style="display:none" name="hidden-form"></iframe> 
 
-    <div id="chart-reading" class="container"></div>
+    <div id='sendsensor'>testing value</div>
+    <figure class="highcharts-figure">
+      <div id="chart-reading" class="container">testing</div>
+    </figure>
 
   </body>
+  <script>
+      var chartT = new Highcharts.Chart({
+        chart:{ renderTo :'chart-reading', marginRight: 10},
+        time: { useUTC: false },
+        title: { text:'Sensor Reading' },
+        plotOptions: {
+          line: { animation: false,
+            dataLabels: { enabled: false }
+          }
+        },
+        accessibility: {
+            announceNewData: {
+                enabled: true,
+                minAnnounceInterval: 15000,
+                announcementFormatter: function (allSeries, newSeries, newPoint) {
+                    if (newPoint) {
+                        return 'New point added. Value: ' + newPoint.y;
+                    }
+                    return false;
+                }
+            }
+        },
+        xAxis: { 
+          type:'datetime', tickPixelInterval: 150
+        },
+        yAxis: {
+          title: { text:'Drop detected' }, 
+          plotLines:[{ value: 0, width: 1, color:'#808080'}]
+        },
+        credits: { enabled: false },
+        legend: { enabled: true },
+        exporting: { enabled: false },
+        series: [{
+          name:'AGIS1',
+          data: ( function(){
+            var data = [], time = (new Date()).getTime(), i;
+            for ( i=-19; i<=0; i+=1){
+              data.push({ x: time + i * 1000,
+                          y: 0
+              });
+            }
+            return data;
+          }())
+        }]
+      });
+      var series = chartT.series[0];
+      setInterval(function(){ plotGraph();}, 500);
+      function plotGraph(){
+       var xhttp = new XMLHttpRequest();
+       xhttp.onreadystatechange = function() {
+          var sensorreading = parseInt(this.responseText);
+          var x = (new Date()).getTime(),
+              y = sensorreading;
+          chartT.series[0].addPoint([x, y], true, true);
+          document.getElementById("sendsensor").innerHTML = sensorreading;
+        };
+        xhttp.open("GET", "sendsensor", true);
+        xhttp.send();
+      }
+    </script>
 
 </html>
 
@@ -267,5 +359,5 @@ entry 0x403c98d4
 
 I2C Scanner
 Scanning...
-I2C device found at address 0x27
+**I2C device found at address 0x27**
 done

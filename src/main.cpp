@@ -13,7 +13,7 @@ https://RandomNerdTutorials.com/esp32-esp8266-input-data-html-form/
   wifi ssid:AutoConnectAP, password:password.
   GPIO2 -> reading sensor data (Change in L28)
   timer0 -> read sensor & time measure
-  timer1 -> not used currently
+  timer1 -> auto control
   timer2 -> control the motor
 */
 
@@ -65,6 +65,7 @@ ezButton limitSwitch_Down(38); // create ezButton object that attach to pin 7;
 volatile bool but_state =
     false;             // true if it is controlled by the real button currently
 int web_but_state = 0; // that state that shows the condition of web button
+int web_auto_state = 0; // that state that shows the condition of auto control
 
 // WiFiManager, Local intialization. Once its business is done, there is no need
 // to keep it around
@@ -83,9 +84,11 @@ AsyncWebServer server(80);
 const char *PARAM_INPUT_1 = "input1";
 const char *PARAM_INPUT_2 = "input2";
 const char *PARAM_INPUT_3 = "input3";
+const char *PARAM_AUTO_1 = "auto1";
 
 // Function prototypes
 int check_state();
+int check_t();
 void Motor_On_Up();
 void Motor_On_Down();
 void Motor_Off();
@@ -113,7 +116,11 @@ const char index_html[] PROGMEM = R"rawliteral(
       input:checked+.slider:before {-webkit-transform: translateX(52px); -ms-transform: translateX(52px); transform: translateX(52px)}
     </style>
     <script>
-      setInterval(function(){ refreshtime1(); refreshtime2(); refreshno_of_drop(); refreshtotal_time(); refreshdrop_rate();}, 3000);
+    	var state_auto = false;
+      var DR = 0;
+      var drop_rate = 0;
+      var t = "0";
+      setInterval(function(){ refreshtime1(); refreshtime2(); refreshno_of_drop(); refreshtotal_time(); refreshdrop_rate(); autoControl();}, 3000);
       var tot_time = 0;
       var no_drop = 99;
       var drop_rate = tot_time / no_drop;
@@ -146,7 +153,12 @@ const char index_html[] PROGMEM = R"rawliteral(
         var xhttp = new XMLHttpRequest();
         xhttp.onreadystatechange = function() {
             document.getElementById("sendtotal_time").innerHTML = this.responseText;
-            tot_time = parseInt(this.responseText) / 1000;
+            if(parseInt(this.responseText) != 0){
+              drop_rate = no_drop * 60 *1000 / parseInt(this.responseText);
+            }
+            else{
+              drop_rate = 0;
+            }
         };
         xhttp.open("GET", "sendtotal_time", true);
         xhttp.send();
@@ -154,7 +166,7 @@ const char index_html[] PROGMEM = R"rawliteral(
       function refreshdrop_rate(){
         var xhttp = new XMLHttpRequest();
         xhttp.onreadystatechange = function() {
-            document.getElementById("senddrop_rate").innerHTML = no_drop * 60 / tot_time;
+            document.getElementById("senddrop_rate").innerHTML = drop_rate;
         };
         xhttp.open("GET", "senddrop_rate", true);
         xhttp.send();
@@ -169,6 +181,40 @@ const char index_html[] PROGMEM = R"rawliteral(
         if(element.checked){xhr.open("GET", "/get?input1=" + element.id, true);}
         else{xhr.open("GET", "/get?input1=STOP", true);}
         xhr.send();
+      }
+      function getDR(){
+        DR = parseInt(document.getElementById("AGIS1").value);
+        state_auto = true;
+        alert("clicked");
+      }
+      function autoControl(){
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+          if(state_auto){
+            if(DR < drop_rate){
+              t = "down";
+              document.getElementById("test").innerHTML += "down";
+          	}
+            if(DR < (drop_rate - 5)){
+          	  t = "moredown";
+              document.getElementById("test").innerHTML += "downnn";
+          	}
+            if(DR > drop_rate){
+              t = "up";
+              document.getElementById("test").innerHTML += "up";
+          	}
+            if(DR > (drop_rate + 5)){
+          	  t = "moreup";
+              document.getElementById("test").innerHTML += "uppp";
+          	}
+            if(DR == drop_rate){
+              t = "0";
+              document.getElementById("test").innerHTML = "stop";
+            }
+          }
+        };
+        xhttp.open("GET", "/get?auto1=" + t, true);
+        xhttp.send();
       }
 
     </script>
@@ -186,6 +232,12 @@ const char index_html[] PROGMEM = R"rawliteral(
     <input name="input1" type='submit' value='Down' onclick='getValue()'> 
     <input name="input1" type='submit' value='STOP' onclick='getValue()'> 
     </form><br>
+
+    <label for="AGIS1">Enter Drip Rate:</label>
+    <input type="text" id="AGIS1" name="AGIS1">
+    <input type="submit" value="AGIS1" onclick="getDR()">
+    <br>testing value: <div id = "test">testing</div>
+    
     <table>
       <tr>
         <td >Time for 1 drop: </td>
@@ -356,6 +408,7 @@ String processor(const String &var) {
 }
 
 hw_timer_t *Timer0_cfg = NULL; // create a pointer for timer0
+hw_timer_t *Timer1_cfg = NULL; // create a pointer for timer1
 hw_timer_t *Timer2_cfg = NULL; // create a pointer for timer2
 
 void IRAM_ATTR DropSensor() { // timer0 interrupt, for sensor detected drops and
@@ -401,6 +454,42 @@ void IRAM_ATTR DropSensor() { // timer0 interrupt, for sensor detected drops and
   }
   time_5ms++;         // count for 5ms
   print_state = true; // start printing
+}
+
+void IRAM_ATTR AutoControl() { // timer1 interrupt, for auto control motor
+  static int phase;  // int for counting the time
+  static int count; // int for forloop counting
+  phase++;
+  if (phase >= 40){ // one loop run 0.5*40 = 20s, 
+    if (web_auto_state == 1){
+      Motor_On_Up();
+      count = 1; // stop after for loop run 1 time(0.5s)
+    }
+    if (web_auto_state == 2){
+      Motor_On_Up();
+      count = 2; // stop after for loop run 2 time(1s)
+    }
+    if (web_auto_state == -1){
+      Motor_On_Down();
+      count = 1; // stop after for loop run 1 time(0.5s)
+    }
+    if (web_auto_state == -2){
+      Motor_On_Down();
+      count = 2; // stop after for loop run 2 time(1s)
+    }
+    if (web_auto_state == 0){
+      Motor_Off();
+    }
+    phase = 0;
+  }
+  if (phase = 2) {
+    for (int x=count; x>=0; x--){
+      if (x == 0){
+        Motor_Off;
+      }
+      phase = 0;
+    }
+  }
 }
 
 void IRAM_ATTR motorControl() {
@@ -472,11 +561,18 @@ void setup() {
   pinMode(SENSOR_PIN, INPUT);
 
   // setup for timer0
-  Timer0_cfg = timerBegin(0, 80, true); // Prescaler = 400
+  Timer0_cfg = timerBegin(0, 80, true); // Prescaler = 80
   timerAttachInterrupt(Timer0_cfg, &DropSensor,
                        true);              // call the function DropSensor()
-  timerAlarmWrite(Timer0_cfg, 1000, true); // Time = 1000*80/80,000,000 = 5ms
+  timerAlarmWrite(Timer0_cfg, 1000, true); // Time = 1000*80/80,000,000 = 1ms
   timerAlarmEnable(Timer0_cfg);            // start the interrupt
+
+  // setup for timer
+  Timer1_cfg = timerBegin(0, 80, true); // Prescaler = 400
+  timerAttachInterrupt(Timer1_cfg, &AutoControl,
+                       true);              // call the function DropSensor()
+  timerAlarmWrite(Timer1_cfg, 500000, true); // Time = 1000000*80/80,000,000 = 0.5s
+  timerAlarmEnable(Timer1_cfg);            // start the interrupt
 
   // setup for timer2
   Timer2_cfg = timerBegin(2, 80, true); // Prescaler = 80
@@ -569,6 +665,13 @@ void setup() {
       writeFile(SPIFFS, "/input3.txt", inputMessage.c_str());
       web_but_state = check_state(); // convert the input from AGIS3 to integer,
                                      // and store in web_but_state
+    }
+    // GET auto1 value on <ESP_IP>/get?auto1=t
+    else if (request->hasParam(PARAM_AUTO_1)) {
+      inputMessage = request->getParam(PARAM_AUTO_1)->value();
+      writeFile(SPIFFS, "/auto1.txt", inputMessage.c_str());
+      web_auto_state = check_t(); // convert the input from AGIS1 to integer,
+                                     // and store in web_but_state
     } else {
       inputMessage = "No message sent";
       // inputParam = "none";
@@ -621,6 +724,9 @@ void loop() {
     Serial.print(time2);
     Serial.println("ms");
 
+    Serial.print("Web auto state is ");
+    Serial.println(web_auto_state);
+
     print_state = false; // finish print
   }
 
@@ -656,6 +762,24 @@ int check_state() {
   } else if (inputMessage == "Down") {
     state = 3;
   } else if (inputMessage == "STOP") {
+    state = 0;
+  }
+  return state;
+}
+
+// check the condition of the auto control
+// convert inputMessage(String) to integer
+int check_t() {
+  static int state;
+  if (inputMessage == "moreup") {
+    state = 2;
+  } else if (inputMessage == "up") {
+    state = 1;
+  } else if (inputMessage == "down") {
+    state = -1;
+  } else if (inputMessage == "moredown") {
+    state = -2;
+  } else if (inputMessage == "0") {
     state = 0;
   }
   return state;
