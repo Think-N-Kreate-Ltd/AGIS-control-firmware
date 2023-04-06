@@ -593,8 +593,8 @@ void setup() {
 void loop() {
   // printing only
   // for debug use
-  if (((time_5ms == 1000) || (time_5ms == 2000)) &&
-      print_state) { // 5ms *1000 =5s, print msg every 5s
+  if (((time_5ms == 5000) || (time_5ms == 10000)) &&
+      print_state) { // 1ms *5000 =5s, print msg every 5s
     // To access your stored values on input1, input2, input3
     String yourInput1 = readFile(SPIFFS, "/input1.txt");
     Serial.print("*** Your input1: ");
@@ -624,8 +624,8 @@ void loop() {
     print_state = false; // finish print
   }
 
-  if ((time_5ms == 3000) &&
-      print_state) { // 5ms *3000 =15s, print msg every 15s
+  if ((time_5ms == 15000) &&
+      print_state) { // 1ms *15000 =15s, print msg every 15s
     Serial.print("The time of 1 drop is ");
     Serial.print(time1);
     Serial.println("ms");

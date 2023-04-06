@@ -24,11 +24,16 @@
     - display two graph: current & drop count(later)
 	  - INA219 (current sensor?)
 	  - the a, b, c of the square wave
+ - auto system
+    - compare the drip rate
+    - auto move
+    - set an alarm on web 
+    - set an alarm on the board
  - other/overall
     - ~~put all the thing in INT (nothing in amin loop)~~
     - everyone can accese the web page
     - OTA (sorry I forget what it is use for)
-    - test the motor
+    - ~~test the motor~~
 
 ======================================
 # note for the code
