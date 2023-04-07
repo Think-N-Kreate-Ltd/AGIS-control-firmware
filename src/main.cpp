@@ -25,7 +25,7 @@ https://RandomNerdTutorials.com/esp32-esp8266-input-data-html-form/
 #include <WiFi.h>
 #include <ezButton.h>
 
-#define SENSOR_PIN 2 // input pin for geting output from sensor
+#define SENSOR_PIN 36 // input pin for geting output from sensor
 
 #define motorCTRL_1 15 // Motorl Control Board PWM 1
 #define motorCTRL_2 16 // Motorl Control Board PWM 2
@@ -33,7 +33,10 @@ https://RandomNerdTutorials.com/esp32-esp8266-input-data-html-form/
 
 // var for checking the time
 volatile bool print_state = false; // true if it is printing currently
-volatile int time_5ms = 0;         // count for every 5ms passed
+volatile bool phase_change_for_timer1 = false; // true if timer1 phase chenge
+volatile int time_1ms = 0;         // count for every 1ms passed
+volatile bool no_drop_with_20s = false;  // true if no drop appears in next 20s
+volatile bool volume_exceed  = false;  // true if no_of_drop exceed amount
 
 // var for timer0 interrupt
 // for reading the sensor value
@@ -46,9 +49,10 @@ unsigned long leave_time = 0;
 unsigned long next_time = 0;
 unsigned long total_time = 0; // for calculating the time used within 15s
 unsigned int no_of_drop = 0;  // for counting the number of drops within 15s
-long drop_rate = 0; // for calculating the drop rate
-String time1 = "0";           // for storing the time of 1 drop
-String time2 = "inf ";        // for storing the time between 2 drop
+volatile int drop_rate = 0;           // for calculating the drop rate
+String time1 = "not started"; // for storing the time of 1 drop
+String time2 = "not started"; // for storing the time between 2 drop
+volatile int int_time2=1;
 
 // var for timer2 interrupt
 int ADCValue = 0; // variable to store the value coming from the sensor
@@ -120,10 +124,10 @@ const char index_html[] PROGMEM = R"rawliteral(
       var DR = 0;
       var drop_rate = 0;
       var t = "0";
-      setInterval(function(){ refreshtime1(); refreshtime2(); refreshno_of_drop(); refreshtotal_time(); refreshdrop_rate(); autoControl();}, 3000);
+      setInterval(function(){ refreshtime1(); refreshtime2(); refreshno_of_drop(); refreshtotal_time(); refreshdrop_rate();}, 1000);
       var tot_time = 0;
       var no_drop = 99;
-      var drop_rate = tot_time / no_drop;
+      var drop_rate = 0;
       function refreshtime1(){
         var xhttp = new XMLHttpRequest();
         xhttp.onreadystatechange = function() {
@@ -136,6 +140,14 @@ const char index_html[] PROGMEM = R"rawliteral(
         var xhttp = new XMLHttpRequest();
         xhttp.onreadystatechange = function() {
             document.getElementById("sendtime2").innerHTML = this.responseText;
+            if(((this.responseText) === "not started") || ((this.responseText) === "no drop appears currently")){
+              drop_rate = 0;
+              console.log("equal")
+            }
+            else{
+              drop_rate = 60000 / parseInt(this.responseText);
+              console.log("not equal")
+            }
         };
         xhttp.open("GET", "sendtime2", true);
         xhttp.send();
@@ -152,13 +164,7 @@ const char index_html[] PROGMEM = R"rawliteral(
       function refreshtotal_time(){
         var xhttp = new XMLHttpRequest();
         xhttp.onreadystatechange = function() {
-            document.getElementById("sendtotal_time").innerHTML = this.responseText;
-            if(parseInt(this.responseText) != 0){
-              drop_rate = no_drop * 60 *1000 / parseInt(this.responseText);
-            }
-            else{
-              drop_rate = 0;
-            }
+            document.getElementById("sendtotal_time").innerHTML = (parseFloat(this.responseText) / 1000).toString();
         };
         xhttp.open("GET", "sendtotal_time", true);
         xhttp.send();
@@ -183,9 +189,12 @@ const char index_html[] PROGMEM = R"rawliteral(
         xhr.send();
       }
       function getDR(){
-        DR = parseInt(document.getElementById("AGIS1").value);
+        DR = (document.getElementById("AGIS1").value).toString();
         state_auto = true;
         alert("clicked");
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", "/get?auto1=" + DR, true);
+        xhr.send
       }
       function autoControl(){
         var xhttp = new XMLHttpRequest();
@@ -241,20 +250,20 @@ const char index_html[] PROGMEM = R"rawliteral(
     <table>
       <tr>
         <td >Time for 1 drop: </td>
-        <td><div id='sendtime1'>%time1%ms</div></td>
+        <td><div id='sendtime1'>%time1%</div></td>
       </tr><tr>
         <td>Time between 2 drop: </td>
-        <td><div id='sendtime2'>%time2%ms</div></td>
+        <td><div id='sendtime2'>%time2%</div></td>
       </tr><tr>
         <td>No. of drop: </td>
         <td><div id='sendno_of_drop'>%no_of_drop%</div></td>
       </tr><tr>
         <td>Total time: </td>
-        <td><div id='sendtotal_time'>%total_time%ms</div></td>
+        <td><div id='sendtotal_time'>%total_time%</div></td>
       </tr>
       <tr>
         <td>Drip rate: </td>
-        <td><div id='senddrop_rate'>drop_rate</div></td>
+        <td><div id='senddrop_rate'>%drop_rate%</div></td>
       </tr>
     </table>
     <br><br>
@@ -386,6 +395,7 @@ void writeFile(fs::FS &fs, const char *path, const char *message) {
 
 // replaces placeholder with stored values
 String processor(const String &var) {
+  // TODO: drop_rate is not used in this function anymore
   // Serial.println(var);
   if (var == "input1") {
     return readFile(SPIFFS, "/input1.txt");
@@ -415,6 +425,7 @@ void IRAM_ATTR DropSensor() { // timer0 interrupt, for sensor detected drops and
   // measure the time
   static int phase;
   static bool occur_state = false; // true when obstacle detected
+  static int time_for_no_drop;
   if (phase == 0) {
     occur = digitalRead(SENSOR_PIN); // read the sensor value
     phase++;
@@ -422,74 +433,71 @@ void IRAM_ATTR DropSensor() { // timer0 interrupt, for sensor detected drops and
 
   if (phase == 1) {
     if (occur == 1) {
+      time_for_no_drop = 0;
+      no_drop_with_20s = false;
       if (!occur_state) { // check for the drop is just detected
         occur_state = true;
         next_time = millis();
         total_time += (next_time - start_time);
         no_of_drop++;
         // drop_rate = total_time / no_of_drop;
-        time2 = String(next_time - start_time);
+        int_time2 = next_time - start_time;
+        time2 = String(int_time2) + "ms";
         start_time = millis();
-        if (total_time >= 15000) { // 15 seconds passed
-          time_5ms = 0;            // reset for timer1 to print result
-          total_time = 0;
-          no_of_drop = 0;
-        }
+        // if (total_time >= 15000) { // 15 seconds passed, delete old data
+        //   total_time = 0;
+        //   no_of_drop = 0;
+        // }
       }
     }
     if (occur == 0) {
+      time_for_no_drop++;
       if (occur_state) {
         leave_time = millis();
         occur_state = false;
-        time1 = String(leave_time - start_time);
+        time1 = String(leave_time - start_time) + "ms";
       }
     }
     phase++;
   }
   if (phase == 2) {
-    if(total_time < 15000){
-      // drop_rate = total_time / no_of_drop;
+    if(time_for_no_drop >= 20000){  // call when no drop appears within 20s, reset all data
+      time1 = "no drop appears currently";
+      time2 = "no drop appears currently";
+      no_of_drop = 0;
+      total_time = 0;
+      no_drop_with_20s = true;
+    }
+    if(no_of_drop >= 500){
+      volume_exceed = true;
     }
     phase = 0;
   }
-  time_5ms++;         // count for 5ms
+  time_1ms++;         // count for 1ms
   print_state = true; // start printing
+  phase_change_for_timer1 = true; // allow timer1 1 INT phase counting
 }
 
 void IRAM_ATTR AutoControl() { // timer1 interrupt, for auto control motor
-  static int phase;  // int for counting the time
-  static int count; // int for forloop counting
-  phase++;
-  if (phase >= 40){ // one loop run 0.5*40 = 20s, 
-    if (web_auto_state == 1){
-      Motor_On_Up();
-      count = 1; // stop after for loop run 1 time(0.5s)
+
+    if ((no_drop_with_20s) || (time2=="not started")){
+      drop_rate = 0;
+      web_auto_state = 0;
+    } else{
+      drop_rate = 60000 / int_time2;
     }
-    if (web_auto_state == 2){
-      Motor_On_Up();
-      count = 2; // stop after for loop run 2 time(1s)
+    
+    if ((web_auto_state > drop_rate) && (!but_state)){
+      analogWrite(motorCTRL_1, (ADCValue / 16));
+      analogWrite(motorCTRL_2, 0); 
     }
-    if (web_auto_state == -1){
-      Motor_On_Down();
-      count = 1; // stop after for loop run 1 time(0.5s)
+    if ((web_auto_state < drop_rate) && (!but_state)){
+      analogWrite(motorCTRL_2, (ADCValue / 16));
+      analogWrite(motorCTRL_1, 0);
     }
-    if (web_auto_state == -2){
-      Motor_On_Down();
-      count = 2; // stop after for loop run 2 time(1s)
-    }
-    if (web_auto_state == 0){
+    if ((web_auto_state == drop_rate) && (!but_state)){
       Motor_Off();
     }
-    phase = 0;
-  }
-  if (phase = 2) {
-    for (int x=count; x>=0; x--){
-      if (x == 0){
-        Motor_Off;
-      }
-      phase = 0;
-    }
-  }
 }
 
 void IRAM_ATTR motorControl() {
@@ -550,7 +558,7 @@ void IRAM_ATTR motorControl() {
     }
     if ((web_but_state == 0) && (!but_state)) {
       DripMode = LOW;
-      Motor_Off();
+      // Motor_Off();
     }
     phase = 0;
   }
@@ -568,10 +576,10 @@ void setup() {
   timerAlarmEnable(Timer0_cfg);            // start the interrupt
 
   // setup for timer1
-  Timer1_cfg = timerBegin(1, 5000, true); // Prescaler = 5000
+  Timer1_cfg = timerBegin(1, 80, true); // Prescaler = 80
   timerAttachInterrupt(Timer1_cfg, &AutoControl,
                        true);              // call the function AutoControl()
-  timerAlarmWrite(Timer1_cfg, 8000, true); // Time = 5000*8000/80,000,000 = 0.5s
+  timerAlarmWrite(Timer1_cfg, 1000, true); // Time = 80*1000/80,000,000 = 1ms
   timerAlarmEnable(Timer1_cfg);            // start the interrupt
 
   // setup for timer2
@@ -624,10 +632,10 @@ void setup() {
   });
   // send and update the data of drops
   server.on("/sendtime1", [](AsyncWebServerRequest *request) {
-    request->send(200, "text/html", time1 + "ms");
+    request->send(200, "text/html", time1);
   });
   server.on("/sendtime2", [](AsyncWebServerRequest *request) {
-    request->send(200, "text/html", time2 + "ms");
+    request->send(200, "text/html", time2);
   });
   server.on("/sendno_of_drop", [](AsyncWebServerRequest *request) {
     request->send(200, "text/html", String(no_of_drop));
@@ -670,7 +678,7 @@ void setup() {
     else if (request->hasParam(PARAM_AUTO_1)) {
       inputMessage = request->getParam(PARAM_AUTO_1)->value();
       writeFile(SPIFFS, "/auto1.txt", inputMessage.c_str());
-      web_auto_state = check_t(); // convert the input from AGIS1 to integer,
+      web_auto_state = inputMessage.toInt(); // convert the input from AGIS1 to integer,
                                      // and store in web_but_state
     } else {
       inputMessage = "No message sent";
@@ -694,61 +702,61 @@ void setup() {
 }
 
 void loop() {
+  Serial.println(inputMessage);
+
   // printing only
   // for debug use
-  if (((time_5ms == 5000) || (time_5ms == 10000)) &&
-      print_state) { // 1ms *5000 =5s, print msg every 5s
-    // To access your stored values on input1, input2, input3
-    String yourInput1 = readFile(SPIFFS, "/input1.txt");
-    Serial.print("*** Your input1: ");
-    Serial.println(yourInput1);
+  // if (((time_1ms == 5000) || (time_1ms == 10000)) &&
+  //     print_state) { // 1ms *5000 =5s, print msg every 5s
+  //   // To access your stored values on input1, input2, input3
+  //   String yourInput1 = readFile(SPIFFS, "/input1.txt");
+  //   Serial.print("*** Your input1: ");
+  //   Serial.println(yourInput1);
 
-    String yourInput2 = readFile(SPIFFS, "/input2.txt");
-    Serial.print("*** Your input2: ");
-    Serial.println(yourInput2);
+  //   String yourInput2 = readFile(SPIFFS, "/input2.txt");
+  //   Serial.print("*** Your input2: ");
+  //   Serial.println(yourInput2);
 
-    String yourInput3 = readFile(SPIFFS, "/input3.txt");
-    Serial.print("*** Your input3: ");
-    Serial.println(yourInput3);
+  //   String yourInput3 = readFile(SPIFFS, "/input3.txt");
+  //   Serial.print("*** Your input3: ");
+  //   Serial.println(yourInput3);
 
-    Serial.print("Motor Mode = ");
-    Serial.println(DripMode); // print digital value on serial monitor
-    Serial.print("web_but_state is ");
-    Serial.println(web_but_state);
+  //   Serial.print("Motor Mode = ");
+  //   Serial.println(DripMode); // print digital value on serial monitor
+  //   Serial.print("web_but_state is ");
+  //   Serial.println(web_but_state);
 
-    Serial.print("The time of 1 drop is ");
-    Serial.print(time1);
-    Serial.println("ms");
+  //   Serial.print("The time of 1 drop is ");
+  //   Serial.println(time1);
 
-    Serial.print("The time between 2 drop is ");
-    Serial.print(time2);
-    Serial.println("ms");
+  //   Serial.print("The time between 2 drop is ");
+  //   Serial.println(time2);
 
-    Serial.print("Web auto state is ");
-    Serial.println(web_auto_state);
+  //   Serial.print("Web auto state is ");
+  //   Serial.println(web_auto_state);
 
-    print_state = false; // finish print
-  }
+  //   print_state = false; // finish print
+  // }
 
-  if ((time_5ms == 15000) &&
-      print_state) { // 1ms *15000 =15s, print msg every 15s
-    Serial.print("The time of 1 drop is ");
-    Serial.print(time1);
-    Serial.println("ms");
+  // if ((time_1ms == 15000) &&
+  //     print_state) { // 1ms *15000 =15s, print msg every 15s
+  //   Serial.print("The time of 1 drop is ");
+  //   Serial.print(time1);
+  //   Serial.println("ms");
 
-    Serial.print("The time between 2 drop is ");
-    Serial.print(time2);
-    Serial.println("ms");
+  //   Serial.print("The time between 2 drop is ");
+  //   Serial.print(time2);
+  //   Serial.println("ms");
 
-    Serial.print("15 seconds is passed, ");
-    Serial.print(no_of_drop);
-    Serial.print(" drop passed and use ");
-    Serial.print(total_time);
-    Serial.println("ms (not include the first drop)");
+  //   Serial.print("15 seconds is passed, ");
+  //   Serial.print(no_of_drop);
+  //   Serial.print(" drop passed and use ");
+  //   Serial.print(total_time);
+  //   Serial.println("ms (not include the first drop)");
 
-    time_5ms = 0;        // init value for next count
-    print_state = false; // finish print
-  }
+  //   time_1ms = 0;        // init value for next count
+  //   print_state = false; // finish print
+  // }
 }
 
 // check the condition of the switch/input from web page
@@ -775,11 +783,11 @@ int check_t() {
     state = 2;
   } else if (inputMessage == "up") {
     state = 1;
-  } else if (inputMessage == "down") {
-    state = -1;
   } else if (inputMessage == "moredown") {
     state = -2;
-  } else if (inputMessage == "0") {
+  } else if (inputMessage == "down") {
+    state = -1;
+  }  else if (inputMessage == "0") {
     state = 0;
   }
   return state;
@@ -787,7 +795,7 @@ int check_t() {
 
 void Motor_On_Up() {
   if (limitSwitch_Up.isPressed()) {
-    Serial.println("The up limit switch: UNTOUCHED -> TOUCHED");
+    // Serial.println("The up limit switch: UNTOUCHED -> TOUCHED");
     Motor_Off();
   } else {
     analogWrite(motorCTRL_1,
@@ -799,7 +807,7 @@ void Motor_On_Up() {
 
 void Motor_On_Down() {
   if (limitSwitch_Down.isPressed()) {
-    Serial.println("The down limit switch: UNTOUCHED -> TOUCHED");
+    // Serial.println("The down limit switch: UNTOUCHED -> TOUCHED");
     Motor_Off();
   } else {
     analogWrite(motorCTRL_2,
