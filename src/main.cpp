@@ -382,7 +382,15 @@ void setup() {
 
   // Send web page to client
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SPIFFS, "text/html", index_html, processor);
+    request->send(SPIFFS, "/index.html", String(), false, processor);
+  });
+
+  server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(SPIFFS, "/style.css", "text/css");
+  });
+
+  server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(SPIFFS, "/script.js", "text/javascript");
   });
 
   // send and data of sensor reading
@@ -461,8 +469,8 @@ void setup() {
 }
 
 void loop() {
-  Serial.print("(mkae it longer for reading) web_but_state is ");
-  Serial.println(web_but_state);
+  // Serial.print("(mkae it longer for reading) web_but_state is ");
+  // Serial.println(web_but_state);
 
   // printing only
   // for debug use
