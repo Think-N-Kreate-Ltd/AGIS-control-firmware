@@ -49,7 +49,7 @@ unsigned long leave_time = 0;
 unsigned long next_time = 0;
 unsigned long total_time = 0; // for calculating the time used within 15s
 unsigned int no_of_drop = 0;  // for counting the number of drops within 15s
-volatile int drop_rate = 0;           // for calculating the drop rate
+volatile int drop_rate = 0;   // for calculating the drop rate
 String time1 = "not started"; // for storing the time of 1 drop
 String time2 = "not started"; // for storing the time between 2 drop
 volatile int int_time2=1;
@@ -67,7 +67,7 @@ ezButton limitSwitch_Down(38); // create ezButton object that attach to pin 7;
 
 // var for button
 int web_but_state = 0; // that state that shows the condition of web button
-int web_auto_state = 0; // that state that shows the condition of auto control
+int target_drip_rate = 0; // that state that shows the condition of auto control
 
 // var for checking the currently condition
 volatile bool but_state = false;  // true if it is controlled by the real button currently
@@ -101,6 +101,7 @@ void Motor_On_Down();
 void Motor_Off();
 void Motor_Run();
 void Motor_Mode();
+void alert(String x);
 
 // HTML web page code
 const char index_html[] PROGMEM = R"rawliteral(
@@ -115,6 +116,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     <script src="https://code.highcharts.com/modules/export-data.js"></script>
     <script src="https://code.highcharts.com/modules/accessibility.js"></script>
     <style>
+      .alert {color: red;}
       .switch {position: relative; display: inline-block; width: 120px; height: 68px} 
       .switch input {display: none}
       .slider {position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; border-radius: 6px}
@@ -143,7 +145,6 @@ const char index_html[] PROGMEM = R"rawliteral(
             }
             else if((this.responseText) === "no drop appears currently"){
               drop_rate = 0;
-              alert("Out of field!");
             }
             else{
               drop_rate = 60000 / parseInt(this.responseText);
@@ -155,7 +156,10 @@ const char index_html[] PROGMEM = R"rawliteral(
       function refreshno_of_drop(){
         var xhttp = new XMLHttpRequest();
         xhttp.onreadystatechange = function() {
-            document.getElementById("sendno_of_drop").innerHTML = this.responseText;
+          document.getElementById("sendno_of_drop").innerHTML = this.responseText;
+          if(parseInt(this.responseText) > 499){
+            document.getElementById("VolumeExceed").innerHTML = 'Enough Volume!';
+          }
         };
         xhttp.open("GET", "sendno_of_drop", true);
         xhttp.send();
@@ -238,9 +242,10 @@ const char index_html[] PROGMEM = R"rawliteral(
         <td><div id='senddrop_rate'>%drop_rate%</div></td>
       </tr>
     </table>
-    <br><br>
+    <br>
   
-    
+    <div class='alert' id='VolumeExceed'>testing</div><br><br>
+
     <form action='/get' target='hidden-form'>
     AGIS 2 (current value %input2%): 
     <input name='input2' type='submit' value='Up' onclick='getValue()'> 
@@ -438,9 +443,9 @@ void IRAM_ATTR DropSensor() {
       no_drop_with_20s = true;
     }
     // call when the no of drops exceed target
-    // TODO: sth should be done
     if(no_of_drop >= 500){
       volume_exceed = true;
+      alert("VolumeExceed");
     }
     phase = 0;
   }
@@ -455,9 +460,12 @@ void IRAM_ATTR AutoControl() {
   if (((no_drop_with_20s) || (time2=="not started")) && (!state)){
     // stop auto control when no droping yet (not started or out of field)
     drop_rate = 0;
-    web_auto_state = 0;
+    target_drip_rate = 0;
     auto_state = false;
     state = true;
+    if (no_drop_with_20s){
+      alert("NoDrop");
+    }
   } else if ((no_drop_with_20s) || (time2=="not started")){
     // do nothing
   } else{
@@ -467,19 +475,19 @@ void IRAM_ATTR AutoControl() {
   // compare the drip rate, then auto control
   // acceptable for drip rate +-1
   if ((!but_state) && (!web_state)){
-    if (web_auto_state > (drop_rate + 1)){
+    if (target_drip_rate > (drop_rate + 1)){
       auto_state = true;
       web_but_state = 0;
       analogWrite(motorCTRL_1, (1400 / 16));  // set PWM from 0 to 4095
       analogWrite(motorCTRL_2, 0); 
     }
-    if (web_auto_state < (drop_rate - 1)){
+    if (target_drip_rate < (drop_rate - 1)){
       auto_state = true;
       web_but_state = 0;
       analogWrite(motorCTRL_2, (1400 / 16));  // set PWM from 0 to 4095
       analogWrite(motorCTRL_1, 0);
     }
-    if ((web_auto_state <= (drop_rate + 2)) && (web_auto_state >= (drop_rate - 2))) {
+    if ((target_drip_rate <= (drop_rate + 2)) && (target_drip_rate >= (drop_rate - 2))) {
       Motor_Off();
       auto_state = false;
     }
@@ -668,7 +676,7 @@ void setup() {
     else if (request->hasParam(PARAM_AUTO_1)) {
       inputMessage = request->getParam(PARAM_AUTO_1)->value();
       writeFile(SPIFFS, "/auto1.txt", inputMessage.c_str());
-      web_auto_state = inputMessage.toInt(); // convert the input from AGIS1 to integer,
+      target_drip_rate = inputMessage.toInt(); // convert the input from AGIS1 to integer,
                                      // and store in web_but_state
     } else {
       inputMessage = "No message sent";
@@ -721,8 +729,8 @@ void loop() {
   //   Serial.print("The time between 2 drop is ");
   //   Serial.println(time2);
 
-  //   Serial.print("Web auto state is ");
-  //   Serial.println(web_auto_state);
+  //   Serial.print("Target drip rate is ");
+  //   Serial.println(target_drip_rate);
 
   //   print_state = false; // finish print
   // }
@@ -817,4 +825,8 @@ void Motor_Mode() {
     but_state = false;
     Motor_Off();
   }
+}
+
+void alert(String x){
+
 }

@@ -30,7 +30,7 @@
     - ~~add a field and the user input the drip he want~~
     - ~~auto move the motor~~
     - ~~it just run non-stop~~
-    - set an alarm on web 
+    - ~~set an alarm on web ~~
     - set an alarm on the board
  - other/overall
     - ~~put all the thing in INT (nothing in amin loop)~~
