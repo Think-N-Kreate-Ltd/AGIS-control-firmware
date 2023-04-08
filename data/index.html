@@ -1,7 +1,7 @@
 <html>
 
 <head>
-    <title>ESP Input Form</title>
+    <title>AGIS Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <script src="https://code.highcharts.com/modules/exporting.js"></script>
@@ -47,26 +47,26 @@
         <tr>
             <td>No. of drop: </td>
             <td>
-                <div id='sendno_of_drop'>%no_of_drop%</div>
+                <div id="num_drops_value">0</div>
             </td>
         </tr>
         <tr>
             <td>Total time: </td>
             <td>
-                <div id='sendtotal_time'>%total_time%</div>
+                <div id="total_time_value">0</div>
             </td>
         </tr>
         <tr>
             <td>Drip rate: </td>
             <td>
-                <div id='senddrop_rate'>%drop_rate%</div>
+                <div id="drip_rate_value">0</div>
             </td>
         </tr>
     </table>
     <br><br>
 
 
-    <form action='/get' target='hidden-form'>
+    <!-- <form action='/get' target='hidden-form'>
         AGIS 2 (current value %input2%):
         <input name='input2' type='submit' value='Up' onclick='getValue()'>
         <input name='input2' type='submit' value='Up_and_Down' onclick='getValue()'>
@@ -86,7 +86,7 @@
     <div id='sendsensor'>testing value</div>
     <figure class="highcharts-figure">
         <div id="chart-reading" class="container">testing</div>
-    </figure>
+    </figure> -->
 
     <script src="script.js"></script>
 
