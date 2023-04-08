@@ -66,11 +66,14 @@ ezButton limitSwitch_Up(37);   // create ezButton object that attach to pin 7;
 ezButton limitSwitch_Down(38); // create ezButton object that attach to pin 7;
 
 // var for button
+int web_but_state = 0; // that state that shows the condition of web button
+int web_auto_state = 0; // that state that shows the condition of auto control
+
+// var for checking the currently condition
 volatile bool but_state = false;  // true if it is controlled by the real button currently
 volatile bool web_state = false;  // true if it is controlled by the web button currently
 volatile bool auto_state = false;  // true if it is controlled automaticly currently
-int web_but_state = 0; // that state that shows the condition of web button
-int web_auto_state = 0; // that state that shows the condition of auto control
+volatile bool init_state = true;  // true if droping is not started yet
 
 // WiFiManager, Local intialization. Once its business is done, there is no need
 // to keep it around
@@ -99,7 +102,7 @@ void Motor_Off();
 void Motor_Run();
 void Motor_Mode();
 
-// HTML web page to handle 3 input fields (input1, input2, input3)
+// HTML web page code
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE HTML>
 <html>
@@ -135,8 +138,12 @@ const char index_html[] PROGMEM = R"rawliteral(
         var xhttp = new XMLHttpRequest();
         xhttp.onreadystatechange = function() {
             document.getElementById("sendtime2").innerHTML = this.responseText;
-            if(((this.responseText) === "not started") || ((this.responseText) === "no drop appears currently")){
+            if((this.responseText) === "not started"){
               drop_rate = 0;
+            }
+            else if((this.responseText) === "no drop appears currently"){
+              drop_rate = 0;
+              alert("Out of field!");
             }
             else{
               drop_rate = 60000 / parseInt(this.responseText);
@@ -360,7 +367,6 @@ void writeFile(fs::FS &fs, const char *path, const char *message) {
 
 // replaces placeholder with stored values
 String processor(const String &var) {
-  // TODO: drop_rate is not used in this function anymore
   // Serial.println(var);
   if (var == "input1") {
     return readFile(SPIFFS, "/input1.txt");
@@ -382,15 +388,16 @@ String processor(const String &var) {
   return String();
 }
 
+// create pointer for timer
 hw_timer_t *Timer0_cfg = NULL; // create a pointer for timer0
 hw_timer_t *Timer1_cfg = NULL; // create a pointer for timer1
 hw_timer_t *Timer2_cfg = NULL; // create a pointer for timer2
 
-void IRAM_ATTR DropSensor() { // timer0 interrupt, for sensor detected drops and
-  // measure the time
+// timer0 interrupt, for sensor detected drops and measure the time
+void IRAM_ATTR DropSensor() { 
   static int phase;
   static bool occur_state = false; // true when obstacle detected
-  static int time_for_no_drop;
+  static int time_for_no_drop;  // counting when no drop appears, for measuring the time that have no drop
   if (phase == 0) {
     occur = digitalRead(SENSOR_PIN); // read the sensor value
     phase++;
@@ -400,39 +407,38 @@ void IRAM_ATTR DropSensor() { // timer0 interrupt, for sensor detected drops and
     if (occur == 1) {
       time_for_no_drop = 0;
       no_drop_with_20s = false;
-      if (!occur_state) { // check for the drop is just detected
+      init_state = false; // return false because droping is started
+      if (!occur_state) { // condition that check for the drop is just detected
         occur_state = true;
-        next_time = millis();
-        total_time += (next_time - start_time);
-        no_of_drop++;
-        // drop_rate = total_time / no_of_drop;
-        int_time2 = next_time - start_time;
+        next_time = millis(); // record the time for measuring
+        total_time += (next_time - start_time); // measure the time
+        no_of_drop++; // counting the drop
+        int_time2 = next_time - start_time; // measure the time
         time2 = String(int_time2) + "ms";
-        start_time = millis();
-        // if (total_time >= 15000) { // 15 seconds passed, delete old data
-        //   total_time = 0;
-        //   no_of_drop = 0;
-        // }
+        start_time = millis();  // record th time for measuring
       }
     }
     if (occur == 0) {
       time_for_no_drop++;
       if (occur_state) {
-        leave_time = millis();
+        leave_time = millis();  // record the time for measuring
         occur_state = false;
-        time1 = String(leave_time - start_time) + "ms";
+        time1 = String(leave_time - start_time) + "ms"; // measure the time
       }
     }
     phase++;
   }
   if (phase == 2) {
-    if(time_for_no_drop >= 20000){  // call when no drop appears within 20s, reset all data
+    // call when no drop appears within 20s, reset all data
+    if((time_for_no_drop >= 20000) && (!init_state)){ 
       time1 = "no drop appears currently";
       time2 = "no drop appears currently";
       no_of_drop = 0;
       total_time = 0;
       no_drop_with_20s = true;
     }
+    // call when the no of drops exceed target
+    // TODO: sth should be done
     if(no_of_drop >= 500){
       volume_exceed = true;
     }
@@ -443,33 +449,38 @@ void IRAM_ATTR DropSensor() { // timer0 interrupt, for sensor detected drops and
   phase_change_for_timer1 = true; // allow timer1 1 INT phase counting
 }
 
-void IRAM_ATTR AutoControl() { // timer1 interrupt, for auto control motor
+// timer1 interrupt, for auto control motor
+void IRAM_ATTR AutoControl() { 
   static bool state = false;
   if (((no_drop_with_20s) || (time2=="not started")) && (!state)){
+    // stop auto control when no droping yet (not started or out of field)
     drop_rate = 0;
     web_auto_state = 0;
     auto_state = false;
     state = true;
   } else if ((no_drop_with_20s) || (time2=="not started")){
+    // do nothing
   } else{
-    drop_rate = 60000 / int_time2;
+    drop_rate = 60000 / int_time2;  // calculate drip rate
     state = false;
   }
+  // compare the drip rate, then auto control
+  // acceptable for drip rate +-1
   if ((!but_state) && (!web_state)){
     if (web_auto_state > (drop_rate + 1)){
       auto_state = true;
       web_but_state = 0;
-      analogWrite(motorCTRL_1, (1400 / 16));
+      analogWrite(motorCTRL_1, (1400 / 16));  // set PWM from 0 to 4095
       analogWrite(motorCTRL_2, 0); 
     }
     if (web_auto_state < (drop_rate - 1)){
       auto_state = true;
       web_but_state = 0;
-      analogWrite(motorCTRL_2, (1400 / 16));
+      analogWrite(motorCTRL_2, (1400 / 16));  // set PWM from 0 to 4095
       analogWrite(motorCTRL_1, 0);
     }
     if ((web_auto_state <= (drop_rate + 2)) && (web_auto_state >= (drop_rate - 2))) {
-      // Motor_Off();
+      Motor_Off();
       auto_state = false;
     }
   }
@@ -681,8 +692,6 @@ void setup() {
 }
 
 void loop() {
-  Serial.print("(mkae it longer for reading) web_but_state is ");
-  Serial.println(web_but_state);
 
   // printing only
   // for debug use
