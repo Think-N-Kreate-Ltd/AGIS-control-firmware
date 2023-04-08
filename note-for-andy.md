@@ -13,9 +13,10 @@
     - ~~read the value of sensor~~
     - ~~measure the time~~
     - ~~display the value on web page~~
-    - update data when drop detected
+    - refresh data when drop detected
     - ~~plot the graph with real time~~
     - ~~update the sensor reading frequently and cancel old data~~
+    - ~~keep counting no of drop~~
     - ***need another method to plot graph as the above method is not practical***
     - use SPI & SD card to store the data
  - display on OLED
@@ -25,9 +26,10 @@
 	  - INA219 (current sensor?)
 	  - the a, b, c of the square wave
  - auto system
-    - compare the drip rate
-    - add a field and the user input the drip he want
-    - it just run non-stop
+    - ~~compare the drip rate~~
+    - ~~add a field and the user input the drip he want~~
+    - ~~auto move the motor~~
+    - ~~it just run non-stop~~
     - set an alarm on web 
     - set an alarm on the board
  - other/overall

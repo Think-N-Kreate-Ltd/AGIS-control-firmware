@@ -66,8 +66,9 @@ ezButton limitSwitch_Up(37);   // create ezButton object that attach to pin 7;
 ezButton limitSwitch_Down(38); // create ezButton object that attach to pin 7;
 
 // var for button
-volatile bool but_state =
-    false;             // true if it is controlled by the real button currently
+volatile bool but_state = false;  // true if it is controlled by the real button currently
+volatile bool web_state = false;  // true if it is controlled by the web button currently
+volatile bool auto_state = false;  // true if it is controlled automaticly currently
 int web_but_state = 0; // that state that shows the condition of web button
 int web_auto_state = 0; // that state that shows the condition of auto control
 
@@ -92,7 +93,6 @@ const char *PARAM_AUTO_1 = "auto1";
 
 // Function prototypes
 int check_state();
-int check_t();
 void Motor_On_Up();
 void Motor_On_Down();
 void Motor_Off();
@@ -120,14 +120,9 @@ const char index_html[] PROGMEM = R"rawliteral(
       input:checked+.slider:before {-webkit-transform: translateX(52px); -ms-transform: translateX(52px); transform: translateX(52px)}
     </style>
     <script>
-    	var state_auto = false;
       var DR = 0;
       var drop_rate = 0;
-      var t = "0";
       setInterval(function(){ refreshtime1(); refreshtime2(); refreshno_of_drop(); refreshtotal_time(); refreshdrop_rate();}, 1000);
-      var tot_time = 0;
-      var no_drop = 99;
-      var drop_rate = 0;
       function refreshtime1(){
         var xhttp = new XMLHttpRequest();
         xhttp.onreadystatechange = function() {
@@ -142,11 +137,9 @@ const char index_html[] PROGMEM = R"rawliteral(
             document.getElementById("sendtime2").innerHTML = this.responseText;
             if(((this.responseText) === "not started") || ((this.responseText) === "no drop appears currently")){
               drop_rate = 0;
-              console.log("equal")
             }
             else{
               drop_rate = 60000 / parseInt(this.responseText);
-              console.log("not equal")
             }
         };
         xhttp.open("GET", "sendtime2", true);
@@ -156,7 +149,6 @@ const char index_html[] PROGMEM = R"rawliteral(
         var xhttp = new XMLHttpRequest();
         xhttp.onreadystatechange = function() {
             document.getElementById("sendno_of_drop").innerHTML = this.responseText;
-            no_drop = parseInt(this.responseText);
         };
         xhttp.open("GET", "sendno_of_drop", true);
         xhttp.send();
@@ -189,43 +181,16 @@ const char index_html[] PROGMEM = R"rawliteral(
         xhr.send();
       }
       function getDR(){
-        DR = (document.getElementById("AGIS1").value).toString();
-        state_auto = true;
-        alert("clicked");
-        var xhr = new XMLHttpRequest();
-        xhr.open("GET", "/get?auto1=" + DR, true);
-        xhr.send
+        if(Number.isInteger(parseInt((document.getElementById("AGIS1").value)))){
+          DR = (parseInt(document.getElementById("AGIS1").value)).toString();
+          var xhttp = new XMLHttpRequest();
+          xhttp.open("GET", "/get?auto1=" + DR, true);
+          xhttp.send();
+        }
+        else{
+          alert("Please enter an integer");
+        }
       }
-      function autoControl(){
-        var xhttp = new XMLHttpRequest();
-        xhttp.onreadystatechange = function() {
-          if(state_auto){
-            if(DR < drop_rate){
-              t = "down";
-              document.getElementById("test").innerHTML += "down";
-          	}
-            if(DR < (drop_rate - 5)){
-          	  t = "moredown";
-              document.getElementById("test").innerHTML += "downnn";
-          	}
-            if(DR > drop_rate){
-              t = "up";
-              document.getElementById("test").innerHTML += "up";
-          	}
-            if(DR > (drop_rate + 5)){
-          	  t = "moreup";
-              document.getElementById("test").innerHTML += "uppp";
-          	}
-            if(DR == drop_rate){
-              t = "0";
-              document.getElementById("test").innerHTML = "stop";
-            }
-          }
-        };
-        xhttp.open("GET", "/get?auto1=" + t, true);
-        xhttp.send();
-      }
-
     </script>
   </head>
 
@@ -479,25 +444,35 @@ void IRAM_ATTR DropSensor() { // timer0 interrupt, for sensor detected drops and
 }
 
 void IRAM_ATTR AutoControl() { // timer1 interrupt, for auto control motor
-
-    if ((no_drop_with_20s) || (time2=="not started")){
-      drop_rate = 0;
-      web_auto_state = 0;
-    } else{
-      drop_rate = 60000 / int_time2;
-    }
-    
-    if ((web_auto_state > drop_rate) && (!but_state)){
-      analogWrite(motorCTRL_1, (ADCValue / 16));
+  static bool state = false;
+  if (((no_drop_with_20s) || (time2=="not started")) && (!state)){
+    drop_rate = 0;
+    web_auto_state = 0;
+    auto_state = false;
+    state = true;
+  } else if ((no_drop_with_20s) || (time2=="not started")){
+  } else{
+    drop_rate = 60000 / int_time2;
+    state = false;
+  }
+  if ((!but_state) && (!web_state)){
+    if (web_auto_state > (drop_rate + 1)){
+      auto_state = true;
+      web_but_state = 0;
+      analogWrite(motorCTRL_1, (1400 / 16));
       analogWrite(motorCTRL_2, 0); 
     }
-    if ((web_auto_state < drop_rate) && (!but_state)){
-      analogWrite(motorCTRL_2, (ADCValue / 16));
+    if (web_auto_state < (drop_rate - 1)){
+      auto_state = true;
+      web_but_state = 0;
+      analogWrite(motorCTRL_2, (1400 / 16));
       analogWrite(motorCTRL_1, 0);
     }
-    if ((web_auto_state == drop_rate) && (!but_state)){
-      Motor_Off();
+    if ((web_auto_state <= (drop_rate + 2)) && (web_auto_state >= (drop_rate - 2))) {
+      // Motor_Off();
+      auto_state = false;
     }
+  }
 }
 
 void IRAM_ATTR motorControl() {
@@ -547,18 +522,22 @@ void IRAM_ATTR motorControl() {
       Motor_Run();
     }
 
-    if ((web_but_state == 1) && (!but_state)) {
+    if ((web_but_state == 1) && (!but_state) && (!auto_state)) {
       Motor_On_Up();
+      web_state = true;
     }
-    if ((web_but_state == 2) && (!but_state)) {
+    if ((web_but_state == 2) && (!but_state) && (!auto_state)) {
       DripMode = HIGH;
+      web_state = true;
     }
-    if ((web_but_state == 3) && (!but_state)) {
+    if ((web_but_state == 3) && (!but_state) && (!auto_state)) {
       Motor_On_Down();
+      web_state = true;
     }
-    if ((web_but_state == 0) && (!but_state)) {
+    if ((web_but_state == 0) && (!but_state) && (!auto_state)) {
       DripMode = LOW;
-      // Motor_Off();
+      Motor_Off();
+      web_state = false;
     }
     phase = 0;
   }
@@ -702,7 +681,8 @@ void setup() {
 }
 
 void loop() {
-  Serial.println(inputMessage);
+  Serial.print("(mkae it longer for reading) web_but_state is ");
+  Serial.println(web_but_state);
 
   // printing only
   // for debug use
@@ -770,24 +750,6 @@ int check_state() {
   } else if (inputMessage == "Down") {
     state = 3;
   } else if (inputMessage == "STOP") {
-    state = 0;
-  }
-  return state;
-}
-
-// check the condition of the auto control
-// convert inputMessage(String) to integer
-int check_t() {
-  static int state;
-  if (inputMessage == "moreup") {
-    state = 2;
-  } else if (inputMessage == "up") {
-    state = 1;
-  } else if (inputMessage == "moredown") {
-    state = -2;
-  } else if (inputMessage == "down") {
-    state = -1;
-  }  else if (inputMessage == "0") {
     state = 0;
   }
   return state;
