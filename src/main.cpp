@@ -69,10 +69,6 @@ ezButton button_DOWN(46);      // create ezButton object that attach to pin 8;
 ezButton limitSwitch_Up(37);   // create ezButton object that attach to pin 7;
 ezButton limitSwitch_Down(38); // create ezButton object that attach to pin 7;
 
-// var for button
-int web_but_state = 0; // that state that shows the condition of web button
-int target_drip_rate = 0; // that state that shows the condition of auto control
-
 // var for checking the currently condition
 volatile bool but_state = false;  // true if it is controlled by the real button currently
 volatile bool web_state = false;  // true if it is controlled by the web button currently
@@ -234,7 +230,8 @@ void IRAM_ATTR DropSensor() {
     // call when the no of drops exceed target
     if(no_of_drop >= 500){
       volume_exceed = true;
-      alert("VolumeExceed");
+      // TODO: alert volume exceed
+      // alert("VolumeExceed");
     }
     phase = 0;
   }
@@ -244,6 +241,9 @@ void IRAM_ATTR DropSensor() {
 
   // get latest value of drip_rate
   drip_rate = 60000 / int_time2;  // TODO: explain this formular
+
+  // NOTE: maybe we should average most recent drip_rate,
+  // s.t. the auto control is not too sensitive and motor runs too frequently
 }
 
 void IRAM_ATTR AutoControl() { // timer1 interrupt, for auto control motor
