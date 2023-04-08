@@ -70,17 +70,22 @@ ezButton limitSwitch_Up(37);   // create ezButton object that attach to pin 7;
 ezButton limitSwitch_Down(38); // create ezButton object that attach to pin 7;
 
 // var for button
+int web_but_state = 0; // that state that shows the condition of web button
+int target_drip_rate = 0; // that state that shows the condition of auto control
+
+// var for checking the currently condition
 volatile bool but_state = false;  // true if it is controlled by the real button currently
 volatile bool web_state = false;  // true if it is controlled by the web button currently
 volatile bool auto_state = false;  // true if it is controlled automaticly currently
 int web_but_state = 0; // that state that shows the condition of web button
-int web_drip_rate = 0; // that state that shows the condition of auto control
+int target_drip_rate = 0; // that state that shows the condition of auto control
 
 volatile bool enable_autocontrol = false;  // to enable AutoControl() or not
 volatile bool infuse_completed = false;    // true when infusion is completed
 
 #define AUTO_CONTROL_ALLOW_RANGE  5  // To reduce the sensitive of AutoControl()
-                                     // i.e. (web_drip_rate +/-5) is good enough
+                                     // i.e. (target_drip_rate +/-5) is good enough
+volatile bool init_state = true;  // true if droping is not started yet
 
 // WiFiManager, Local intialization. Once its business is done, there is no need
 // to keep it around
@@ -153,7 +158,6 @@ void writeFile(fs::FS &fs, const char *path, const char *message) {
 
 // replaces placeholder with stored values
 String processor(const String &var) {
-  // TODO: drop_rate is not used in this function anymore
   // Serial.println(var);
   if (var == "input1") {
     return readFile(SPIFFS, "/input1.txt");
@@ -175,15 +179,16 @@ String processor(const String &var) {
   return String();
 }
 
+// create pointer for timer
 hw_timer_t *Timer0_cfg = NULL; // create a pointer for timer0
 hw_timer_t *Timer1_cfg = NULL; // create a pointer for timer1
 hw_timer_t *Timer2_cfg = NULL; // create a pointer for timer2
 
-void IRAM_ATTR DropSensor() { // timer0 interrupt, for sensor detected drops and
-  // measure the time
+// timer0 interrupt, for sensor detected drops and measure the time
+void IRAM_ATTR DropSensor() { 
   static int phase;
   static bool occur_state = false; // true when obstacle detected
-  static int time_for_no_drop;
+  static int time_for_no_drop;  // counting when no drop appears, for measuring the time that have no drop
   if (phase == 0) {
     occur = digitalRead(SENSOR_PIN); // read the sensor value
     phase++;
@@ -193,33 +198,30 @@ void IRAM_ATTR DropSensor() { // timer0 interrupt, for sensor detected drops and
     if (occur == 1) {
       time_for_no_drop = 0;
       no_drop_with_20s = false;
-      if (!occur_state) { // check for the drop is just detected
+      init_state = false; // return false because droping is started
+      if (!occur_state) { // condition that check for the drop is just detected
         occur_state = true;
-        next_time = millis();
-        total_time += (next_time - start_time);
-        no_of_drop++;
-        // drop_rate = total_time / no_of_drop;
-        int_time2 = next_time - start_time;
+        next_time = millis(); // record the time for measuring
+        total_time += (next_time - start_time); // measure the time
+        no_of_drop++; // counting the drop
+        int_time2 = next_time - start_time; // measure the time
         time2 = String(int_time2) + "ms";
-        start_time = millis();
-        // if (total_time >= 15000) { // 15 seconds passed, delete old data
-        //   total_time = 0;
-        //   no_of_drop = 0;
-        // }
+        start_time = millis();  // record th time for measuring
       }
     }
     if (occur == 0) {
       time_for_no_drop++;
       if (occur_state) {
-        leave_time = millis();
+        leave_time = millis();  // record the time for measuring
         occur_state = false;
-        time1 = String(leave_time - start_time) + "ms";
+        time1 = String(leave_time - start_time) + "ms"; // measure the time
       }
     }
     phase++;
   }
   if (phase == 2) {
-    if(time_for_no_drop >= 20000){  // call when no drop appears within 20s, reset all data
+    // call when no drop appears within 20s, reset all data
+    if((time_for_no_drop >= 20000) && (!init_state)){ 
       time1 = "no drop appears currently";
       time2 = "no drop appears currently";
       // no_of_drop = 0;
@@ -229,8 +231,10 @@ void IRAM_ATTR DropSensor() { // timer0 interrupt, for sensor detected drops and
       // set int_time2 to a very large number
       int_time2 = UINT_MAX;
     }
+    // call when the no of drops exceed target
     if(no_of_drop >= 500){
       volume_exceed = true;
+      alert("VolumeExceed");
     }
     phase = 0;
   }
@@ -245,22 +249,22 @@ void IRAM_ATTR DropSensor() { // timer0 interrupt, for sensor detected drops and
 void IRAM_ATTR AutoControl() { // timer1 interrupt, for auto control motor
   // Only run AutoControl() when the following conditions satisfy:
   //   1. button_ENTER is pressed
-  //   2. web_drip_rate is set on the website by user
+  //   2. target_drip_rate is set on the website by user
   //   3. infusion is not completed, i.e. infuse_completed = false
   // TODO: update value of infuse_completed in other function
-  if(enable_autocontrol && (web_drip_rate!=0) && !infuse_completed){
+  if(enable_autocontrol && (target_drip_rate!=0) && !infuse_completed){
 
-
+    // TODO: alert when no drop is detected, i.e. could be out of fluid or get stuck
 
     // if currently SLOWER than set value -> speed up, i.e. move up
-    if(drip_rate < (web_drip_rate - AUTO_CONTROL_ALLOW_RANGE)){
+    if(drip_rate < (target_drip_rate - AUTO_CONTROL_ALLOW_RANGE)){
       Motor_On_Up();
       // analogWrite(motorCTRL_1, (1400 / 16));
       // analogWrite(motorCTRL_2, 0); 
     }
     
     // if currently FASTER than set value -> slow down, i.e. move down
-    else if(drip_rate > (web_drip_rate + AUTO_CONTROL_ALLOW_RANGE)) {
+    else if(drip_rate > (target_drip_rate + AUTO_CONTROL_ALLOW_RANGE)) {
       Motor_On_Down();
       // analogWrite(motorCTRL_2, (1400 / 16));
       // analogWrite(motorCTRL_1, 0); 
@@ -270,39 +274,6 @@ void IRAM_ATTR AutoControl() { // timer1 interrupt, for auto control motor
     else {
       Motor_Off();
     }
-
- 
-
-
-    // static bool state = false;
-    // if (((no_drop_with_20s) || (time2=="not started")) && (!state)){
-    //   drip_rate = 0;
-    //   web_drip_rate = 0;
-    //   auto_state = false;
-    //   state = true;
-    // } else if ((no_drop_with_20s) || (time2=="not started")){
-    // } else{
-    //   drip_rate = 60000 / int_time2;
-    //   state = false;
-    // }
-    // if ((!but_state) && (!web_state)){
-    //   if (web_drip_rate > (drip_rate + 1)){
-    //     auto_state = true;
-    //     web_but_state = 0;
-    //     analogWrite(motorCTRL_1, (1400 / 16));
-    //     analogWrite(motorCTRL_2, 0); 
-    //   }
-    //   if (web_drip_rate < (drip_rate - 1)){
-    //     auto_state = true;
-    //     web_but_state = 0;
-    //     analogWrite(motorCTRL_2, (1400 / 16));
-    //     analogWrite(motorCTRL_1, 0);
-    //   }
-    //   if ((web_drip_rate <= (drip_rate + 2)) && (web_drip_rate >= (drip_rate - 2))) {
-    //     Motor_Off();
-    //     auto_state = false;
-    //   }
-    // }
   }
   else {
     Motor_Off();
@@ -503,7 +474,7 @@ void setup() {
     else if (request->hasParam(PARAM_AUTO_1)) {
       inputMessage = request->getParam(PARAM_AUTO_1)->value();
       writeFile(SPIFFS, "/auto1.txt", inputMessage.c_str());
-      web_drip_rate = inputMessage.toInt(); // convert the input from AGIS1 to integer,
+      target_drip_rate = inputMessage.toInt(); // convert the input from AGIS1 to integer,
                                      // and store in web_but_state
     } else {
       inputMessage = "No message sent";
@@ -528,11 +499,8 @@ void setup() {
 
 void loop() {
 
-  Serial.printf("drip_rate: %d \tweb_drip_rate: %d \tmotor_state: %s \tint_time2: %d\n",
-                drip_rate, web_drip_rate, get_motor_state(motor_state), int_time2);
-
-  // Serial.print("(mkae it longer for reading) web_but_state is ");
-  // Serial.println(web_but_state);
+  Serial.printf("drip_rate: %d \target_drip_rate: %d \tmotor_state: %s \tint_time2: %d\n",
+                drip_rate, target_drip_rate, get_motor_state(motor_state), int_time2);
 
   // printing only
   // for debug use
@@ -562,8 +530,8 @@ void loop() {
   //   Serial.print("The time between 2 drop is ");
   //   Serial.println(time2);
 
-  //   Serial.print("Web auto state is ");
-  //   Serial.println(web_auto_state);
+  //   Serial.print("Target drip rate is ");
+  //   Serial.println(target_drip_rate);
 
   //   print_state = false; // finish print
   // }
@@ -677,4 +645,8 @@ const char* get_motor_state(motor_state_t state){
       return "Undefined motor state";
       break;
   }
+}
+
+void alert(String x){
+
 }
