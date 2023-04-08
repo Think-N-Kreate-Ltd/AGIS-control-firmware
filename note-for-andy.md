@@ -41,7 +41,7 @@
 ======================================
 # note for the code
  - wifi ssid:AutoConnectAP, password:password.
- - GPIO2 -> reading sensor data (Change in L40)
+ - GPIO36 -> reading sensor data (Change in L40)
  - timer0 -> read sensor & time measure
  - timer1 -> auto control
  - timer2 -> control the motor
