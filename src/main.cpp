@@ -31,6 +31,9 @@ https://RandomNerdTutorials.com/esp32-esp8266-input-data-html-form/
 #define motorCTRL_2 16 // Motorl Control Board PWM 2
 #define ADCPin 4       // input pin for the potentiometer
 
+enum motor_state_t{UP, DOWN, OFF};
+motor_state_t motor_state = OFF;
+
 // var for checking the time
 volatile bool print_state = false; // true if it is printing currently
 volatile bool phase_change_for_timer1 = false; // true if timer1 phase chenge
@@ -49,7 +52,7 @@ unsigned long leave_time = 0;
 unsigned long next_time = 0;
 unsigned long total_time = 0; // for calculating the time used within 15s
 unsigned int no_of_drop = 0;  // for counting the number of drops within 15s
-volatile int drop_rate = 0;           // for calculating the drop rate
+volatile int drip_rate = 0;           // for calculating the drop rate
 String time1 = "not started"; // for storing the time of 1 drop
 String time2 = "not started"; // for storing the time between 2 drop
 volatile int int_time2=1;
@@ -70,7 +73,13 @@ volatile bool but_state = false;  // true if it is controlled by the real button
 volatile bool web_state = false;  // true if it is controlled by the web button currently
 volatile bool auto_state = false;  // true if it is controlled automaticly currently
 int web_but_state = 0; // that state that shows the condition of web button
-int web_auto_state = 0; // that state that shows the condition of auto control
+int web_drip_rate = 0; // that state that shows the condition of auto control
+
+volatile bool enable_autocontrol = false;  // to enable AutoControl() or not
+volatile bool infuse_completed = false;    // true when infusion is completed
+
+#define AUTO_CONTROL_ALLOW_RANGE  5  // To reduce the sensitive of AutoControl()
+                                     // i.e. (web_drip_rate +/-5) is good enough
 
 // WiFiManager, Local intialization. Once its business is done, there is no need
 // to keep it around
@@ -97,7 +106,8 @@ void Motor_On_Up();
 void Motor_On_Down();
 void Motor_Off();
 void Motor_Run();
-void Motor_Mode();
+// void Motor_Mode();
+const char* get_motor_state(enum motor_state_t state);
 
 // HTML web page to handle 3 input fields (input1, input2, input3)
 
@@ -157,7 +167,7 @@ String processor(const String &var) {
   } else if (var == "total_time") {
     return String(total_time);
   } else if (var == "drop_rate") {
-    return String(drop_rate);
+    return String(drip_rate);
   }
   return String();
 }
@@ -209,9 +219,12 @@ void IRAM_ATTR DropSensor() { // timer0 interrupt, for sensor detected drops and
     if(time_for_no_drop >= 20000){  // call when no drop appears within 20s, reset all data
       time1 = "no drop appears currently";
       time2 = "no drop appears currently";
-      no_of_drop = 0;
+      // no_of_drop = 0;
       total_time = 0;
       no_drop_with_20s = true;
+
+      // set int_time2 to a very large number
+      int_time2 = 999999;
     }
     if(no_of_drop >= 500){
       volume_exceed = true;
@@ -224,34 +237,70 @@ void IRAM_ATTR DropSensor() { // timer0 interrupt, for sensor detected drops and
 }
 
 void IRAM_ATTR AutoControl() { // timer1 interrupt, for auto control motor
-  static bool state = false;
-  if (((no_drop_with_20s) || (time2=="not started")) && (!state)){
-    drop_rate = 0;
-    web_auto_state = 0;
-    auto_state = false;
-    state = true;
-  } else if ((no_drop_with_20s) || (time2=="not started")){
-  } else{
-    drop_rate = 60000 / int_time2;
-    state = false;
+  // Only run AutoControl() when the following conditions satisfy:
+  //   1. button_ENTER is pressed
+  //   2. web_drip_rate is set on the website by user
+  //   3. infusion is not completed, i.e. infuse_completed = false
+  // TODO: update value of infuse_completed in other function
+  if(enable_autocontrol && (web_drip_rate!=0) && !infuse_completed){
+
+    // get latest value of drip_rate
+    drip_rate = 60000 / int_time2;
+
+    // if currently SLOWER than set value -> speed up, i.e. move up
+    if(drip_rate < (web_drip_rate - AUTO_CONTROL_ALLOW_RANGE)){
+      Motor_On_Up();
+      // analogWrite(motorCTRL_1, (1400 / 16));
+      // analogWrite(motorCTRL_2, 0); 
+    }
+    
+    // if currently FASTER than set value -> slow down, i.e. move down
+    else if(drip_rate > (web_drip_rate + AUTO_CONTROL_ALLOW_RANGE)) {
+      Motor_On_Down();
+      // analogWrite(motorCTRL_2, (1400 / 16));
+      // analogWrite(motorCTRL_1, 0); 
+    }
+
+    // otherwise, current drip rate is in allowed range -> stop motor
+    else {
+      Motor_Off();
+    }
+
+ 
+
+
+    // static bool state = false;
+    // if (((no_drop_with_20s) || (time2=="not started")) && (!state)){
+    //   drip_rate = 0;
+    //   web_drip_rate = 0;
+    //   auto_state = false;
+    //   state = true;
+    // } else if ((no_drop_with_20s) || (time2=="not started")){
+    // } else{
+    //   drip_rate = 60000 / int_time2;
+    //   state = false;
+    // }
+    // if ((!but_state) && (!web_state)){
+    //   if (web_drip_rate > (drip_rate + 1)){
+    //     auto_state = true;
+    //     web_but_state = 0;
+    //     analogWrite(motorCTRL_1, (1400 / 16));
+    //     analogWrite(motorCTRL_2, 0); 
+    //   }
+    //   if (web_drip_rate < (drip_rate - 1)){
+    //     auto_state = true;
+    //     web_but_state = 0;
+    //     analogWrite(motorCTRL_2, (1400 / 16));
+    //     analogWrite(motorCTRL_1, 0);
+    //   }
+    //   if ((web_drip_rate <= (drip_rate + 2)) && (web_drip_rate >= (drip_rate - 2))) {
+    //     Motor_Off();
+    //     auto_state = false;
+    //   }
+    // }
   }
-  if ((!but_state) && (!web_state)){
-    if (web_auto_state > (drop_rate + 1)){
-      auto_state = true;
-      web_but_state = 0;
-      analogWrite(motorCTRL_1, (1400 / 16));
-      analogWrite(motorCTRL_2, 0); 
-    }
-    if (web_auto_state < (drop_rate - 1)){
-      auto_state = true;
-      web_but_state = 0;
-      analogWrite(motorCTRL_2, (1400 / 16));
-      analogWrite(motorCTRL_1, 0);
-    }
-    if ((web_auto_state <= (drop_rate + 2)) && (web_auto_state >= (drop_rate - 2))) {
-      // Motor_Off();
-      auto_state = false;
-    }
+  else {
+    Motor_Off();
   }
 }
 
@@ -280,14 +329,18 @@ void IRAM_ATTR motorControl() {
       but_state = false;
     }
     if (button_ENTER.isPressed()) {
-      Motor_Mode();
-      if (but_state) {
-        but_state = true;
-      }
-      if (!but_state) {
-        but_state = false;
-        web_but_state = 0;
-      }
+      // Use button_ENTER to toggle AutoControl()
+      enable_autocontrol = !enable_autocontrol;
+
+      // Before: use button_ENTER to go up and down
+      // Motor_Mode();
+      // if (but_state) {
+      //   but_state = true;
+      // }
+      // if (!but_state) {
+      //   but_state = false;
+      //   web_but_state = 0;
+      // }
     }
     if (button_DOWN.isPressed()) {
       Motor_On_Down();
@@ -316,7 +369,7 @@ void IRAM_ATTR motorControl() {
     }
     if ((web_but_state == 0) && (!but_state) && (!auto_state)) {
       DripMode = LOW;
-      Motor_Off();
+      // Motor_Off();
       web_state = false;
     }
     phase = 0;
@@ -411,7 +464,7 @@ void setup() {
     request->send(200, "text/html", String(total_time) + "ms");
   });
   server.on("/senddrop_rate", [](AsyncWebServerRequest *request) {
-    request->send(200, "text/html", String(drop_rate));
+    request->send(200, "text/html", String(drip_rate));
   });
 
   // Send a GET request to <ESP_IP>/get?input1=<inputMessage>
@@ -445,7 +498,7 @@ void setup() {
     else if (request->hasParam(PARAM_AUTO_1)) {
       inputMessage = request->getParam(PARAM_AUTO_1)->value();
       writeFile(SPIFFS, "/auto1.txt", inputMessage.c_str());
-      web_auto_state = inputMessage.toInt(); // convert the input from AGIS1 to integer,
+      web_drip_rate = inputMessage.toInt(); // convert the input from AGIS1 to integer,
                                      // and store in web_but_state
     } else {
       inputMessage = "No message sent";
@@ -469,6 +522,10 @@ void setup() {
 }
 
 void loop() {
+
+  Serial.printf("drip_rate: %d \tweb_drip_rate: %d \tmotor_state: %s \tint_time2: %d\n",
+                drip_rate, web_drip_rate, get_motor_state(motor_state), int_time2);
+
   // Serial.print("(mkae it longer for reading) web_but_state is ");
   // Serial.println(web_but_state);
 
@@ -552,6 +609,8 @@ void Motor_On_Up() {
                 (ADCValue / 16)); // analogRead values go from 0 to 4095,
                                   // analogWrite values from 0 to 255
     analogWrite(motorCTRL_2, 0);
+
+    motor_state = UP;
   }
 }
 
@@ -564,12 +623,16 @@ void Motor_On_Down() {
                 (ADCValue / 16)); // analogRead values go from 0 to 4095,
                                   // analogWrite values from 0 to 255
     analogWrite(motorCTRL_1, 0);
+
+    motor_state = DOWN;
   }
 }
 
 void Motor_Off() {
   analogWrite(motorCTRL_1, 0);
   analogWrite(motorCTRL_2, 0);
+
+  motor_state = OFF;
 }
 
 void Motor_Run() {
@@ -587,13 +650,24 @@ void Motor_Run() {
   }
 }
 
-void Motor_Mode() {
-  if (DripMode == LOW) {
-    DripMode = HIGH;
-    but_state = true;
-  } else {
-    DripMode = LOW;
-    but_state = false;
-    Motor_Off();
+// void Motor_Mode() {
+//   if (DripMode == LOW) {
+//     DripMode = HIGH;
+//     but_state = true;
+//   } else {
+//     DripMode = LOW;
+//     but_state = false;
+//     Motor_Off();
+//   }
+// }
+
+const char* get_motor_state(motor_state_t state){
+  switch (state){
+    case UP: return "UP";
+    case DOWN: return "DOWN";
+    case OFF: return "OFF";
+    default:
+      return "Undefined motor state";
+      break;
   }
 }
