@@ -24,6 +24,7 @@ https://RandomNerdTutorials.com/esp32-esp8266-input-data-html-form/
 #include <SPIFFS.h>
 #include <WiFi.h>
 #include <ezButton.h>
+#include <limits.h>
 
 #define SENSOR_PIN 36 // input pin for geting output from sensor
 
@@ -52,10 +53,10 @@ unsigned long leave_time = 0;
 unsigned long next_time = 0;
 unsigned long total_time = 0; // for calculating the time used within 15s
 unsigned int no_of_drop = 0;  // for counting the number of drops within 15s
-volatile int drip_rate = 0;           // for calculating the drop rate
+volatile unsigned int drip_rate = 0;   // for calculating the drip rate
 String time1 = "not started"; // for storing the time of 1 drop
 String time2 = "not started"; // for storing the time between 2 drop
-volatile int int_time2=1;
+volatile unsigned int int_time2=UINT_MAX;
 
 // var for timer2 interrupt
 int ADCValue = 0; // variable to store the value coming from the sensor
@@ -90,6 +91,8 @@ String inputMessage; // store the input from web page
 
 // create AsyncWebServer object on port 80
 AsyncWebServer server(80);
+AsyncWebSocket ws("/ws");
+// TODO: use websocket for communication
 
 // REPLACE WITH YOUR NETWORK CREDENTIALS  // for hard-coding the wifi
 // const char* ssid = "REPLACE_WITH_YOUR_SSID";
@@ -224,7 +227,7 @@ void IRAM_ATTR DropSensor() { // timer0 interrupt, for sensor detected drops and
       no_drop_with_20s = true;
 
       // set int_time2 to a very large number
-      int_time2 = 999999;
+      int_time2 = UINT_MAX;
     }
     if(no_of_drop >= 500){
       volume_exceed = true;
@@ -234,6 +237,9 @@ void IRAM_ATTR DropSensor() { // timer0 interrupt, for sensor detected drops and
   time_1ms++;         // count for 1ms
   print_state = true; // start printing
   phase_change_for_timer1 = true; // allow timer1 1 INT phase counting
+
+  // get latest value of drip_rate
+  drip_rate = 60000 / int_time2;  // TODO: explain this formular
 }
 
 void IRAM_ATTR AutoControl() { // timer1 interrupt, for auto control motor
@@ -244,8 +250,7 @@ void IRAM_ATTR AutoControl() { // timer1 interrupt, for auto control motor
   // TODO: update value of infuse_completed in other function
   if(enable_autocontrol && (web_drip_rate!=0) && !infuse_completed){
 
-    // get latest value of drip_rate
-    drip_rate = 60000 / int_time2;
+
 
     // if currently SLOWER than set value -> speed up, i.e. move up
     if(drip_rate < (web_drip_rate - AUTO_CONTROL_ALLOW_RANGE)){
@@ -602,6 +607,8 @@ int check_state() {
 
 void Motor_On_Up() {
   if (limitSwitch_Up.isPressed()) {
+    // TODO: fix the limit switch problem
+
     // Serial.println("The up limit switch: UNTOUCHED -> TOUCHED");
     Motor_Off();
   } else {
