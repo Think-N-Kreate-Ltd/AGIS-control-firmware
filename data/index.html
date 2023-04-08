@@ -1,0 +1,95 @@
+<html>
+
+<head>
+    <title>ESP Input Form</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <script src="https://code.highcharts.com/modules/export-data.js"></script>
+    <script src="https://code.highcharts.com/modules/accessibility.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    AGIS 1 UP<label class='switch'><input type='checkbox' onchange='sendInput(this)' id='Up'><span
+            class='slider'></span></label>
+    AGIS 1 Up and Down<label class='switch'><input type='checkbox' onchange='sendInput(this)' id='Up_and_Down'><span
+            class='slider'></span></label>
+    AGIS 1 Down<label class='switch'><input type='checkbox' onchange='sendInput(this)' id='Down'><span
+            class='slider'></span></label>
+    <br>
+    <form action='/get' target='hidden-form'>
+        AGIS 1 (current value %input1%):
+        <input name="input1" type='submit' value='Up' onchange='getValue()'>
+        <input name="input1" type='submit' value='Up_and_Down' onclick='getValue()'>
+        <input name="input1" type='submit' value='Down' onclick='getValue()'>
+        <input name="input1" type='submit' value='STOP' onclick='getValue()'>
+    </form><br>
+
+    <label for="AGIS1">Enter Drip Rate:</label>
+    <input type="text" id="AGIS1" name="AGIS1">
+    <input type="submit" value="AGIS1" onclick="getDR()">
+    <br>testing value: <div id="test">testing</div>
+
+    <table>
+        <tr>
+            <td>Time for 1 drop: </td>
+            <td>
+                <div id='sendtime1'>%time1%</div>
+            </td>
+        </tr>
+        <tr>
+            <td>Time between 2 drop: </td>
+            <td>
+                <div id='sendtime2'>%time2%</div>
+            </td>
+        </tr>
+        <tr>
+            <td>No. of drop: </td>
+            <td>
+                <div id='sendno_of_drop'>%no_of_drop%</div>
+            </td>
+        </tr>
+        <tr>
+            <td>Total time: </td>
+            <td>
+                <div id='sendtotal_time'>%total_time%</div>
+            </td>
+        </tr>
+        <tr>
+            <td>Drip rate: </td>
+            <td>
+                <div id='senddrop_rate'>%drop_rate%</div>
+            </td>
+        </tr>
+    </table>
+    <br><br>
+
+
+    <form action='/get' target='hidden-form'>
+        AGIS 2 (current value %input2%):
+        <input name='input2' type='submit' value='Up' onclick='getValue()'>
+        <input name='input2' type='submit' value='Up_and_Down' onclick='getValue()'>
+        <input name='input2' type='submit' value='Down' onclick='getValue()'>
+        <input name='input2' type='submit' value='STOP' onclick='getValue()'>
+    </form><br>
+
+    <form action='/get' target='hidden-form'> AGIS 3 (current value %input3%):
+        <input name='input3' type='submit' value='Up' onclick='getValue()'>
+        <input name='input3' type='submit' value='Up_and_Down' onclick='getValue()'>
+        <input name='input3' type='submit' value='Down' onclick='getValue()'>
+        <input name='input3' type='submit' value='STOP' onclick='getValue()'>
+    </form><br>
+
+    <iframe style="display:none" name="hidden-form"></iframe>
+
+    <div id='sendsensor'>testing value</div>
+    <figure class="highcharts-figure">
+        <div id="chart-reading" class="container">testing</div>
+    </figure>
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>
