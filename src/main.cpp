@@ -74,7 +74,7 @@ volatile bool but_state = false;  // true if it is controlled by the real button
 volatile bool web_state = false;  // true if it is controlled by the web button currently
 volatile bool auto_state = false;  // true if it is controlled automaticly currently
 int web_but_state = 0; // that state that shows the condition of web button
-int target_drip_rate = 0; // that state that shows the condition of auto control
+unsigned int target_drip_rate = 0; // that state that shows the condition of auto control
 
 volatile bool enable_autocontrol = false;  // to enable AutoControl() or not
 volatile bool infuse_completed = false;    // true when infusion is completed
@@ -499,7 +499,7 @@ void setup() {
 
 void loop() {
 
-  Serial.printf("drip_rate: %d \target_drip_rate: %d \tmotor_state: %s \tint_time2: %d\n",
+  Serial.printf("drip_rate: %u \ttarget_drip_rate: %u \tmotor_state: %s \tint_time2: %u\n",
                 drip_rate, target_drip_rate, get_motor_state(motor_state), int_time2);
 
   // printing only
