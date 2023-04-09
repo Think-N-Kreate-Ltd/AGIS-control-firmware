@@ -3,8 +3,7 @@ var gateway = `ws://${window.location.hostname}/ws`;
 var websocket;
 window.addEventListener('load', onLoad);
 
-// Request for data every interal
-setInterval(get_data, 1000);
+
 
 function onLoad(event) {
     initWebSocket();
@@ -21,6 +20,13 @@ function initWebSocket() {
 
 function onWsOpen(event) {
     console.log('Connection opened');
+
+    // Request for data every interal
+    // NOTE: only request for data after the WebSocket is opened
+    // Why doing this? We can actually use smallest possible interval and get
+    // the new data asap. However, it is not necessary to do so, and to avoid
+    // taking more resources from both the clients (browsers) and server (ESP32)
+    setInterval(get_data, 1000);
 }
 
 function onWsClose(event) {
@@ -29,6 +35,7 @@ function onWsClose(event) {
 }
 
 function onWsMessage(event) {
+    console.log("Received data:")
     console.log(event.data);
 
     // Parse JSON data and update
@@ -47,8 +54,13 @@ function initButton() {
 }
 
 function get_data() {
-    websocket.send('GET_DATA_WS');
-    console.log("Requested data from website")
+
+    const msg = {
+        GET_DATA_WS: null
+    };
+    websocket.send(JSON.stringify(msg));
+
+    // websocket.send('GET_DATA_WS');
 }
 
 // function get_drip_rate() {
@@ -129,12 +141,19 @@ function sendInput(element) {
     xhr.send();
 }
 
-function getDR() {
-    if (Number.isInteger(parseInt((document.getElementById("AGIS1").value)))) {
-        DR = (parseInt(document.getElementById("AGIS1").value)).toString();
-        var xhttp = new XMLHttpRequest();
-        xhttp.open("GET", "/get?auto1=" + DR, true);
-        xhttp.send();
+function setTargetDripRate() {
+    if (Number.isInteger(parseInt((document.getElementById("target_drip_rate_input").value)))) {
+        DR = (parseInt(document.getElementById("target_drip_rate_input").value)).toString();
+        // var xhttp = new XMLHttpRequest();
+        // xhttp.open("GET", "/get?auto1=" + DR, true);
+        // xhttp.send();
+
+        const msg = {
+            SET_TARGET_DRIP_RATE_WS: DR
+            // date: Date.now(),
+        };
+        websocket.send(JSON.stringify(msg));
+        console.log(JSON.stringify(msg));
     }
     else {
         alert("Please enter an integer");

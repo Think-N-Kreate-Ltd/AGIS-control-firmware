@@ -19,7 +19,7 @@ https://RandomNerdTutorials.com/esp32-esp8266-input-data-html-form/
 
 #include <Arduino.h>
 #include <AsyncTCP.h>
-#include <WiFiManager.h>
+#include <WiFiManager.h> // define before <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <SPIFFS.h>
 #include <WiFi.h>
@@ -35,19 +35,19 @@ https://RandomNerdTutorials.com/esp32-esp8266-input-data-html-form/
 #define motorCTRL_2 16 // Motorl Control Board PWM 2
 #define ADCPin 4       // input pin for the potentiometer
 
-enum motor_state_t{UP, DOWN, OFF};
+enum motor_state_t { UP, DOWN, OFF };
 motor_state_t motor_state = OFF;
 
 // var for checking the time
 volatile bool print_state = false; // true if it is printing currently
 volatile bool phase_change_for_timer1 = false; // true if timer1 phase chenge
-volatile int time_1ms = 0;         // count for every 1ms passed
-volatile bool no_drop_with_20s = false;  // true if no drop appears in next 20s
-volatile bool volume_exceed  = false;  // true if numDrops exceed amount
+volatile int time_1ms = 0;                     // count for every 1ms passed
+volatile bool no_drop_with_20s = false; // true if no drop appears in next 20s
+volatile bool volume_exceed = false;    // true if numDrops exceed amount
 
 // var for timer0 interrupt
 // for reading the sensor value
-volatile int occur;                
+volatile int occur;
 // for measuring the time that sensor detect a drop
 unsigned long start_time = 0;
 // for measuring the time that sensor detect a drop is disappear
@@ -55,11 +55,11 @@ unsigned long leave_time = 0;
 // for measuring the time that sensor detect the next drop
 unsigned long next_time = 0;
 unsigned long totalTime = 0; // for calculating the time used within 15s
-unsigned int numDrops = 0;  // for counting the number of drops within 15s
+unsigned int numDrops = 0;   // for counting the number of drops within 15s
 volatile unsigned int dripRate = 0;   // for calculating the drip rate
-String time1Drop = "not started"; // for storing the time of 1 drop
+String time1Drop = "not started";     // for storing the time of 1 drop
 String timeBtw2Drops = "not started"; // for storing the time between 2 drops
-volatile unsigned int int_time2=UINT_MAX;
+volatile unsigned int int_time2 = UINT_MAX;
 
 // var for timer2 interrupt
 int ADCValue = 0; // variable to store the value coming from the sensor
@@ -73,18 +73,24 @@ ezButton limitSwitch_Up(37);   // create ezButton object that attach to pin 7;
 ezButton limitSwitch_Down(38); // create ezButton object that attach to pin 7;
 
 // var for checking the currently condition
-volatile bool but_state = false;  // true if it is controlled by the real button currently
-volatile bool web_state = false;  // true if it is controlled by the web button currently
-volatile bool auto_state = false;  // true if it is controlled automaticly currently
-int web_but_state = 0; // that state that shows the condition of web button
-unsigned int target_drip_rate = 0; // that state that shows the condition of auto control
+// true if it is controlled by the real button currently
+volatile bool but_state = false;
+ // true if it is controlled by the web button currently
+volatile bool web_state = false;
+// true if it is controlled automaticly currently
+volatile bool auto_state = false;
+// state that shows the condition of web button
+int web_but_state = 0; 
+// state that shows the condition of auto control
+unsigned int target_drip_rate = 0; 
 
-volatile bool enable_autocontrol = false;  // to enable AutoControl() or not
-volatile bool infuse_completed = false;    // true when infusion is completed
+volatile bool enable_autocontrol = false; // to enable AutoControl() or not
+volatile bool infuse_completed = false;   // true when infusion is completed
 
-#define AUTO_CONTROL_ALLOW_RANGE  5  // To reduce the sensitive of AutoControl()
-                                     // i.e. (target_drip_rate +/-5) is good enough
-volatile bool init_state = true;  // true if droping is not started yet
+// To reduce the sensitive of AutoControl()
+// i.e. (target_drip_rate +/-5) is good enough
+#define AUTO_CONTROL_ALLOW_RANGE 5
+volatile bool init_state = true; // true if droping is not started yet
 
 // WiFiManager, Local intialization. Once its business is done, there is no need
 // to keep it around
@@ -114,10 +120,10 @@ void Motor_On_Down();
 void Motor_Off();
 void Motor_Run();
 // void Motor_Mode();
-const char* get_motor_state(enum motor_state_t state);
+const char *get_motor_state(enum motor_state_t state);
 void initWebSocket();
-void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
-             void *arg, uint8_t *data, size_t len);
+void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
+             AwsEventType type, void *arg, uint8_t *data, size_t len);
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
 void sendDataWs();
 void sendDripRateWs();
@@ -190,10 +196,11 @@ hw_timer_t *Timer1_cfg = NULL; // create a pointer for timer1
 hw_timer_t *Timer2_cfg = NULL; // create a pointer for timer2
 
 // timer0 interrupt, for sensor detected drops and measure the time
-void IRAM_ATTR DropSensor() { 
+void IRAM_ATTR DropSensor() {
   static int phase;
   static bool occur_state = false; // true when obstacle detected
-  static int time_for_no_drop;  // counting when no drop appears, for measuring the time that have no drop
+  static int time_for_no_drop; // counting when no drop appears, for measuring
+                               // the time that have no drop
   if (phase == 0) {
     occur = digitalRead(SENSOR_PIN); // read the sensor value
     phase++;
@@ -206,18 +213,18 @@ void IRAM_ATTR DropSensor() {
       init_state = false; // return false because droping is started
       if (!occur_state) { // condition that check for the drop is just detected
         occur_state = true;
-        next_time = millis(); // record the time for measuring
+        next_time = millis();                  // record the time for measuring
         totalTime += (next_time - start_time); // measure the time
-        numDrops++; // counting the drop
-        int_time2 = next_time - start_time; // measure the time
+        numDrops++;                            // counting the drop
+        int_time2 = next_time - start_time;    // measure the time
         timeBtw2Drops = String(int_time2) + "ms";
-        start_time = millis();  // record th time for measuring
+        start_time = millis(); // record th time for measuring
       }
     }
     if (occur == 0) {
       time_for_no_drop++;
       if (occur_state) {
-        leave_time = millis();  // record the time for measuring
+        leave_time = millis(); // record the time for measuring
         occur_state = false;
         time1Drop = String(leave_time - start_time) + "ms"; // measure the time
       }
@@ -226,7 +233,7 @@ void IRAM_ATTR DropSensor() {
   }
   if (phase == 2) {
     // call when no drop appears within 20s, reset all data
-    if((time_for_no_drop >= 20000) && (!init_state)){ 
+    if ((time_for_no_drop >= 20000) && (!init_state)) {
       time1Drop = "no drop appears currently";
       timeBtw2Drops = "no drop appears currently";
       // numDrops = 0;
@@ -237,19 +244,19 @@ void IRAM_ATTR DropSensor() {
       int_time2 = UINT_MAX;
     }
     // call when the no of drops exceed target
-    if(numDrops >= 500){
+    if (numDrops >= 500) {
       volume_exceed = true;
       // TODO: alert volume exceed
       // alert("VolumeExceed");
     }
     phase = 0;
   }
-  time_1ms++;         // count for 1ms
-  print_state = true; // start printing
+  time_1ms++;                     // count for 1ms
+  print_state = true;             // start printing
   phase_change_for_timer1 = true; // allow timer1 1 INT phase counting
 
   // get latest value of dripRate
-  dripRate = 60000 / int_time2;  // TODO: explain this formular
+  dripRate = 60000 / int_time2; // TODO: explain this formular
 
   // NOTE: maybe we should average most recent dripRate,
   // s.t. the auto control is not too sensitive and motor runs too frequently
@@ -261,30 +268,30 @@ void IRAM_ATTR AutoControl() { // timer1 interrupt, for auto control motor
   //   2. target_drip_rate is set on the website by user
   //   3. infusion is not completed, i.e. infuse_completed = false
   // TODO: update value of infuse_completed in other function
-  if(enable_autocontrol && (target_drip_rate!=0) && !infuse_completed){
+  if (enable_autocontrol && (target_drip_rate != 0) && !infuse_completed) {
 
-    // TODO: alert when no drop is detected, i.e. could be out of fluid or get stuck
+    // TODO: alert when no drop is detected, i.e. could be out of fluid or get
+    // stuck
 
     // if currently SLOWER than set value -> speed up, i.e. move up
-    if(dripRate < (target_drip_rate - AUTO_CONTROL_ALLOW_RANGE)){
+    if (dripRate < (target_drip_rate - AUTO_CONTROL_ALLOW_RANGE)) {
       Motor_On_Up();
       // analogWrite(motorCTRL_1, (1400 / 16));
-      // analogWrite(motorCTRL_2, 0); 
+      // analogWrite(motorCTRL_2, 0);
     }
-    
+
     // if currently FASTER than set value -> slow down, i.e. move down
-    else if(dripRate > (target_drip_rate + AUTO_CONTROL_ALLOW_RANGE)) {
+    else if (dripRate > (target_drip_rate + AUTO_CONTROL_ALLOW_RANGE)) {
       Motor_On_Down();
       // analogWrite(motorCTRL_2, (1400 / 16));
-      // analogWrite(motorCTRL_1, 0); 
+      // analogWrite(motorCTRL_1, 0);
     }
 
     // otherwise, current drip rate is in allowed range -> stop motor
     else {
       Motor_Off();
     }
-  }
-  else {
+  } else {
     Motor_Off();
   }
 }
@@ -423,7 +430,7 @@ void setup() {
 
   // Send web page to client
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SPIFFS, "/index.html", String(), false, processor);
+    request->send(SPIFFS, "/index.html", String(), false);
   });
 
   server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -435,6 +442,7 @@ void setup() {
   });
 
   // Not used anymore, migrating to websocket
+  // TODO: cleanup unused below
   // send and data of sensor reading
   // server.on("/sendsensor", [](AsyncWebServerRequest *request) {
   //   request->send(200, "text/html", String(occur));
@@ -484,12 +492,14 @@ void setup() {
                                      // and store in web_but_state
     }
     // GET auto1 value on <ESP_IP>/get?auto1=t
-    else if (request->hasParam(PARAM_AUTO_1)) {
-      inputMessage = request->getParam(PARAM_AUTO_1)->value();
-      writeFile(SPIFFS, "/auto1.txt", inputMessage.c_str());
-      target_drip_rate = inputMessage.toInt(); // convert the input from AGIS1 to integer,
-                                     // and store in web_but_state
-    } else {
+    // else if (request->hasParam(PARAM_AUTO_1)) {
+    //   inputMessage = request->getParam(PARAM_AUTO_1)->value();
+    //   writeFile(SPIFFS, "/auto1.txt", inputMessage.c_str());
+    //   target_drip_rate = inputMessage.toInt(); // convert the input from
+    //   AGIS1 to integer,
+    //                                  // and store in web_but_state
+    // }
+    else {
       inputMessage = "No message sent";
       // inputParam = "none";
     }
@@ -512,8 +522,9 @@ void setup() {
 
 void loop() {
 
-  // Serial.printf("dripRate: %u \ttarget_drip_rate: %u \tmotor_state: %s \tint_time2: %u\n",
-  //               dripRate, target_drip_rate, get_motor_state(motor_state), int_time2);
+  // Serial.printf(
+  //     "dripRate: %u \ttarget_drip_rate: %u \tmotor_state: %s\tint_time2: %u\n",
+  //     dripRate, target_drip_rate, get_motor_state(motor_state), int_time2);
 
   // printing only
   // for debug use
@@ -649,71 +660,88 @@ void Motor_Run() {
 //   }
 // }
 
-const char* get_motor_state(motor_state_t state){
-  switch (state){
-    case UP: return "UP";
-    case DOWN: return "DOWN";
-    case OFF: return "OFF";
-    default:
-      return "Undefined motor state";
-      break;
+const char *get_motor_state(motor_state_t state) {
+  switch (state) {
+  case UP:
+    return "UP";
+  case DOWN:
+    return "DOWN";
+  case OFF:
+    return "OFF";
+  default:
+    return "Undefined motor state";
+    break;
   }
 }
 
-void alert(String x){
-
-}
+void alert(String x) {}
 
 void initWebSocket() {
   ws.onEvent(onEvent);
   server.addHandler(&ws);
 }
 
-void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
-             void *arg, uint8_t *data, size_t len) {
+void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
+             AwsEventType type, void *arg, uint8_t *data, size_t len) {
   switch (type) {
-    case WS_EVT_CONNECT:
-      Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
-      break;
-    case WS_EVT_DISCONNECT:
-      Serial.printf("WebSocket client #%u disconnected\n", client->id());
-      break;
-    case WS_EVT_DATA:
-      handleWebSocketMessage(arg, data, len);
-      break;
-    case WS_EVT_PONG:
-    case WS_EVT_ERROR:
-      break;
+  case WS_EVT_CONNECT:
+    Serial.printf("WebSocket client #%u connected from %s\n", client->id(),
+                  client->remoteIP().toString().c_str());
+    break;
+  case WS_EVT_DISCONNECT:
+    Serial.printf("WebSocket client #%u disconnected\n", client->id());
+    break;
+  case WS_EVT_DATA:
+    handleWebSocketMessage(arg, data, len);
+    break;
+  case WS_EVT_PONG:
+  case WS_EVT_ERROR:
+    break;
   }
 }
 
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
   // TODO: check github repo for official documentation
-  AwsFrameInfo *info = (AwsFrameInfo*)arg;
-  if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
+  AwsFrameInfo *info = (AwsFrameInfo *)arg;
+  if (info->final && info->index == 0 && info->len == len &&
+      info->opcode == WS_TEXT) {
     data[len] = 0;
-    Serial.printf("Received from website: %s\n", (char*)data);
-    if (strcmp((char*)data, "GET_DATA_WS") == 0) {
-      sendDataWs();
+    Serial.printf("Received from website: %s\n", (char *)data);
+
+    // Parse the received WebSocket message as JSON
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject &_test = jsonBuffer.parseObject((const char *)data);
+    // JsonObject& root = jsonBuffer.parseObject(json);
+    if (!_test.success()) {
+      Serial.printf("Parse WebSocket message failed\n");
+    } else {
+      if (_test.containsKey("SET_TARGET_DRIP_RATE_WS")) {
+        target_drip_rate = _test["SET_TARGET_DRIP_RATE_WS"];
+        Serial.printf("Target drip rate is set to: %u\n", target_drip_rate);
+      }
+      else if (_test.containsKey("GET_DATA_WS")) {
+        sendDataWs();
+      }
     }
   }
 }
 
-void sendDataWs(){
+void sendDataWs() {
   // TODO: check how to migrate to newest version of DynamicJsonBuffer
   DynamicJsonBuffer dataBuffer;
-  JsonObject& root = dataBuffer.createObject();
+  JsonObject &root = dataBuffer.createObject();
   // TODO: fill below key-value pairs
   // root["TIME_1_DROP"] = time1Drop;
   // root["TIME_BTW_2_DROPS"] = timeBtw2Drops ;
-  
+
   root["NUM_DROPS"] = numDrops;
   root["TOTAL_TIME"] = totalTime;
   root["DRIP_RATE"] = dripRate;
   size_t len = root.measureLength();
-  AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
+  AsyncWebSocketMessageBuffer *buffer =
+      ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
   if (buffer) {
-      root.printTo((char *)buffer->get(), len + 1);
-        ws.textAll(buffer);
+    root.printTo((char *)buffer->get(), len + 1);
+    ws.textAll(buffer);
   }
 }
