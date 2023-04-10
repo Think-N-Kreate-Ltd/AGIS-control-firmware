@@ -1,3 +1,6 @@
+// Some define that can be quicky changed by developer
+const GET_DATA_INTERVAL = 200; // in milliseconds
+
 // Using Websocket for communication between server and clients
 var gateway = `ws://${window.location.hostname}/ws`;
 var websocket;
@@ -26,7 +29,7 @@ function onWsOpen(event) {
     // Why doing this? We can actually use smallest possible interval and get
     // the new data asap. However, it is not necessary to do so, and to avoid
     // taking more resources from both the clients (browsers) and server (ESP32)
-    setInterval(get_data, 1000);
+    setInterval(get_data, GET_DATA_INTERVAL);
 }
 
 function onWsClose(event) {
@@ -38,15 +41,52 @@ function onWsMessage(event) {
     console.log("Received data:")
     console.log(event.data);
 
-    // Parse JSON data and update
+    // Parse JSON data
     const dataObj = JSON.parse(event.data);
-    var numDrops = dataObj["NUM_DROPS"];
-    var totalTime = dataObj["TOTAL_TIME"];
-    var dripRate = dataObj["DRIP_RATE"];
+    var droppingState = parseInt(dataObj["DROPPING_STATE"]);
 
-    document.getElementById("num_drops_value").innerHTML = numDrops;
-    document.getElementById("total_time_value").innerHTML = totalTime;
-    document.getElementById("drip_rate_value").innerHTML = dripRate;
+    // NOTE:(1) make sure droppingState_t type is the same as in main.cpp
+    // otherwise, it won't work
+    // NOTE:(2) Javascript enum declaration is not the same as in C :)
+    const droppingState_t = Object.freeze({ 
+        NOT_STARTED: 0,
+        STARTED: 1,
+        STOPPED: 2,
+    });
+
+    if (droppingState === droppingState_t.NOT_STARTED) {
+        let text = "Not started";
+        document.getElementById("time_1_drop_value").innerHTML = text;
+        document.getElementById("time_btw_2_drops_value").innerHTML = text;
+        document.getElementById("num_drops_value").innerHTML = text;
+        document.getElementById("total_time_value").innerHTML = text;
+        document.getElementById("drip_rate_value").innerHTML = text;
+    }
+    //  only update when dropping has started
+    else if (droppingState === droppingState_t.STARTED) {
+        var time1Drop = dataObj["TIME_1_DROP"];
+        var time_btw_2_drops = dataObj["TIME_BTW_2_DROPS"];
+        var numDrops = dataObj["NUM_DROPS"];
+        var totalTime = dataObj["TOTAL_TIME"];
+        var dripRate = dataObj["DRIP_RATE"];
+
+        document.getElementById("time_1_drop_value").innerHTML = time1Drop;
+        document.getElementById("time_btw_2_drops_value").innerHTML = time_btw_2_drops;
+        document.getElementById("num_drops_value").innerHTML = numDrops;
+        document.getElementById("total_time_value").innerHTML = totalTime;
+        document.getElementById("drip_rate_value").innerHTML = dripRate;
+    }
+    else if (droppingState === droppingState_t.STOPPED) {
+        let text = "No recent drop";
+        document.getElementById("time_1_drop_value").innerHTML = text;
+        document.getElementById("time_btw_2_drops_value").innerHTML = text;
+        document.getElementById("num_drops_value").innerHTML = text;
+        document.getElementById("total_time_value").innerHTML = text;
+        document.getElementById("drip_rate_value").innerHTML = text;
+    }
+    else {
+        console.log("droppingState value not recognized");
+    }
 }
 
 function initButton() {
