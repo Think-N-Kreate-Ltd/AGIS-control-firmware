@@ -33,10 +33,13 @@ https://RandomNerdTutorials.com/esp32-esp8266-input-data-html-form/
 
 #define motorCTRL_1 15 // Motorl Control Board PWM 1
 #define motorCTRL_2 16 // Motorl Control Board PWM 2
-#define ADCPin 4       // input pin for the potentiometer
+#define PWM_PIN      4  // input pin for the potentiometer
 
-enum motorState_t { UP, DOWN, OFF };
-motorState_t motor_state = motorState_t::OFF;
+enum class motorState_t { UP, DOWN, OFF };
+motorState_t motorState = motorState_t::OFF;
+
+enum class buttonState_t { UP, DOWN, ENTER, IDLE };
+buttonState_t buttonState = buttonState_t::IDLE;
 
 // NOTE: when droppingState_t type is modified, update the same type in script.js 
 enum droppingState_t {NOT_STARTED, STARTED, STOPPED};
@@ -67,7 +70,7 @@ volatile unsigned int time1Drop = 0;      // for storing the time of 1 drop
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
 
 // var for timer2 interrupt
-int ADCValue = 0; // variable to store the value coming from the sensor
+int PWMValue = 0; // PWM value to control the speed of motor
 int Motor_Direction = LOW;
 int DripMode = LOW;
 
@@ -124,7 +127,8 @@ void Motor_On_Down();
 void Motor_Off();
 void Motor_Run();
 // void Motor_Mode();
-const char *get_motor_state(enum motorState_t state);
+const char *get_motor_state(motorState_t state);
+const char *get_button_state(buttonState_t state);
 void initWebSocket();
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
              AwsEventType type, void *arg, uint8_t *data, size_t len);
@@ -273,80 +277,41 @@ void IRAM_ATTR AutoControl() { // timer1 interrupt, for auto control motor
     else {
       Motor_Off();
     }
-  } else {
-    Motor_Off();
   }
 }
 
 void IRAM_ATTR motorControl() {
-  static int phase;
-  if (phase == 0) {
-    button_UP.loop();        // MUST call the loop() function first
-    button_ENTER.loop();     // MUST call the loop() function first
-    button_DOWN.loop();      // MUST call the loop() function first
-    limitSwitch_Up.loop();   // MUST call the loop() function first
-    limitSwitch_Down.loop(); // MUST call the loop() function first
-    phase++;
-  }
-  if (phase == 1) {
-    ADCValue = analogRead(ADCPin); // read the value from the analog channel
-    phase++;
-  }
-  if (phase == 2) {
-    if (button_UP.isPressed()) {
-      Motor_On_Up();
-      but_state = true;
-      web_but_state = 0;
-    }
-    if (button_UP.isReleased()) {
-      Motor_Off();
-      but_state = false;
-    }
-    if (button_ENTER.isPressed()) {
-      // Use button_ENTER to toggle AutoControl()
-      enable_autocontrol = !enable_autocontrol;
+  // Read buttons and switches state
+  button_UP.loop();        // MUST call the loop() function first
+  button_ENTER.loop();     // MUST call the loop() function first
+  button_DOWN.loop();      // MUST call the loop() function first
+  limitSwitch_Up.loop();   // MUST call the loop() function first
+  limitSwitch_Down.loop(); // MUST call the loop() function first
 
-      // Before: use button_ENTER to go up and down
-      // Motor_Mode();
-      // if (but_state) {
-      //   but_state = true;
-      // }
-      // if (!but_state) {
-      //   but_state = false;
-      //   web_but_state = 0;
-      // }
-    }
-    if (button_DOWN.isPressed()) {
-      Motor_On_Down();
-      but_state = true;
-      web_but_state = 0;
-    }
-    if (button_DOWN.isReleased()) {
-      Motor_Off();
-      but_state = false;
-    }
-    if (DripMode == HIGH) {
-      Motor_Run();
-    }
+  // Read PWM value
+  PWMValue = analogRead(PWM_PIN);
 
-    if ((web_but_state == 1) && (!but_state) && (!auto_state)) {
-      Motor_On_Up();
-      web_state = true;
-    }
-    if ((web_but_state == 2) && (!but_state) && (!auto_state)) {
-      DripMode = HIGH;
-      web_state = true;
-    }
-    if ((web_but_state == 3) && (!but_state) && (!auto_state)) {
-      Motor_On_Down();
-      web_state = true;
-    }
-    if ((web_but_state == 0) && (!but_state) && (!auto_state)) {
-      DripMode = LOW;
-      // Motor_Off();
-      web_state = false;
-    }
-    phase = 0;
+  // Use button_UP to manually move up
+  if (button_UP.isPressed()) {
+    buttonState = buttonState_t::UP;
+    Motor_On_Up();
+  }
+
+  // Use button_UP to manually move down
+  if (button_DOWN.isPressed()) {
+    buttonState = buttonState_t::DOWN;
+    Motor_On_Down();
+  }
+
+  // Use button_ENTER to toggle AutoControl()
+  if (button_ENTER.isPressed()) {
+    buttonState = buttonState_t::ENTER;
+    enable_autocontrol = !enable_autocontrol;
+  }
+
+  if (button_UP.isReleased() || button_DOWN.isReleased() || button_ENTER.isReleased()) {
+    buttonState = buttonState_t::IDLE;
+    Motor_Off();
   }
 }
 
@@ -482,9 +447,10 @@ void setup() {
 }
 
 void loop() {
+  // DEBUG:
   // Serial.printf(
   //     "dripRate: %u \ttarget_drip_rate: %u \tmotor_state: %s\tint_time2: %u\n",
-  //     dripRate, target_drip_rate, get_motor_state(motor_state), timeBtw2Drops);
+  //     dripRate, target_drip_rate, get_motor_state(motorState), timeBtw2Drops);
 }
 
 // check the condition of the switch/input from web page
@@ -506,30 +472,27 @@ int check_state() {
 void Motor_On_Up() {
   if (limitSwitch_Up.isPressed()) {
     // TODO: fix the limit switch problem
-
-    // Serial.println("The up limit switch: UNTOUCHED -> TOUCHED");
     Motor_Off();
   } else {
     analogWrite(motorCTRL_1,
-                (ADCValue / 16)); // analogRead values go from 0 to 4095,
+                (PWMValue / 16)); // analogRead values go from 0 to 4095,
                                   // analogWrite values from 0 to 255
     analogWrite(motorCTRL_2, 0);
 
-    motor_state = motorState_t::UP;
+    motorState = motorState_t::UP;
   }
 }
 
 void Motor_On_Down() {
   if (limitSwitch_Down.isPressed()) {
-    // Serial.println("The down limit switch: UNTOUCHED -> TOUCHED");
     Motor_Off();
   } else {
     analogWrite(motorCTRL_2,
-                (ADCValue / 16)); // analogRead values go from 0 to 4095,
+                (PWMValue / 16)); // analogRead values go from 0 to 4095,
                                   // analogWrite values from 0 to 255
     analogWrite(motorCTRL_1, 0);
 
-    motor_state = motorState_t::DOWN;
+    motorState = motorState_t::DOWN;
   }
 }
 
@@ -537,7 +500,7 @@ void Motor_Off() {
   analogWrite(motorCTRL_1, 0);
   analogWrite(motorCTRL_2, 0);
 
-  motor_state = motorState_t::OFF;
+  motorState = motorState_t::OFF;
 }
 
 void Motor_Run() {
@@ -568,12 +531,28 @@ void Motor_Run() {
 
 const char *get_motor_state(motorState_t state) {
   switch (state) {
-  case UP:
+  case motorState_t::UP:
     return "UP";
-  case DOWN:
+  case motorState_t::DOWN:
     return "DOWN";
-  case OFF:
+  case motorState_t::OFF:
     return "OFF";
+  default:
+    return "Undefined motor state";
+    break;
+  }
+}
+
+const char *get_button_state(buttonState_t state) {
+  switch (state) {
+  case buttonState_t::UP:
+    return "UP";
+  case buttonState_t::DOWN:
+    return "DOWN";
+  case buttonState_t::ENTER:
+    return "ENTER";
+  case buttonState_t::IDLE:
+    return "IDLE";
   default:
     return "Undefined motor state";
     break;
