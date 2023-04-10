@@ -90,13 +90,13 @@ volatile bool auto_state = false;
 // state that shows the condition of web button
 int web_but_state = 0; 
 // state that shows the condition of auto control
-unsigned int target_drip_rate = 0; 
+unsigned int targetDripRate = 0; 
 
-volatile bool enable_autocontrol = false; // to enable AutoControl() or not
-volatile bool infuse_completed = false;   // true when infusion is completed
+volatile bool enableAutoControl = false; // to enable AutoControl() or not
+volatile bool infuseCompleted = false;   // true when infusion is completed
 
-// To reduce the sensitive of AutoControl()
-// i.e. (target_drip_rate +/-5) is good enough
+// To reduce the sensitive of autoControl()
+// i.e. (targetDripRate +/-5) is good enough
 #define AUTO_CONTROL_ALLOW_RANGE 5
 
 // WiFiManager, Local intialization. Once its business is done, there is no need
@@ -125,7 +125,6 @@ int check_state();
 void Motor_On_Up();
 void Motor_On_Down();
 void Motor_Off();
-void Motor_Run();
 // void Motor_Mode();
 const char *get_motor_state(motorState_t state);
 const char *get_button_state(buttonState_t state);
@@ -180,7 +179,7 @@ hw_timer_t *Timer1_cfg = NULL; // create a pointer for timer1
 hw_timer_t *Timer2_cfg = NULL; // create a pointer for timer2
 
 // timer0 interrupt, for sensor detected drops and measure the time
-void IRAM_ATTR DropSensor() {
+void IRAM_ATTR dropSensor() {
   static int phase;
   static bool occur_state = false; // true when obstacle detected
   static int time_for_no_drop; // counting when no drop appears, for measuring
@@ -248,29 +247,25 @@ void IRAM_ATTR DropSensor() {
   // s.t. the auto control is not too sensitive and motor runs too frequently
 }
 
-void IRAM_ATTR AutoControl() { // timer1 interrupt, for auto control motor
-  // Only run AutoControl() when the following conditions satisfy:
+void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
+  // Only run autoControl() when the following conditions satisfy:
   //   1. button_ENTER is pressed
-  //   2. target_drip_rate is set on the website by user
-  //   3. infusion is not completed, i.e. infuse_completed = false
-  // TODO: update value of infuse_completed in other function
-  if (enable_autocontrol && (target_drip_rate != 0) && !infuse_completed) {
+  //   2. targetDripRate is set on the website by user
+  //   3. infusion is not completed, i.e. infuseCompleted = false
+  // TODO: update value of infuseCompleted in other function
+  if (enableAutoControl && (targetDripRate != 0) && !infuseCompleted) {
 
     // TODO: alert when no drop is detected, i.e. could be out of fluid or get
     // stuck
 
     // if currently SLOWER than set value -> speed up, i.e. move up
-    if (dripRate < (target_drip_rate - AUTO_CONTROL_ALLOW_RANGE)) {
+    if (dripRate < (targetDripRate - AUTO_CONTROL_ALLOW_RANGE)) {
       Motor_On_Up();
-      // analogWrite(motorCTRL_1, (1400 / 16));
-      // analogWrite(motorCTRL_2, 0);
     }
 
     // if currently FASTER than set value -> slow down, i.e. move down
-    else if (dripRate > (target_drip_rate + AUTO_CONTROL_ALLOW_RANGE)) {
+    else if (dripRate > (targetDripRate + AUTO_CONTROL_ALLOW_RANGE)) {
       Motor_On_Down();
-      // analogWrite(motorCTRL_2, (1400 / 16));
-      // analogWrite(motorCTRL_1, 0);
     }
 
     // otherwise, current drip rate is in allowed range -> stop motor
@@ -285,28 +280,23 @@ void IRAM_ATTR motorControl() {
   button_UP.loop();        // MUST call the loop() function first
   button_ENTER.loop();     // MUST call the loop() function first
   button_DOWN.loop();      // MUST call the loop() function first
-  limitSwitch_Up.loop();   // MUST call the loop() function first
-  limitSwitch_Down.loop(); // MUST call the loop() function first
-
-  // Read PWM value
-  PWMValue = analogRead(PWM_PIN);
 
   // Use button_UP to manually move up
-  if (button_UP.isPressed()) {
+  if (!button_UP.getState()) {  // touched
     buttonState = buttonState_t::UP;
     Motor_On_Up();
   }
 
   // Use button_UP to manually move down
-  if (button_DOWN.isPressed()) {
+  if (!button_DOWN.getState()) {  // touched
     buttonState = buttonState_t::DOWN;
     Motor_On_Down();
   }
 
-  // Use button_ENTER to toggle AutoControl()
-  if (button_ENTER.isPressed()) {
+  // Use button_ENTER to toggle autoControl()
+  if (button_ENTER.isPressed()) {  // pressed is different from touched
     buttonState = buttonState_t::ENTER;
-    enable_autocontrol = !enable_autocontrol;
+    enableAutoControl = !enableAutoControl;
   }
 
   if (button_UP.isReleased() || button_DOWN.isReleased() || button_ENTER.isReleased()) {
@@ -321,15 +311,15 @@ void setup() {
 
   // setup for timer0
   Timer0_cfg = timerBegin(0, 80, true); // Prescaler = 80
-  timerAttachInterrupt(Timer0_cfg, &DropSensor,
-                       true);              // call the function DropSensor()
+  timerAttachInterrupt(Timer0_cfg, &dropSensor,
+                       true);              // call the function dropSensor()
   timerAlarmWrite(Timer0_cfg, 1000, true); // Time = 1000*80/80,000,000 = 1ms
   timerAlarmEnable(Timer0_cfg);            // start the interrupt
 
   // setup for timer1
   Timer1_cfg = timerBegin(1, 80, true); // Prescaler = 80
-  timerAttachInterrupt(Timer1_cfg, &AutoControl,
-                       true);              // call the function AutoControl()
+  timerAttachInterrupt(Timer1_cfg, &autoControl,
+                       true);              // call the function autoControl()
   timerAlarmWrite(Timer1_cfg, 1000, true); // Time = 80*1000/80,000,000 = 1ms
   timerAlarmEnable(Timer1_cfg);            // start the interrupt
 
@@ -421,7 +411,7 @@ void setup() {
     // else if (request->hasParam(PARAM_AUTO_1)) {
     //   inputMessage = request->getParam(PARAM_AUTO_1)->value();
     //   writeFile(SPIFFS, "/auto1.txt", inputMessage.c_str());
-    //   target_drip_rate = inputMessage.toInt(); // convert the input from
+    //   targetDripRate = inputMessage.toInt(); // convert the input from
     //   AGIS1 to integer,
     //                                  // and store in web_but_state
     // }
@@ -450,7 +440,7 @@ void loop() {
   // DEBUG:
   // Serial.printf(
   //     "dripRate: %u \ttarget_drip_rate: %u \tmotor_state: %s\tint_time2: %u\n",
-  //     dripRate, target_drip_rate, get_motor_state(motorState), timeBtw2Drops);
+  //     dripRate, targetDripRate, get_motor_state(motorState), timeBtw2Drops);
 }
 
 // check the condition of the switch/input from web page
@@ -470,29 +460,36 @@ int check_state() {
 }
 
 void Motor_On_Up() {
-  if (limitSwitch_Up.isPressed()) {
-    // TODO: fix the limit switch problem
-    Motor_Off();
-  } else {
-    analogWrite(motorCTRL_1,
-                (PWMValue / 16)); // analogRead values go from 0 to 4095,
-                                  // analogWrite values from 0 to 255
+  limitSwitch_Up.loop();   // MUST call the loop() function first
+
+  if (limitSwitch_Up.getState()) { // untouched
+    // Read PWM value
+    PWMValue = analogRead(PWM_PIN);
+
+    analogWrite(motorCTRL_1, (PWMValue / 16)); // PWMValue: 0->4095
     analogWrite(motorCTRL_2, 0);
 
     motorState = motorState_t::UP;
   }
+  else { // touched
+    Motor_Off();
+  }
 }
 
 void Motor_On_Down() {
-  if (limitSwitch_Down.isPressed()) {
-    Motor_Off();
-  } else {
-    analogWrite(motorCTRL_2,
-                (PWMValue / 16)); // analogRead values go from 0 to 4095,
-                                  // analogWrite values from 0 to 255
+  limitSwitch_Down.loop();   // MUST call the loop() function first
+
+  if (limitSwitch_Down.getState()) { // untouched
+    // Read PWM value
+    PWMValue = analogRead(PWM_PIN);
+
+    analogWrite(motorCTRL_2, (PWMValue / 16)); // PWMValue: 0->4095
     analogWrite(motorCTRL_1, 0);
 
     motorState = motorState_t::DOWN;
+  }
+  else { // touched
+    Motor_Off();
   }
 }
 
@@ -503,20 +500,20 @@ void Motor_Off() {
   motorState = motorState_t::OFF;
 }
 
-void Motor_Run() {
-  if (Motor_Direction == LOW) {
-    Motor_On_Up();
-    if (limitSwitch_Up.isPressed()) {
-      Motor_Direction = HIGH;
-    }
-  }
-  if (Motor_Direction == HIGH) {
-    Motor_On_Down();
-    if (limitSwitch_Down.isPressed()) {
-      Motor_Direction = LOW;
-    }
-  }
-}
+// void Motor_Run() {
+//   if (Motor_Direction == LOW) {
+//     Motor_On_Up();
+//     if (limitSwitch_Up.isPressed()) {
+//       Motor_Direction = HIGH;
+//     }
+//   }
+//   if (Motor_Direction == HIGH) {
+//     Motor_On_Down();
+//     if (limitSwitch_Down.isPressed()) {
+//       Motor_Direction = LOW;
+//     }
+//   }
+// }
 
 // void Motor_Mode() {
 //   if (DripMode == LOW) {
@@ -601,8 +598,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       Serial.printf("Parse WebSocket message failed\n");
     } else {
       if (root.containsKey("SET_TARGET_DRIP_RATE_WS")) {
-        target_drip_rate = root["SET_TARGET_DRIP_RATE_WS"];
-        Serial.printf("Target drip rate is set to: %u\n", target_drip_rate);
+        targetDripRate = root["SET_TARGET_DRIP_RATE_WS"];
+        Serial.printf("Target drip rate is set to: %u\n", targetDripRate);
       }
       else if (root.containsKey("GET_DATA_WS")) {
         sendDataWs();
