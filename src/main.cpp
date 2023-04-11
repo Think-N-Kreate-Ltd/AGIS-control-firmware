@@ -320,7 +320,7 @@ void setup() {
   Timer1_cfg = timerBegin(1, 80, true); // Prescaler = 80
   timerAttachInterrupt(Timer1_cfg, &autoControl,
                        true);              // call the function autoControl()
-  timerAlarmWrite(Timer1_cfg, 1000, true); // Time = 80*1000/80,000,000 = 1ms
+  timerAlarmWrite(Timer1_cfg, 1000000, true); // Time = 80*1000/80,000,000 = 1ms
   timerAlarmEnable(Timer1_cfg);            // start the interrupt
 
   // setup for timer2
