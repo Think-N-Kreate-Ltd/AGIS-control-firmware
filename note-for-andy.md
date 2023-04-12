@@ -13,7 +13,7 @@
     - ~~read the value of sensor~~
     - ~~measure the time~~
     - ~~display the value on web page~~
-    - refresh data when drop detected
+    - ~~refresh data when drop detected~~
     - ~~plot the graph with real time~~
     - ~~update the sensor reading frequently and cancel old data~~
     - ~~keep counting no of drop~~
@@ -26,6 +26,7 @@
 	  - INA219 (current sensor?)
 	  - the a, b, c of the square wave
  - auto system
+    - calculate target drip rate
     - ~~compare the drip rate~~
     - ~~add a field and the user input the drip he want~~
     - ~~auto move the motor~~
@@ -35,7 +36,7 @@
  - other/overall
     - ~~put all the thing in INT (nothing in amin loop)~~
     - everyone can accese the web page
-    - OTA (sorry I forget what it is use for)
+    - ~~OTA for update~~
     - ~~test the motor~~
 
 ======================================
