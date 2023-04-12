@@ -102,7 +102,8 @@ volatile bool infusionCompleted = false;   // true when infusion is completed
 volatile bool infusionStarted = false;     // true when button_ENTER is pressed the 1st time
                                          // to activate autoControl()
 
-volatile bool drippingIsStable = false; // true when receiving the first NUM_DROPS_TILL_STABLE drops
+volatile bool drippingIsStable = true; // true when receiving the first NUM_DROPS_TILL_STABLE drops
+                                       // initially needs to set to true, otherwise autoControl() cannot start
 
 // To reduce the sensitive of autoControl()
 // i.e. (targetDripRate +/-5) is good enough
@@ -247,7 +248,7 @@ void IRAM_ATTR dropSensor() {
 
     // reset this to enable the next dripping stability check
     numDropsUnstable = 0;
-    drippingIsStable = false;
+    // drippingIsStable = false;
   }
   // call when the no of drops exceed target
   // TODO: replace hardcoded maximum number of drops below
