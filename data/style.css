@@ -41,3 +41,18 @@ input:checked+.slider:before {
     -ms-transform: translateX(52px);
     transform: translateX(52px)
 }
+
+input[type=text] {
+  /* width: 100%; */
+  /* padding: 12px 20px; */
+  margin: 8px 0;
+  box-sizing: border-box;
+}
+
+.drip-rate {
+    color: red;
+}
+
+.highlight-section {
+    background-color: yellow;
+}
