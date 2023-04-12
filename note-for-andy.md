@@ -105,6 +105,9 @@ I2C:
 OLED: 
  - https://www.electronicshub.org/esp32-oled-display/
 
+OTA:
+ - https://randomnerdtutorials.com/esp32-ota-over-the-air-vs-code/
+
 ======================================
 # web page code
 <!DOCTYPE HTML>
