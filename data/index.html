@@ -18,18 +18,52 @@
     AGIS 1 Down<label class='switch'><input type='checkbox' onchange='sendInput(this)' id='Down'><span
             class='slider'></span></label>
     <br>
-    <form action='/get' target='hidden-form'>
+    <!-- <form action='/get' target='hidden-form'>
         AGIS 1 (current value %input1%):
         <input name="input1" type='submit' value='Up' onchange='getValue()'>
         <input name="input1" type='submit' value='Up_and_Down' onclick='getValue()'>
         <input name="input1" type='submit' value='Down' onclick='getValue()'>
         <input name="input1" type='submit' value='STOP' onclick='getValue()'>
-    </form><br>
+    </form><br> -->
 
-    <label for="AGIS1">Set Target Drip Rate:</label>
-    <input type="text" id="target_drip_rate_input">
-    <input type="submit" value="Set" onclick="setTargetDripRate()">
-    <!-- <br>testing value: <div id="test">testing</div> -->
+    <br>
+    <form oninput="calculateTargetDripRate()">
+        <!-- Total volume to be infused -->
+        <div>Total volume to be infused (VTBI):</div>
+        <input type="text" id="VTBI" name="VTBI" required>
+        <label for="fname">mL</label><br>
+
+        <!-- Total time -->
+        <!-- TODO: some cases you don't need to fill in both hours and minutes -->
+        <div>Total time:</div>
+        <input type="text" id="total_time_hours" name="total_time_hours" required>
+        <label for="total_time_hours">hours</label>
+        <input type="text" id="total_time_minutes" name="total_time_minutes" required>
+        <label for="total_time_minutes">minutes</label><br>
+
+        <!-- Drop factor -->
+        <div>Drop factor:</div>
+        <input type="radio" id="drop_factor_10" name="drop_factor" value="10" required>
+        <label for="drop_factor_10">10 drops/mL</label><br>
+
+        <input type="radio" id="drop_factor_15" name="drop_factor" value="15">
+        <label for="drop_factor_15">15 drops/mL</label><br>
+
+        <input type="radio" id="drop_factor_20" name="drop_factor" value="20">
+        <label for="drop_factor_20">20 drops/mL</label><br>
+
+        <input type="radio" id="drop_factor_60" name="drop_factor" value="60">
+        <label for="drop_factor_60">60 drops/mL</label><br><br>
+
+        <!-- Derive the drip rate based on inputs -->
+        <div>Drip rate (drops/min):</div>
+        <output class="drip-rate" id="drip_rate" name="drip_rate">Please fill in all inputs</output>
+
+        <!-- Button to send the target drip rate to ESP32 -->
+        <br><br>
+        <input type="button" name="set_button" value="Set" onclick="setTargetDripRate()">
+        <label for="submit_button">(send target drip rate to device)</label><br><br>
+    </form>
 
     <table>
         <tr>
@@ -56,32 +90,32 @@
                 <div id="total_time_value">Not started</div>
             </td>
         </tr>
+
         <tr>
-            <td>Drip rate (drops/min): </td>
+            <td class="highlight-section">Drip rate (drops/min): </td>
             <td>
                 <div id="drip_rate_value">Not started</div>
+            </td>
+        </tr>
+
+        <tr>
+            <td class="highlight-section">Infused volume (mL): </td>
+            <td>
+                <div id="infused_volume_value">Not started</div>
+            </td>
+        </tr>
+        <tr>
+            <!-- TODO: convert to human readable, e.g. xx hours yy minutes zz seconds -->
+            <td class="highlight-section">Infused time (seconds): </td>
+            <td>
+                <div id="infused_time_value">Not started</div>
             </td>
         </tr>
     </table>
     <br><br>
 
 
-    <!-- <form action='/get' target='hidden-form'>
-        AGIS 2 (current value %input2%):
-        <input name='input2' type='submit' value='Up' onclick='getValue()'>
-        <input name='input2' type='submit' value='Up_and_Down' onclick='getValue()'>
-        <input name='input2' type='submit' value='Down' onclick='getValue()'>
-        <input name='input2' type='submit' value='STOP' onclick='getValue()'>
-    </form><br>
-
-    <form action='/get' target='hidden-form'> AGIS 3 (current value %input3%):
-        <input name='input3' type='submit' value='Up' onclick='getValue()'>
-        <input name='input3' type='submit' value='Up_and_Down' onclick='getValue()'>
-        <input name='input3' type='submit' value='Down' onclick='getValue()'>
-        <input name='input3' type='submit' value='STOP' onclick='getValue()'>
-    </form><br>
-
-    <iframe style="display:none" name="hidden-form"></iframe>
+    <!-- <iframe style="display:none" name="hidden-form"></iframe>
 
     <div id='sendsensor'>testing value</div>
     <figure class="highcharts-figure">
