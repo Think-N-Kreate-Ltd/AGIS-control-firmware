@@ -51,9 +51,6 @@ droppingState_t droppingState = droppingState_t::NOT_STARTED;
 // volatile bool dropStarted = false; 
 
 // var for checking the time
-volatile bool print_state = false; // true if it is printing currently
-volatile bool phase_change_for_timer1 = false; // true if timer1 phase chenge
-volatile int time_1ms = 0;                     // count for every 1ms passed
 volatile bool no_drop_with_20s = false; // true if no drop appears in next 20s
 volatile bool volume_exceed = false;    // true if numDrops exceed amount
 
@@ -190,66 +187,55 @@ hw_timer_t *Timer2_cfg = NULL; // create a pointer for timer2
 
 // timer0 interrupt, for sensor detected drops and measure the time
 void IRAM_ATTR dropSensor() {
-  static int phase;
   static bool occur_state = false; // true when obstacle detected
   static int time_for_no_drop; // counting when no drop appears, for measuring
                                // the time that have no drop
-  if (phase == 0) {
-    occur = digitalRead(SENSOR_PIN); // read the sensor value
-    phase++;
+
+  occur = digitalRead(SENSOR_PIN); // read the sensor value
+
+  if (occur == 1) {
+    time_for_no_drop = 0;
+    no_drop_with_20s = false;
+    droppingState = droppingState_t::STARTED; // droping has started
+    if (!occur_state) { // condition that check for the drop is just detected
+      occur_state = true;
+      next_time = millis();                  // record the time for measuring
+      totalTime += (next_time - start_time); // measure the time
+      numDrops++;                            // counting the drop
+      timeBtw2Drops = next_time - start_time;    // measure the time
+      start_time = millis(); // record th time for measuring
+    }
+  }
+  else if (occur == 0) {
+    time_for_no_drop++;
+    if (occur_state) {
+      leave_time = millis(); // record the time for measuring
+      occur_state = false;
+      time1Drop = leave_time - start_time;
+    }
   }
 
-  if (phase == 1) {
-    if (occur == 1) {
-      time_for_no_drop = 0;
-      no_drop_with_20s = false;
-      droppingState = droppingState_t::STARTED; // droping has started
-      if (!occur_state) { // condition that check for the drop is just detected
-        occur_state = true;
-        next_time = millis();                  // record the time for measuring
-        totalTime += (next_time - start_time); // measure the time
-        numDrops++;                            // counting the drop
-        timeBtw2Drops = next_time - start_time;    // measure the time
-        start_time = millis(); // record th time for measuring
-      }
-    }
-    if (occur == 0) {
-      time_for_no_drop++;
-      if (occur_state) {
-        leave_time = millis(); // record the time for measuring
-        occur_state = false;
-        time1Drop = leave_time - start_time;
-      }
-    }
-    phase++;
-  }
-  if (phase == 2) {
-    // call when no drop appears within 20s, reset all data
-    if ((time_for_no_drop >= 20000) && (droppingState == droppingState_t::STARTED)) {
-      time1Drop = 0;
-      // numDrops = 0;
+  // call when no drop appears within 20s, reset all data
+  if ((time_for_no_drop >= 20000) && (droppingState == droppingState_t::STARTED)) {
+    time1Drop = 0;
+    // numDrops = 0;
 
-      // TODO: how do we define totalTime? Should it be RTC time or only the time
-      // when we have drops?
-      totalTime = 0;
-      no_drop_with_20s = true;
+    // TODO: how do we define totalTime? Should it be RTC time or only the time
+    // when we have drops?
+    totalTime = 0;
+    no_drop_with_20s = true;
 
-      // set timeBtw2Drops to a very large number
-      timeBtw2Drops = UINT_MAX;
-      droppingState = droppingState_t::STOPPED;
-    }
-    // call when the no of drops exceed target
-    // TODO: replace hardcoded maximum number of drops below
-    if (numDrops >= 500) {
-      volume_exceed = true;
-      // TODO: alert volume exceed
-      // alert("VolumeExceed");
-    }
-    phase = 0;
+    // set timeBtw2Drops to a very large number
+    timeBtw2Drops = UINT_MAX;
+    droppingState = droppingState_t::STOPPED;
   }
-  time_1ms++;                     // count for 1ms
-  print_state = true;             // start printing
-  phase_change_for_timer1 = true; // allow timer1 1 INT phase counting
+  // call when the no of drops exceed target
+  // TODO: replace hardcoded maximum number of drops below
+  if (numDrops >= 500) {
+    volume_exceed = true;
+    // TODO: alert volume exceed
+    // alert("VolumeExceed");
+  }
 
   // get latest value of dripRate
   dripRate = 60000 / timeBtw2Drops; // TODO: explain this formular
