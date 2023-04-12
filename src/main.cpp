@@ -11,7 +11,9 @@ https://RandomNerdTutorials.com/esp32-esp8266-input-data-html-form/
 *********/
 /*
   wifi ssid:AutoConnectAP, password:password.
-  GPIO36 -> reading sensor data (Change in L28)
+  go to http://<IPAddress>/update for OTA update
+  upload firmware.bin for main, spiffs.bin for SPIFFS files
+  GPIO36 -> reading sensor data (Change in L34)
   timer0 -> read sensor & time measure
   timer1 -> auto control
   timer2 -> control the motor
@@ -26,6 +28,7 @@ https://RandomNerdTutorials.com/esp32-esp8266-input-data-html-form/
 #include <ezButton.h>
 #include <limits.h>
 #include <ArduinoJson.h>
+#include <AsyncElegantOTA.h>  // define after <ESPAsyncWebServer.h>
 
 // TODO: refactor names, follow standard naming conventions
 
@@ -455,6 +458,7 @@ void setup() {
     //                                 "<a href=\"/\">Return to Home Page</a>");
   });
   server.onNotFound(notFound); // if 404 not found, go to 404 not found
+  AsyncElegantOTA.begin(&server); // for OTA update
   server.begin();
 }
 
