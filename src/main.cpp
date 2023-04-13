@@ -71,8 +71,9 @@ volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
 volatile float infusedVolume = 0;  // unit: mL
 volatile unsigned int infusedTime = 0;     // unit: seconds
 
-volatile unsigned int dripRateSampleCount = 0;  // use for drip rate sampling
+volatile unsigned int dripRateSamplingCount = 0;  // use for drip rate sampling
 volatile unsigned int numDropsInterval = 0;  // number of drops in 15 seconds
+volatile unsigned int autoControlCount = 0;  // use for regulating frequency of motor is on
 
 // var for timer2 interrupt
 int PWMValue = 0; // PWM value to control the speed of motor
@@ -109,13 +110,15 @@ volatile bool drippingIsStable = true; // true when receiving the first NUM_DROP
                                        // initially needs to set to true, otherwise autoControl() cannot start
 
 volatile bool firstDropDetected = false; // to check when we receive the 1st drop
+volatile bool autoControlOnPeriod = false;
 
 // To reduce the sensitive of autoControl()
 // i.e. (targetDripRate +/-5) is good enough
 #define AUTO_CONTROL_ALLOW_RANGE 5
 // assuming that after the xth drop, the drip rate will be stable
 #define NUM_DROPS_TILL_STABLE    10  // here, x = 10
-#define DRIP_RATE_SAMPLE_PERIOD  15   // 15 seconds
+#define DRIP_RATE_SAMPLE_PERIOD  5   // 5 seconds
+#define AUTO_CONTROL_ON_TIME     50  // motor will be enabled for this amount of time (unit: ms)
 
 // WiFiManager, Local intialization. Once its business is done, there is no need
 // to keep it around
@@ -205,7 +208,7 @@ void IRAM_ATTR dropSensor() {
 
   occur = digitalRead(SENSOR_PIN); // read the sensor value
 
-  dripRateSampleCount++;  // increment 1ms
+  dripRateSamplingCount++;  // increment 1ms
 
   if (occur == 1) {
     time_for_no_drop = 0;
@@ -216,11 +219,11 @@ void IRAM_ATTR dropSensor() {
 
       // check if this is the 1st drop
       // stop the motor and disable autoControl()
-      if (!firstDropDetected) {
-        firstDropDetected = true;
-        Motor_Off();
-        enableAutoControl = false;
-      }
+      // if (!firstDropDetected) {
+      //   firstDropDetected = true;
+      //   Motor_Off();
+      //   enableAutoControl = false;
+      // }
 
       numDropsInterval++;
 
@@ -283,18 +286,19 @@ void IRAM_ATTR dropSensor() {
   }
 
   // Calculate dripRate using number of drops in every DRIP_RATE_SAMPLE_PERIOD seconds
-  if (dripRateSampleCount == (DRIP_RATE_SAMPLE_PERIOD * 1000)) {
-    // 5 seconds reached
-    dripRate = numDropsInterval * (60 / DRIP_RATE_SAMPLE_PERIOD);
+  // if (dripRateSamplingCount == (DRIP_RATE_SAMPLE_PERIOD * 1000)) {
+  //   // 15 seconds reached
+  //   dripRate = numDropsInterval * (60 / DRIP_RATE_SAMPLE_PERIOD);
+  //   // enableAutoControl = true;
 
-    // reset for the next sampling
-    dripRateSampleCount = 0;
-    numDropsInterval = 0;
-  }
+  //   // reset for the next sampling
+  //   dripRateSamplingCount = 0;
+  //   numDropsInterval = 0;
+  // }
 
   // NOTE: below calculation will return unstable dripRate
   // get latest value of dripRate
-  // dripRate = 60000 / timeBtw2Drops; // TODO: explain this formular
+  dripRate = 60000 / timeBtw2Drops; // TODO: explain this formular
 
   // NOTE: maybe we should average most recent dripRate,
   // s.t. the auto control is not too sensitive and motor runs too frequently
@@ -307,7 +311,12 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
   //   3. targetDripRate is set on the website by user
   //   4. infusion is not completed, i.e. infusionCompleted = false
   // TODO: update value of infusionCompleted in other function
-  if (enableAutoControl && (targetDripRate != 0) && !infusionCompleted) {
+
+  autoControlCount++;
+  // on for 100 ms, off for 900 ms
+  autoControlOnPeriod = (0 <= autoControlCount) && (autoControlCount <= AUTO_CONTROL_ON_TIME);
+
+  if (enableAutoControl && autoControlOnPeriod && (targetDripRate != 0) && !infusionCompleted) {
 
     // TODO: alert when no drop is detected, i.e. could be out of fluid or get
     // stuck
@@ -326,6 +335,14 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
     else {
       Motor_Off();
     }
+  }
+  else {
+    Motor_Off();
+  }
+
+  // reset this for the next autoControl()
+  if (autoControlCount == 1000) {   // reset count every 2s
+    autoControlCount = 0;
   }
 }
 
@@ -388,7 +405,7 @@ void setup() {
   Timer1_cfg = timerBegin(1, 80, true); // Prescaler = 80
   timerAttachInterrupt(Timer1_cfg, &autoControl,
                        true);              // call the function autoControl()
-  timerAlarmWrite(Timer1_cfg, 1000000, true); // Time = 80*1000/80,000,000 = 1ms
+  timerAlarmWrite(Timer1_cfg, 1000, true); // Time = 80*1000/80,000,000 = 1ms
   timerAlarmEnable(Timer1_cfg);            // start the interrupt
 
   // setup for timer2
@@ -511,7 +528,7 @@ void loop() {
   //     "dripRate: %u \ttarget_drip_rate: %u \tmotor_state: %s\tint_time2: %u\n",
   //     dripRate, targetDripRate, get_motor_state(motorState), timeBtw2Drops);
 
-  // Serial.printf("dripRateSampleCount: %d \tnumDropsInterval: %d\n", dripRateSampleCount, numDropsInterval);
+  // Serial.printf("%d\n", autoControlOnPeriod);
 }
 
 // check the condition of the switch/input from web page
