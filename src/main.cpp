@@ -43,7 +43,8 @@ https://RandomNerdTutorials.com/esp32-esp8266-input-data-html-form/
 #define OLED_CS     42
 #define OLED_RESET  17
 
-#define SENSOR_PIN 36 // input pin for geting output from sensor
+#define SENSOR_OUT 36 // input pin for geting output from sensor
+#define SENSOR_IN 37  // input pin for input signal to sensor
 
 #define motorCTRL_1 15 // Motorl Control Board PWM 1
 #define motorCTRL_2 16 // Motorl Control Board PWM 2
@@ -212,7 +213,7 @@ const char *PARAM_INPUT_3 = "input3";
 const char *PARAM_AUTO_1 = "auto1";
 
 // Function prototypes
-void tableOledDisplay();
+void tableOledDisplay(int n, int m, int o, char * s);
 void alertOledDisplay(const char* s);
 int check_state();
 void Motor_On_Up();
@@ -279,12 +280,13 @@ void IRAM_ATTR dropSensor() {
   static int time_for_no_drop; // counting when no drop appears, for measuring
                                // the time that have no drop
   if (phase == 0) {
-    occur = digitalRead(SENSOR_PIN); // read the sensor value
+    occur = digitalRead(SENSOR_OUT); // read the sensor value
     phase++;
   }
 
   if (phase == 1) {
-    if (occur == 1) {
+      // if (occur == 1) {
+      if (occur == 0) {
       time_for_no_drop = 0;
       no_drop_with_20s = false;
       droppingState = droppingState_t::STARTED; // droping has started
@@ -297,7 +299,8 @@ void IRAM_ATTR dropSensor() {
         start_time = millis(); // record th time for measuring
       }
     }
-    if (occur == 0) {
+    // if (occur == 0) {
+    if (occur == 1) {
       time_for_no_drop++;
       if (occur_state) {
         leave_time = millis(); // record the time for measuring
@@ -324,7 +327,7 @@ void IRAM_ATTR dropSensor() {
     }
     // call when the no of drops exceed target
     // TODO: replace hardcoded maximum number of drops below
-    if (numDrops >= 500) {
+    if (numDrops >= 5000) {
       volume_exceed = true;
       // TODO: alert volume exceed
       // alert("VolumeExceed");
@@ -421,13 +424,25 @@ void IRAM_ATTR OledDisplay(){
   } else if (no_drop_with_20s) {
     alertOledDisplay("Out of Field");
   } else {
-    tableOledDisplay();
+    static int v;
+    static int n;
+    static int m;
+    static int o;
+    static char* s;
+    v = numDrops * 100 / dropFactor;
+    n = v / 100;
+    m = (v - (v / 100) * 100) / 10;
+    o = v - (v / 10) * 10;
+    s = "1";
+    tableOledDisplay(n, m, o, s);
   }
 }
 
 void setup() {
   Serial.begin(9600);
-  pinMode(SENSOR_PIN, INPUT);
+  pinMode(SENSOR_OUT, INPUT);
+  pinMode(SENSOR_IN, OUTPUT);
+  digitalWrite(SENSOR_IN, HIGH);
 
   // Initialize OLED
   if(!display.begin(SSD1306_SWITCHCAPVCC)) {
@@ -583,28 +598,21 @@ void loop() {
 
 // display the table on the screen
 // only one display.display() should be used
-void tableOledDisplay() {
+void 
+tableOledDisplay(int n, int m, int o, char * s) {
   // initialize setting of display
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);  // draw 'on' pixels
 
   display.setCursor(1,16);  // set the position of the first letter
-  display.printf("Time for 1 drop: %d\n", time1Drop);
+  display.printf("Drip rate: %d\n", dripRate);
 
-  // place is not enough, so the space between ":" and value is deleted
-  // TODO: add the space back
   display.setCursor(1,24);  // set the position of the first letter
-  display.printf("Time btw 2 drops:%d\n", timeBtw2Drops);
+  display.printf("Infused volume: %d.%d%d\n", n, m, o);
 
   display.setCursor(1,32);  // set the position of the first letter
-  display.printf("No of drops: %d\n", numDrops);
-
-  display.setCursor(1,40);  // set the position of the first letter
-  display.printf("Total time: %d\n", totalTime);
-    
-  display.setCursor(1,48);  // set the position of the first letter
-  display.printf("Drip rate: %d\n", dripRate);
+  display.printf("Infused time: %d\n", infusedTime);
   display.display();
 }
 
