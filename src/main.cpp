@@ -111,7 +111,7 @@ volatile bool firstDropDetected = false; // to check when we receive the 1st dro
 // i.e. (targetDripRate +/-5) is good enough
 #define AUTO_CONTROL_ALLOW_RANGE 5
 // assuming that after the xth drop, the drip rate will be stable
-#define NUM_DROPS_TILL_STABLE    5  // here, x = 5
+#define NUM_DROPS_TILL_STABLE    10  // here, x = 10
 
 // WiFiManager, Local intialization. Once its business is done, there is no need
 // to keep it around
@@ -218,21 +218,22 @@ void IRAM_ATTR dropSensor() {
 
       occur_state = true;
       numDrops++;       // counting the drop
-      next_time = millis();
+      next_time = micros();
       timeBtw2Drops = next_time - start_time;
       totalTime += timeBtw2Drops;
-      start_time = millis();  // need to update the start_time
+      start_time = micros();  // need to update the start_time
 
-      // Dripping stability check:
-      if (numDropsUnstable == NUM_DROPS_TILL_STABLE) {
-        // here the dripping should be stable, enable the motor
-        drippingIsStable = true;
-      }
-      else {
-        // since the dripping is not stable yet, disable the motor
-        drippingIsStable = false;
-        numDropsUnstable++;  // still not enough drops to be stable
-      }
+
+      // DRIPPING STABILITY CHECK:
+      // if (numDropsUnstable == NUM_DROPS_TILL_STABLE) {
+      //   // here the dripping should be stable, enable the motor
+      //   drippingIsStable = true;
+      // }
+      // else {
+      //   // since the dripping is not stable yet, disable the motor
+      //   drippingIsStable = false;
+      //   numDropsUnstable++;  // still not enough drops to be stable
+      // }
     }
   }
   else if (occur == 0) {
@@ -263,8 +264,7 @@ void IRAM_ATTR dropSensor() {
 
 
     // reset this to enable the next dripping stability check
-    numDropsUnstable = 0;
-    // drippingIsStable = false;
+    // numDropsUnstable = 0;
   }
   // call when the no of drops exceed target
   // TODO: replace hardcoded maximum number of drops below
@@ -275,7 +275,7 @@ void IRAM_ATTR dropSensor() {
   }
 
   // get latest value of dripRate
-  dripRate = 60000 / timeBtw2Drops; // TODO: explain this formular
+  dripRate = 60000000 / timeBtw2Drops; // TODO: explain this formular
 
   // NOTE: maybe we should average most recent dripRate,
   // s.t. the auto control is not too sensitive and motor runs too frequently
@@ -288,7 +288,7 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
   //   3. targetDripRate is set on the website by user
   //   4. infusion is not completed, i.e. infusionCompleted = false
   // TODO: update value of infusionCompleted in other function
-  if (enableAutoControl && drippingIsStable && (targetDripRate != 0) && !infusionCompleted) {
+  if (enableAutoControl && (targetDripRate != 0) && !infusionCompleted) {
 
     // TODO: alert when no drop is detected, i.e. could be out of fluid or get
     // stuck
