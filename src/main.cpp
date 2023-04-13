@@ -105,6 +105,8 @@ volatile bool infusionStarted = false;     // true when button_ENTER is pressed 
 volatile bool drippingIsStable = true; // true when receiving the first NUM_DROPS_TILL_STABLE drops
                                        // initially needs to set to true, otherwise autoControl() cannot start
 
+volatile bool firstDropDetected = false; // to check when we receive the 1st drop
+
 // To reduce the sensitive of autoControl()
 // i.e. (targetDripRate +/-5) is good enough
 #define AUTO_CONTROL_ALLOW_RANGE 5
@@ -204,6 +206,16 @@ void IRAM_ATTR dropSensor() {
     no_drop_with_20s = false;
     droppingState = droppingState_t::STARTED; // droping has started
     if (!occur_state) { // condition that check for the drop is just detected
+
+
+      // check if this is the 1st drop
+      // stop the motor and disable autoControl()
+      if (!firstDropDetected) {
+        firstDropDetected = true;
+        Motor_Off();
+        enableAutoControl = false;
+      }
+
       occur_state = true;
       numDrops++;       // counting the drop
       next_time = millis();
@@ -245,6 +257,10 @@ void IRAM_ATTR dropSensor() {
     // set timeBtw2Drops to a very large number
     timeBtw2Drops = UINT_MAX;
     droppingState = droppingState_t::STOPPED;
+
+    // reset this to enable the next first drop detection
+    firstDropDetected = false;
+
 
     // reset this to enable the next dripping stability check
     numDropsUnstable = 0;
