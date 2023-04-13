@@ -218,10 +218,10 @@ void IRAM_ATTR dropSensor() {
 
       occur_state = true;
       numDrops++;       // counting the drop
-      next_time = micros();
+      next_time = millis();
       timeBtw2Drops = next_time - start_time;
       totalTime += timeBtw2Drops;
-      start_time = micros();  // need to update the start_time
+      start_time = millis();  // need to update the start_time
 
 
       // DRIPPING STABILITY CHECK:
@@ -275,7 +275,7 @@ void IRAM_ATTR dropSensor() {
   }
 
   // get latest value of dripRate
-  dripRate = 60000000 / timeBtw2Drops; // TODO: explain this formular
+  dripRate = 60000 / timeBtw2Drops; // TODO: explain this formular
 
   // NOTE: maybe we should average most recent dripRate,
   // s.t. the auto control is not too sensitive and motor runs too frequently
