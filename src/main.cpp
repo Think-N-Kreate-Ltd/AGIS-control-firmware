@@ -71,6 +71,9 @@ volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
 volatile float infusedVolume = 0;  // unit: mL
 volatile unsigned int infusedTime = 0;     // unit: seconds
 
+volatile unsigned int dripRateSampleCount = 0;  // use for drip rate sampling
+volatile unsigned int numDropsInterval = 0;  // number of drops in 15 seconds
+
 // var for timer2 interrupt
 int PWMValue = 0; // PWM value to control the speed of motor
 int Motor_Direction = LOW;
@@ -112,6 +115,7 @@ volatile bool firstDropDetected = false; // to check when we receive the 1st dro
 #define AUTO_CONTROL_ALLOW_RANGE 5
 // assuming that after the xth drop, the drip rate will be stable
 #define NUM_DROPS_TILL_STABLE    10  // here, x = 10
+#define DRIP_RATE_SAMPLE_PERIOD  15   // 15 seconds
 
 // WiFiManager, Local intialization. Once its business is done, there is no need
 // to keep it around
@@ -201,6 +205,8 @@ void IRAM_ATTR dropSensor() {
 
   occur = digitalRead(SENSOR_PIN); // read the sensor value
 
+  dripRateSampleCount++;  // increment 1ms
+
   if (occur == 1) {
     time_for_no_drop = 0;
     no_drop_with_20s = false;
@@ -215,6 +221,8 @@ void IRAM_ATTR dropSensor() {
         Motor_Off();
         enableAutoControl = false;
       }
+
+      numDropsInterval++;
 
       occur_state = true;
       numDrops++;       // counting the drop
@@ -274,8 +282,19 @@ void IRAM_ATTR dropSensor() {
     // alert("VolumeExceed");
   }
 
+  // Calculate dripRate using number of drops in every DRIP_RATE_SAMPLE_PERIOD seconds
+  if (dripRateSampleCount == (DRIP_RATE_SAMPLE_PERIOD * 1000)) {
+    // 5 seconds reached
+    dripRate = numDropsInterval * (60 / DRIP_RATE_SAMPLE_PERIOD);
+
+    // reset for the next sampling
+    dripRateSampleCount = 0;
+    numDropsInterval = 0;
+  }
+
+  // NOTE: below calculation will return unstable dripRate
   // get latest value of dripRate
-  dripRate = 60000 / timeBtw2Drops; // TODO: explain this formular
+  // dripRate = 60000 / timeBtw2Drops; // TODO: explain this formular
 
   // NOTE: maybe we should average most recent dripRate,
   // s.t. the auto control is not too sensitive and motor runs too frequently
@@ -492,7 +511,7 @@ void loop() {
   //     "dripRate: %u \ttarget_drip_rate: %u \tmotor_state: %s\tint_time2: %u\n",
   //     dripRate, targetDripRate, get_motor_state(motorState), timeBtw2Drops);
 
-  // Serial.printf("drippingIsStable: %d\n", drippingIsStable);
+  // Serial.printf("dripRateSampleCount: %d \tnumDropsInterval: %d\n", dripRateSampleCount, numDropsInterval);
 }
 
 // check the condition of the switch/input from web page

@@ -1,5 +1,5 @@
 // Some define that can be quicky changed by developer
-const GET_DATA_INTERVAL = 500; // in milliseconds, avoid setting this number too small
+const GET_DATA_INTERVAL = 1000; // in milliseconds, avoid setting this number too small
 const DRIP_RATE_NOT_SET = -1;
 
 // Using Websocket for communication between server and clients
