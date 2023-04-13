@@ -21,7 +21,7 @@
     - use SPI & SD card to store the data
  - display on OLED
     - ~~LCD display sensor value~~
-    - use OLED to display sensor value
+    - ~~use OLED to display sensor value~~
     - display two graph: current & drop count(later)
 	  - INA219 (current sensor?)
 	  - the a, b, c of the square wave
