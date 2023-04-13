@@ -217,13 +217,13 @@ void IRAM_ATTR dropSensor() {
     if (!occur_state) { // condition that check for the drop is just detected
 
 
-      // check if this is the 1st drop
+      // FIRST DROP DETECTION
       // stop the motor and disable autoControl()
-      // if (!firstDropDetected) {
-      //   firstDropDetected = true;
-      //   Motor_Off();
-      //   enableAutoControl = false;
-      // }
+      if (!firstDropDetected) {
+        firstDropDetected = true;
+        // Motor_Off();
+        // enableAutoControl = false;
+      }
 
       numDropsInterval++;
 
@@ -313,8 +313,13 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
   // TODO: update value of infusionCompleted in other function
 
   autoControlCount++;
-  // on for 100 ms, off for 900 ms
-  autoControlOnPeriod = (0 <= autoControlCount) && (autoControlCount <= AUTO_CONTROL_ON_TIME);
+  if (firstDropDetected) {
+    // on for 50 ms, off for 950 ms
+    autoControlOnPeriod = (0 <= autoControlCount) && (autoControlCount <= AUTO_CONTROL_ON_TIME);
+  }
+  else {
+    autoControlOnPeriod = true;  // no limitation on motor on period
+  }
 
   if (enableAutoControl && autoControlOnPeriod && (targetDripRate != 0) && !infusionCompleted) {
 
