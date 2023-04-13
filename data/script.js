@@ -1,11 +1,18 @@
 // Some define that can be quicky changed by developer
-const GET_DATA_INTERVAL = 200; // in milliseconds
+const GET_DATA_INTERVAL = 500; // in milliseconds, avoid setting this number too small
+const DRIP_RATE_NOT_SET = -1;
 
 // Using Websocket for communication between server and clients
 var gateway = `ws://${window.location.hostname}/ws`;
 var websocket;
 window.addEventListener('load', onLoad);
 
+// Variables for infusion
+var vtbi;
+var total_time_hours;
+var total_time_minutes;
+var drop_factor_obj;
+var target_drip_rate = DRIP_RATE_NOT_SET;
 
 
 function onLoad(event) {
@@ -61,6 +68,8 @@ function onWsMessage(event) {
         document.getElementById("num_drops_value").innerHTML = text;
         document.getElementById("total_time_value").innerHTML = text;
         document.getElementById("drip_rate_value").innerHTML = text;
+        document.getElementById("infused_volume_value").innerHTML = text;
+        document.getElementById("infused_time_value").innerHTML = text;
     }
     //  only update when dropping has started
     else if (droppingState === droppingState_t.STARTED) {
@@ -69,18 +78,22 @@ function onWsMessage(event) {
         var numDrops = dataObj["NUM_DROPS"];
         var totalTime = dataObj["TOTAL_TIME"];
         var dripRate = dataObj["DRIP_RATE"];
+        var infusedVolume = dataObj["INFUSED_VOLUME"];
+        var infusedVolumeRounded = parseFloat(infusedVolume).toFixed(2);
+        var infusedTime = dataObj["INFUSED_TIME"];
 
         document.getElementById("time_1_drop_value").innerHTML = time1Drop;
         document.getElementById("time_btw_2_drops_value").innerHTML = time_btw_2_drops;
         document.getElementById("num_drops_value").innerHTML = numDrops;
         document.getElementById("total_time_value").innerHTML = totalTime;
         document.getElementById("drip_rate_value").innerHTML = dripRate;
+        document.getElementById("infused_volume_value").innerHTML = infusedVolumeRounded;
+        document.getElementById("infused_time_value").innerHTML = infusedTime;
     }
     else if (droppingState === droppingState_t.STOPPED) {
         let text = "No recent drop";
         document.getElementById("time_1_drop_value").innerHTML = text;
         document.getElementById("time_btw_2_drops_value").innerHTML = text;
-        document.getElementById("num_drops_value").innerHTML = text;
         document.getElementById("total_time_value").innerHTML = text;
         document.getElementById("drip_rate_value").innerHTML = text;
     }
@@ -111,63 +124,6 @@ function get_data() {
 
 /* -----------End Websocket------------- */
 
-
-var DR = 0;
-var drop_rate = 0;
-
-// setInterval(function () { refreshtime1(); refreshtime2(); refreshno_of_drop(); refreshtotal_time(); refreshdrop_rate(); }, 1000);
-
-// function refreshtime1() {
-//     var xhttp = new XMLHttpRequest();
-//     xhttp.onreadystatechange = function () {
-//         document.getElementById("sendtime1").innerHTML = this.responseText;
-//     };
-//     xhttp.open("GET", "sendtime1", true);
-//     xhttp.send();
-// }
-
-// function refreshtime2() {
-//     var xhttp = new XMLHttpRequest();
-//     xhttp.onreadystatechange = function () {
-//         document.getElementById("sendtime2").innerHTML = this.responseText;
-//         if (((this.responseText) === "not started") || ((this.responseText) === "no drop appears currently")) {
-//             drop_rate = 0;
-//         }
-//         else {
-//             drop_rate = 60000 / parseInt(this.responseText);
-//         }
-//     };
-//     xhttp.open("GET", "sendtime2", true);
-//     xhttp.send();
-// }
-
-// function refreshno_of_drop() {
-//     var xhttp = new XMLHttpRequest();
-//     xhttp.onreadystatechange = function () {
-//         document.getElementById("sendno_of_drop").innerHTML = this.responseText;
-//     };
-//     xhttp.open("GET", "sendno_of_drop", true);
-//     xhttp.send();
-// }
-
-// function refreshtotal_time() {
-//     var xhttp = new XMLHttpRequest();
-//     xhttp.onreadystatechange = function () {
-//         document.getElementById("sendtotal_time").innerHTML = (parseFloat(this.responseText) / 1000).toString();
-//     };
-//     xhttp.open("GET", "sendtotal_time", true);
-//     xhttp.send();
-// }
-
-// function refreshdrop_rate() {
-//     var xhttp = new XMLHttpRequest();
-//     xhttp.onreadystatechange = function () {
-//         document.getElementById("senddrop_rate").innerHTML = drop_rate;
-//     };
-//     xhttp.open("GET", "senddrop_rate", true);
-//     xhttp.send();
-// }
-
 function getValue() {
     setTimeout(function () {
         document.location.reload(false);
@@ -182,22 +138,41 @@ function sendInput(element) {
 }
 
 function setTargetDripRate() {
-    if (Number.isInteger(parseInt((document.getElementById("target_drip_rate_input").value)))) {
-        DR = (parseInt(document.getElementById("target_drip_rate_input").value)).toString();
-        // var xhttp = new XMLHttpRequest();
-        // xhttp.open("GET", "/get?auto1=" + DR, true);
-        // xhttp.send();
-
+    if (target_drip_rate != DRIP_RATE_NOT_SET) {
         const msg = {
-            SET_TARGET_DRIP_RATE_WS: DR
-            // date: Date.now(),
+            SET_VTBI_WS: vtbi,
+            SET_TOTAL_TIME_HOURS_WS: total_time_hours,
+            SET_TOTAL_TIME_MINUTES_WS: total_time_minutes,
+            SET_DROP_FACTOR_WS: drop_factor_obj.value,
+            SET_TARGET_DRIP_RATE_WS: target_drip_rate
+            // date: Date.now(),  // may need later
         };
         websocket.send(JSON.stringify(msg));
         console.log(JSON.stringify(msg));
     }
     else {
-        alert("Please enter an integer");
+        alert("Please fill in all inputs");
     }
+}
+
+// Call this function when receiving user inputs
+function calculateTargetDripRate() {
+    vtbi = parseInt(document.getElementById("VTBI").value);
+    total_time_hours = parseInt(document.getElementById("total_time_hours").value);
+    total_time_minutes = parseInt(document.getElementById("total_time_minutes").value);
+    drop_factor_obj = document.querySelector('input[name="drop_factor"]:checked');
+
+    // check if all inputs satisfy
+    if (Number.isInteger(vtbi) && Number.isInteger(total_time_hours)
+        && Number.isInteger(total_time_minutes) && (drop_factor_obj != null)) {
+
+        // Calculate drip rate based on formular
+        target_drip_rate = vtbi / (total_time_hours*60 + total_time_minutes) * drop_factor_obj.value;
+        // TODO: handle boundary cases
+        document.getElementById("drip_rate").style.color = "green"
+        document.getElementById("drip_rate").innerHTML = target_drip_rate.toString();
+    }
+    // TODO: handle unsatisfy inputs
 }
 
 // var chartT = new Highcharts.Chart({

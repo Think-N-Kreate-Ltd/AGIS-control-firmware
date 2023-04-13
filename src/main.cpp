@@ -11,7 +11,9 @@ https://RandomNerdTutorials.com/esp32-esp8266-input-data-html-form/
 *********/
 /*
   wifi ssid:AutoConnectAP, password:password.
-  GPIO36 -> reading sensor data (Change in L28)
+  go to http://<IPAddress>/update for OTA update
+  upload firmware.bin for main, spiffs.bin for SPIFFS files
+  GPIO36 -> reading sensor data (Change in L34)
   timer0 -> read sensor & time measure
   timer1 -> auto control
   timer2 -> control the motor
@@ -28,6 +30,7 @@ https://RandomNerdTutorials.com/esp32-esp8266-input-data-html-form/
 #include <ArduinoJson.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <AsyncElegantOTA.h>  // define after <ESPAsyncWebServer.h>
 
 // TODO: refactor names, follow standard naming conventions
 
@@ -149,6 +152,8 @@ unsigned int numDrops = 0;   // for counting the number of drops within 15s
 volatile unsigned int dripRate = 0;   // for calculating the drip rate
 volatile unsigned int time1Drop = 0;      // for storing the time of 1 drop
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
+volatile float infusedVolume = 0;  // unit: mL
+volatile unsigned int infusedTime = 0;     // unit: seconds
 
 // var for timer2 interrupt
 int PWMValue = 0; // PWM value to control the speed of motor
@@ -172,9 +177,14 @@ volatile bool auto_state = false;
 int web_but_state = 0; 
 // state that shows the condition of auto control
 unsigned int targetDripRate = 0; 
+unsigned int targetVTBI = 0;   // target total volume to be infused
+unsigned int targetTotalTime = 0;   // target total time to be infused
+unsigned int dropFactor = UINT_MAX;  // to avoid divide by zero, unit: drops/mL
 
 volatile bool enableAutoControl = false; // to enable AutoControl() or not
-volatile bool infuseCompleted = false;   // true when infusion is completed
+volatile bool infusionCompleted = false;   // true when infusion is completed
+volatile bool infusionStarted = false;     // true when button_ENTER is pressed the 1st time
+                                         // to activate autoControl()
 
 // To reduce the sensitive of autoControl()
 // i.e. (targetDripRate +/-5) is good enough
@@ -313,6 +323,7 @@ void IRAM_ATTR dropSensor() {
       droppingState = droppingState_t::STOPPED;
     }
     // call when the no of drops exceed target
+    // TODO: replace hardcoded maximum number of drops below
     if (numDrops >= 500) {
       volume_exceed = true;
       // TODO: alert volume exceed
@@ -335,9 +346,9 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
   // Only run autoControl() when the following conditions satisfy:
   //   1. button_ENTER is pressed
   //   2. targetDripRate is set on the website by user
-  //   3. infusion is not completed, i.e. infuseCompleted = false
-  // TODO: update value of infuseCompleted in other function
-  if (enableAutoControl && (targetDripRate != 0) && !infuseCompleted) {
+  //   3. infusion is not completed, i.e. infusionCompleted = false
+  // TODO: update value of infusionCompleted in other function
+  if (enableAutoControl && (targetDripRate != 0) && !infusionCompleted) {
 
     // TODO: alert when no drop is detected, i.e. could be out of fluid or get
     // stuck
@@ -381,6 +392,20 @@ void IRAM_ATTR motorControl() {
   if (button_ENTER.isPressed()) {  // pressed is different from touched
     buttonState = buttonState_t::ENTER;
     enableAutoControl = !enableAutoControl;
+
+    // Reset infusion parameters the first time button_ENTER is pressed.
+    // Parameters need to be reset:
+    //    (1) numDrops
+    //    (2) infusedVolume
+    //    (3) infusedTime
+    //    Add more if necessary
+    if (!infusionStarted) {
+      numDrops = 0;
+      infusedVolume = 0.0f;
+      infusedTime = 0;
+
+      infusionStarted = true;
+    }
   }
 
   if (button_UP.isReleased() || button_DOWN.isReleased() || button_ENTER.isReleased()) {
@@ -545,6 +570,7 @@ void setup() {
     //                                 "<a href=\"/\">Return to Home Page</a>");
   });
   server.onNotFound(notFound); // if 404 not found, go to 404 not found
+  AsyncElegantOTA.begin(&server); // for OTA update
   server.begin();
 }
 
@@ -750,7 +776,20 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     } else {
       if (root.containsKey("SET_TARGET_DRIP_RATE_WS")) {
         targetDripRate = root["SET_TARGET_DRIP_RATE_WS"];
-        Serial.printf("Target drip rate is set to: %u\n", targetDripRate);
+        targetVTBI = root["SET_VTBI_WS"];
+        // convert total time to number of seconds
+        unsigned int targetTotalTimeHours = root["SET_TOTAL_TIME_HOURS_WS"];
+        unsigned int targetTotalTimeMinutes = root["SET_TOTAL_TIME_MINUTES_WS"];
+        targetTotalTime = targetTotalTimeHours * 3600 +
+                          targetTotalTimeMinutes * 60;
+        dropFactor = root["SET_DROP_FACTOR_WS"];
+
+        // DEBUG:
+        // Serial.printf("---\n");
+        // Serial.printf("Target VTBI is set to: %u mL\n", targetVTBI);
+        // Serial.printf("Target total time is set to: %u seconds\n", targetTotalTime);
+        // Serial.printf("Drop factor is set as: %u drops/mL\n", dropFactor);
+        // Serial.printf("Target drip rate is set to: %u drops/min\n", targetDripRate);
       }
       else if (root.containsKey("GET_DATA_WS")) {
         sendDataWs();
@@ -769,6 +808,17 @@ void sendDataWs() {
   root["NUM_DROPS"] = numDrops;
   root["TOTAL_TIME"] = totalTime;
   root["DRIP_RATE"] = dripRate;
+
+  // Calculate the infusedVolume here since we cannot do it in interrupt.
+  // Only calculate when dropFactor is provided.
+  // Problem is explained at:
+  // https://esp32.com/viewtopic.php?f=19&t=1292&start=10
+  if (dropFactor != UINT_MAX) {
+    infusedVolume = numDrops * (1.0f / dropFactor);
+  }
+  root["INFUSED_VOLUME"] = infusedVolume;
+
+  root["INFUSED_TIME"] = infusedTime;
   size_t len = root.measureLength();
   AsyncWebSocketMessageBuffer *buffer =
       ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
