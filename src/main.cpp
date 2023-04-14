@@ -33,7 +33,6 @@ https://RandomNerdTutorials.com/esp32-esp8266-input-data-html-form/
 // TODO: refactor names, follow standard naming conventions
 
 #define SENSOR_PIN 36 // input pin for geting output from sensor
-
 #define motorCTRL_1 15 // Motorl Control Board PWM 1
 #define motorCTRL_2 16 // Motorl Control Board PWM 2
 #define PWM_PIN      4  // input pin for the potentiometer
@@ -115,10 +114,9 @@ volatile bool autoControlOnPeriod = false;
 // To reduce the sensitive of autoControl()
 // i.e. (targetDripRate +/-5) is good enough
 #define AUTO_CONTROL_ALLOW_RANGE 5
-// assuming that after the xth drop, the drip rate will be stable
-#define NUM_DROPS_TILL_STABLE    10  // here, x = 10
-#define DRIP_RATE_SAMPLE_PERIOD  5   // 5 seconds
+// #define DRIP_RATE_SAMPLE_PERIOD  5   // 5 seconds
 #define AUTO_CONTROL_ON_TIME     50  // motor will be enabled for this amount of time (unit: ms)
+#define AUTO_CONTROL_TOTAL_TIME  1000  // 1000ms
 
 // WiFiManager, Local intialization. Once its business is done, there is no need
 // to keep it around
@@ -232,19 +230,7 @@ void IRAM_ATTR dropSensor() {
       next_time = millis();
       timeBtw2Drops = next_time - start_time;
       totalTime += timeBtw2Drops;
-      start_time = millis();  // need to update the start_time
-
-
-      // DRIPPING STABILITY CHECK:
-      // if (numDropsUnstable == NUM_DROPS_TILL_STABLE) {
-      //   // here the dripping should be stable, enable the motor
-      //   drippingIsStable = true;
-      // }
-      // else {
-      //   // since the dripping is not stable yet, disable the motor
-      //   drippingIsStable = false;
-      //   numDropsUnstable++;  // still not enough drops to be stable
-      // }
+      start_time = millis();
     }
   }
   else if (occur == 0) {
@@ -272,10 +258,6 @@ void IRAM_ATTR dropSensor() {
 
     // reset this to enable the next first drop detection
     firstDropDetected = false;
-
-
-    // reset this to enable the next dripping stability check
-    // numDropsUnstable = 0;
   }
   // call when the no of drops exceed target
   // TODO: replace hardcoded maximum number of drops below
@@ -346,7 +328,7 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
   }
 
   // reset this for the next autoControl()
-  if (autoControlCount == 1000) {   // reset count every 2s
+  if (autoControlCount == AUTO_CONTROL_TOTAL_TIME) {   // reset count every 1s
     autoControlCount = 0;
   }
 }
@@ -532,8 +514,6 @@ void loop() {
   // Serial.printf(
   //     "dripRate: %u \ttarget_drip_rate: %u \tmotor_state: %s\tint_time2: %u\n",
   //     dripRate, targetDripRate, get_motor_state(motorState), timeBtw2Drops);
-
-  // Serial.printf("%d\n", autoControlOnPeriod);
 }
 
 // check the condition of the switch/input from web page
