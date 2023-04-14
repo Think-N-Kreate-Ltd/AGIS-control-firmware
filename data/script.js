@@ -3,7 +3,7 @@ const GET_DATA_INTERVAL = 1000; // in milliseconds, avoid setting this number to
 const DRIP_RATE_NOT_SET = -1;
 
 // Using Websocket for communication between server and clients
-var gateway = `ws://${window.location.hostname}/ws`;
+var gateway = `ws://${location.host}/ws`;
 var websocket;
 window.addEventListener('load', onLoad);
 
@@ -17,7 +17,7 @@ var target_drip_rate = DRIP_RATE_NOT_SET;
 
 function onLoad(event) {
     initWebSocket();
-    initButton();
+    // initButton();
 }
 
 function initWebSocket() {
@@ -45,8 +45,8 @@ function onWsClose(event) {
 }
 
 function onWsMessage(event) {
-    console.log("Received data:")
-    console.log(event.data);
+    // console.log("Received data:")
+    // console.log(event.data);
 
     // Parse JSON data
     const dataObj = JSON.parse(event.data);
