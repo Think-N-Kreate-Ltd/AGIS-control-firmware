@@ -154,6 +154,7 @@ volatile unsigned int dripRate = 0;   // for calculating the drip rate
 volatile unsigned int time1Drop = 0;      // for storing the time of 1 drop
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
 volatile float infusedVolume = 0;  // unit: mL
+volatile char* charInfusedVolume;
 volatile unsigned int infusedTime = 0;     // unit: seconds
 
 // var for timer2 interrupt
@@ -213,7 +214,7 @@ const char *PARAM_INPUT_3 = "input3";
 const char *PARAM_AUTO_1 = "auto1";
 
 // Function prototypes
-void tableOledDisplay(int n, int m, int o, char * s);
+void tableOledDisplay(int n, int m, int o);
 void alertOledDisplay(const char* s);
 int check_state();
 void Motor_On_Up();
@@ -424,17 +425,19 @@ void IRAM_ATTR OledDisplay(){
   } else if (no_drop_with_20s) {
     alertOledDisplay("Out of Field");
   } else {
+    // TODO: combine n, m, o to a char*, write a function to return
+    // char* and pass to diaplay.
     static int v;
     static int n;
     static int m;
     static int o;
-    static char* s;
     v = numDrops * 100 / dropFactor;
     n = v / 100;
     m = (v - (v / 100) * 100) / 10;
     o = v - (v / 10) * 10;
-    s = "1";
-    tableOledDisplay(n, m, o, s);
+    // sprintf(s, "%d.%d%d", n, m, o);
+    tableOledDisplay(n, m, o);
+    // tableOledDisplay(getChar(numDrop * 100 / dropFactor));
   }
 }
 
@@ -599,7 +602,7 @@ void loop() {
 // display the table on the screen
 // only one display.display() should be used
 void 
-tableOledDisplay(int n, int m, int o, char * s) {
+tableOledDisplay(int n, int m, int o) {
   // initialize setting of display
   display.clearDisplay();
   display.setTextSize(1);
