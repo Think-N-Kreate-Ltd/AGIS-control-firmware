@@ -80,7 +80,7 @@ function onWsMessage(event) {
         var dripRate = dataObj["DRIP_RATE"];
         var infusedVolume = dataObj["INFUSED_VOLUME"];
         var infusedVolumeRounded = parseFloat(infusedVolume).toFixed(2);
-        var infusedTime = dataObj["INFUSED_TIME"];
+        var infusedTime = convertSecondsToHHMMSS(dataObj["INFUSED_TIME"]);
 
         document.getElementById("time_1_drop_value").innerHTML = time1Drop;
         document.getElementById("time_btw_2_drops_value").innerHTML = time_btw_2_drops;
@@ -173,6 +173,19 @@ function calculateTargetDripRate() {
         document.getElementById("drip_rate").innerHTML = target_drip_rate.toString();
     }
     // TODO: handle unsatisfy inputs
+}
+
+function convertSecondsToHHMMSS(seconds) {
+    var hhmmss;
+    if (seconds < 3600) {
+        // if seconds are less than 1 hour and you only need mm:ss
+        hhmmss = new Date(seconds * 1000).toISOString().slice(14, 19);
+    }
+    else {
+        // get hh:mm:ss string
+        hhmmss = new Date(seconds * 1000).toISOString().slice(11, 19);
+    }
+    return hhmmss;
 }
 
 // var chartT = new Highcharts.Chart({
