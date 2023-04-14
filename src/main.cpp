@@ -64,7 +64,8 @@ unsigned long leave_time = 0;
 unsigned long next_time = 0;
 unsigned long totalTime = 0; // for calculating the time used within 15s
 unsigned int numDrops = 0;   // for counting the number of drops within 15s
-volatile unsigned int dripRate = 0;   // for calculating the drip rate
+volatile unsigned int dripRate = 0;       // for calculating the drip rate
+volatile unsigned int prevDripRate = 0;   // use this to check if drip rate change drastically
 volatile unsigned int time1Drop = 0;      // for storing the time of 1 drop
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
 volatile float infusedVolume = 0;  // unit: mL
@@ -111,6 +112,7 @@ volatile bool autoControlOnPeriod = false;
 // #define DRIP_RATE_SAMPLE_PERIOD  5   // 5 seconds
 #define AUTO_CONTROL_ON_TIME     50  // motor will be enabled for this amount of time (unit: ms)
 #define AUTO_CONTROL_TOTAL_TIME  1000  // 1000ms
+#define DRIP_RATE_MAX_RANGE      1000  // no more than 1000 drops/min (this can be changed)
 
 // WiFiManager, Local intialization. Once its business is done, there is no need
 // to keep it around
@@ -272,9 +274,15 @@ void IRAM_ATTR dropSensor() {
   //   numDropsInterval = 0;
   // }
 
-  // NOTE: below calculation will return unstable dripRate
+  // NOTE: use a fixed DRIP_RATE_MAX_RANGE to ignore huge drip rate from unstable measurements
   // get latest value of dripRate
   dripRate = 60000 / timeBtw2Drops; // TODO: explain this formular
+  if (dripRate < DRIP_RATE_MAX_RANGE) {
+    prevDripRate = dripRate;
+  }
+  else {
+    dripRate = prevDripRate;
+  }
 
   // NOTE: maybe we should average most recent dripRate,
   // s.t. the auto control is not too sensitive and motor runs too frequently
