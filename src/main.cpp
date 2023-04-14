@@ -32,10 +32,10 @@ https://RandomNerdTutorials.com/esp32-esp8266-input-data-html-form/
 
 // TODO: refactor names, follow standard naming conventions
 
-#define SENSOR_PIN 36 // input pin for geting output from sensor
-#define motorCTRL_1 15 // Motorl Control Board PWM 1
-#define motorCTRL_2 16 // Motorl Control Board PWM 2
-#define PWM_PIN      4  // input pin for the potentiometer
+#define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
+#define MOTOR_CTRL_PIN_1 15 // Motorl Control Board PWM 1
+#define MOTOR_CTRL_PIN_2 16 // Motorl Control Board PWM 2
+#define PWM_PIN          4  // input pin for the potentiometer
 
 enum class motorState_t { UP, DOWN, OFF };
 motorState_t motorState = motorState_t::OFF;
@@ -76,8 +76,6 @@ volatile unsigned int autoControlCount = 0;  // use for regulating frequency of 
 
 // var for timer2 interrupt
 int PWMValue = 0; // PWM value to control the speed of motor
-int Motor_Direction = LOW;
-int DripMode = LOW;
 
 ezButton button_UP(3);         // create ezButton object that attach to pin 6;
 ezButton button_ENTER(8);      // create ezButton object that attach to pin 7;
@@ -86,12 +84,8 @@ ezButton limitSwitch_Up(37);   // create ezButton object that attach to pin 7;
 ezButton limitSwitch_Down(38); // create ezButton object that attach to pin 7;
 
 // var for checking the currently condition
-// true if it is controlled by the real button currently
-volatile bool but_state = false;
  // true if it is controlled by the web button currently
 volatile bool web_state = false;
-// true if it is controlled automaticly currently
-volatile bool auto_state = false;
 // state that shows the condition of web button
 int web_but_state = 0; 
 // state that shows the condition of auto control
@@ -204,7 +198,7 @@ void IRAM_ATTR dropSensor() {
                                // the time that have no drop
   static int numDropsUnstable = 0;
 
-  occur = digitalRead(SENSOR_PIN); // read the sensor value
+  occur = digitalRead(DROP_SENSOR_PIN); // read the sensor value
 
   dripRateSamplingCount++;  // increment 1ms
 
@@ -379,7 +373,7 @@ void IRAM_ATTR motorControl() {
 
 void setup() {
   Serial.begin(9600);
-  pinMode(SENSOR_PIN, INPUT);
+  pinMode(DROP_SENSOR_PIN, INPUT);
 
   // setup for timer0
   Timer0_cfg = timerBegin(0, 80, true); // Prescaler = 80
@@ -539,8 +533,8 @@ void Motor_On_Up() {
     // Read PWM value
     PWMValue = analogRead(PWM_PIN);
 
-    analogWrite(motorCTRL_1, (PWMValue / 16)); // PWMValue: 0->4095
-    analogWrite(motorCTRL_2, 0);
+    analogWrite(MOTOR_CTRL_PIN_1, (PWMValue / 16)); // PWMValue: 0->4095
+    analogWrite(MOTOR_CTRL_PIN_2, 0);
 
     motorState = motorState_t::UP;
   }
@@ -556,8 +550,8 @@ void Motor_On_Down() {
     // Read PWM value
     PWMValue = analogRead(PWM_PIN);
 
-    analogWrite(motorCTRL_2, (PWMValue / 16)); // PWMValue: 0->4095
-    analogWrite(motorCTRL_1, 0);
+    analogWrite(MOTOR_CTRL_PIN_2, (PWMValue / 16)); // PWMValue: 0->4095
+    analogWrite(MOTOR_CTRL_PIN_1, 0);
 
     motorState = motorState_t::DOWN;
   }
@@ -567,37 +561,11 @@ void Motor_On_Down() {
 }
 
 void Motor_Off() {
-  analogWrite(motorCTRL_1, 0);
-  analogWrite(motorCTRL_2, 0);
+  analogWrite(MOTOR_CTRL_PIN_1, 0);
+  analogWrite(MOTOR_CTRL_PIN_2, 0);
 
   motorState = motorState_t::OFF;
 }
-
-// void Motor_Run() {
-//   if (Motor_Direction == LOW) {
-//     Motor_On_Up();
-//     if (limitSwitch_Up.isPressed()) {
-//       Motor_Direction = HIGH;
-//     }
-//   }
-//   if (Motor_Direction == HIGH) {
-//     Motor_On_Down();
-//     if (limitSwitch_Down.isPressed()) {
-//       Motor_Direction = LOW;
-//     }
-//   }
-// }
-
-// void Motor_Mode() {
-//   if (DripMode == LOW) {
-//     DripMode = HIGH;
-//     but_state = true;
-//   } else {
-//     DripMode = LOW;
-//     but_state = false;
-//     Motor_Off();
-//   }
-// }
 
 const char *get_motor_state(motorState_t state) {
   switch (state) {
