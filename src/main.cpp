@@ -69,7 +69,8 @@ volatile unsigned int prevDripRate = 0;   // use this to check if drip rate chan
 volatile unsigned int time1Drop = 0;      // for storing the time of 1 drop
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
 volatile float infusedVolume = 0;  // unit: mL
-volatile unsigned int infusedTime = 0;     // unit: seconds
+volatile unsigned long infusedTime = 0;     // unit: seconds
+unsigned long infusionStartTime = 0;
 
 volatile unsigned int dripRateSamplingCount = 0;  // use for drip rate sampling
 volatile unsigned int numDropsInterval = 0;  // number of drops in 15 seconds
@@ -93,6 +94,7 @@ int web_but_state = 0;
 unsigned int targetDripRate = 0; 
 unsigned int targetVTBI = 0;   // target total volume to be infused
 unsigned int targetTotalTime = 0;   // target total time to be infused
+unsigned int targetNumDrops = 0;    // used for stopping infusion when complete
 unsigned int dropFactor = UINT_MAX;  // to avoid divide by zero, unit: drops/mL
 
 volatile bool enableAutoControl = false; // to enable AutoControl() or not
@@ -198,7 +200,6 @@ void IRAM_ATTR dropSensor() {
   static bool occur_state = false; // true when obstacle detected
   static int time_for_no_drop; // counting when no drop appears, for measuring
                                // the time that have no drop
-  static int numDropsUnstable = 0;
 
   occur = digitalRead(DROP_SENSOR_PIN); // read the sensor value
 
@@ -215,8 +216,9 @@ void IRAM_ATTR dropSensor() {
       // stop the motor and disable autoControl()
       if (!firstDropDetected) {
         firstDropDetected = true;
-        // Motor_Off();
-        // enableAutoControl = false;
+
+        // mark this as starting time of infusion
+        infusionStartTime = millis();
       }
 
       numDropsInterval++;
@@ -257,11 +259,11 @@ void IRAM_ATTR dropSensor() {
   }
   // call when the no of drops exceed target
   // TODO: replace hardcoded maximum number of drops below
-  if (numDrops >= 500) {
-    volume_exceed = true;
-    // TODO: alert volume exceed
-    // alert("VolumeExceed");
-  }
+  // if (numDrops >= 500) {
+  //   volume_exceed = true;
+  //   // TODO: alert volume exceed
+  //   // alert("VolumeExceed");
+  // }
 
   // Calculate dripRate using number of drops in every DRIP_RATE_SAMPLE_PERIOD seconds
   // if (dripRateSamplingCount == (DRIP_RATE_SAMPLE_PERIOD * 1000)) {
@@ -284,6 +286,11 @@ void IRAM_ATTR dropSensor() {
     dripRate = prevDripRate;
   }
 
+  // Get infusion time so far:
+  if (!no_drop_with_20s) {
+    infusedTime = (millis() - infusionStartTime) / 1000;  // in seconds
+  }
+
   // NOTE: maybe we should average most recent dripRate,
   // s.t. the auto control is not too sensitive and motor runs too frequently
 }
@@ -304,6 +311,18 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
   else {
     autoControlOnPeriod = true;  // no limitation on motor on period
   }
+
+
+  // Check if infusion has completed or not
+  if (numDrops >= targetNumDrops) {
+    // disable autoControl()
+    enableAutoControl = false;
+
+    // TODO: sound the alarm
+
+    // TODO: notify website
+  }
+  
 
   if (enableAutoControl && autoControlOnPeriod && (targetDripRate != 0) && !infusionCompleted) {
 
@@ -655,6 +674,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
         targetTotalTime = targetTotalTimeHours * 3600 +
                           targetTotalTimeMinutes * 60;
         dropFactor = root["SET_DROP_FACTOR_WS"];
+        targetNumDrops = targetVTBI / (1.0f / dropFactor);  // rounded to integer part
 
         // DEBUG:
         // Serial.printf("---\n");
@@ -662,6 +682,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
         // Serial.printf("Target total time is set to: %u seconds\n", targetTotalTime);
         // Serial.printf("Drop factor is set as: %u drops/mL\n", dropFactor);
         // Serial.printf("Target drip rate is set to: %u drops/min\n", targetDripRate);
+        // Serial.printf("Target number of drops is: %d\n", targetNumDrops);
       }
       else if (root.containsKey("GET_DATA_WS")) {
         sendDataWs();
@@ -688,8 +709,8 @@ void sendDataWs() {
   if (dropFactor != UINT_MAX) {
     infusedVolume = numDrops * (1.0f / dropFactor);
   }
-  root["INFUSED_VOLUME"] = infusedVolume;
 
+  root["INFUSED_VOLUME"] = infusedVolume;
   root["INFUSED_TIME"] = infusedTime;
   size_t len = root.measureLength();
   AsyncWebSocketMessageBuffer *buffer =
