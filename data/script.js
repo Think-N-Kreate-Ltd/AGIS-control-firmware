@@ -1,5 +1,5 @@
 // Some define that can be quicky changed by developer
-const GET_DATA_INTERVAL = 1000; // in milliseconds, avoid setting this number too small
+const GET_INFUSION_MONITORING_DATA_INTERVAL = 1000; // in milliseconds, avoid setting this number too small
 const DRIP_RATE_NOT_SET = -1;
 
 // Using Websocket for communication between server and clients
@@ -36,7 +36,7 @@ function onWsOpen(event) {
     // Why doing this? We can actually use smallest possible interval and get
     // the new data asap. However, it is not necessary to do so, and to avoid
     // taking more resources from both the clients (browsers) and server (ESP32)
-    setInterval(get_data, GET_DATA_INTERVAL);
+    setInterval(getInfusionMonitoringData, GET_INFUSION_MONITORING_DATA_INTERVAL);
 }
 
 function onWsClose(event) {
@@ -102,24 +102,16 @@ function onWsMessage(event) {
     }
 }
 
-function initButton() {
-    document.getElementById('get_data_btn').addEventListener('click', get_data);
-}
+// function initButton() {
+//     document.getElementById('get_data_btn').addEventListener('click', getInfusionMonitoringData);
+// }
 
-function get_data() {
-
+function getInfusionMonitoringData() {
     const msg = {
-        GET_DATA_WS: null
+        COMMAND: "GET_INFUSION_MONITORING_DATA_WS",
     };
     websocket.send(JSON.stringify(msg));
-
-    // websocket.send('GET_DATA_WS');
 }
-
-// function get_drip_rate() {
-//     websocket.send('GET_DRIP_RATE_WS');
-//     console.log("Requested Drip Rate from website")
-// }
 
 
 /* -----------End Websocket------------- */
@@ -149,9 +141,23 @@ function setTargetDripRate() {
         };
         websocket.send(JSON.stringify(msg));
         console.log(JSON.stringify(msg));
+
+        return true;
     }
     else {
         alert("Please fill in all inputs");
+        return false;
+    }
+}
+
+function setTargetDripRateAndRun() {
+    if (setTargetDripRate()) {
+        // send a WebSocket message to enable autoControl()
+        const msg = {
+            COMMAND: "ENABLE_AUTOCONTROL_WS",
+        };
+        websocket.send(JSON.stringify(msg));
+        console.log(JSON.stringify(msg));
     }
 }
 
