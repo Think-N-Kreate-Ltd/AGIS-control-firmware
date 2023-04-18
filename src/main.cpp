@@ -32,10 +32,10 @@ motorState_t motorState = motorState_t::OFF;
 enum class buttonState_t { UP, DOWN, ENTER, IDLE };
 buttonState_t buttonState = buttonState_t::IDLE;
 
-// NOTE: when droppingState_t type is modified, update the same type in script.js 
-enum droppingState_t {NOT_STARTED, STARTED, STOPPED};
+// NOTE: when infusionState_t type is modified, update the same type in script.js 
+enum infusionState_t {NOT_STARTED, STARTED, STOPPED};
 // Initially, dropping is not started
-droppingState_t droppingState = droppingState_t::NOT_STARTED;
+infusionState_t infusionState = infusionState_t::NOT_STARTED;
 
 // var for checking the time
 volatile bool noDropWithin20s = false; // true if no drop appears in next 20s
@@ -192,7 +192,7 @@ void IRAM_ATTR dropSensor() {
   if (occur == 1) {
     timeWithNoDrop = 0;
     noDropWithin20s = false;
-    droppingState = droppingState_t::STARTED; // droping has started
+    infusionState = infusionState_t::STARTED; // droping has started
     if (!occurState) { // condition that check for the drop is just detected
 
 
@@ -230,7 +230,7 @@ void IRAM_ATTR dropSensor() {
   }
 
   // call when no drop appears within 20s, reset all data
-  if ((timeWithNoDrop >= 20000) && (droppingState == droppingState_t::STARTED)) {
+  if ((timeWithNoDrop >= 20000) && (infusionState == infusionState_t::STARTED)) {
     time1Drop = 0;
     // numDrops = 0;
 
@@ -241,7 +241,7 @@ void IRAM_ATTR dropSensor() {
 
     // set timeBtw2Drops to a very large number
     timeBtw2Drops = UINT_MAX;
-    droppingState = droppingState_t::STOPPED;
+    infusionState = infusionState_t::STOPPED;
 
     // reset this to enable the next first drop detection
     firstDropDetected = false;
@@ -678,7 +678,7 @@ void sendInfusionMonitoringDataWs() {
   // TODO: check how to migrate to newest version of DynamicJsonBuffer
   DynamicJsonBuffer dataBuffer;
   JsonObject &root = dataBuffer.createObject();
-  root["DROPPING_STATE"] = String(droppingState);  // need to convert to String
+  root["INFUSION_STATE"] = String(infusionState);  // need to convert to String
   root["TIME_1_DROP"] = time1Drop;
   root["TIME_BTW_2_DROPS"] = timeBtw2Drops;
   root["NUM_DROPS"] = numDrops;

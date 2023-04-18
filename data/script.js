@@ -15,6 +15,15 @@ var drop_factor_obj;
 var target_drip_rate = DRIP_RATE_NOT_SET;
 
 
+// NOTE:(1) make sure infusionState_t type is the same as in main.cpp
+// otherwise, it won't work
+// NOTE:(2) Javascript enum declaration is not the same as in C :)
+const infusionState_t = Object.freeze({ 
+    NOT_STARTED: 0,
+    STARTED: 1,
+    STOPPED: 2,
+});
+
 function onLoad(event) {
     initWebSocket();
     // initButton();
@@ -50,18 +59,9 @@ function onWsMessage(event) {
 
     // Parse JSON data
     const dataObj = JSON.parse(event.data);
-    var droppingState = parseInt(dataObj["DROPPING_STATE"]);
+    var infusionState = parseInt(dataObj["INFUSION_STATE"]);
 
-    // NOTE:(1) make sure droppingState_t type is the same as in main.cpp
-    // otherwise, it won't work
-    // NOTE:(2) Javascript enum declaration is not the same as in C :)
-    const droppingState_t = Object.freeze({ 
-        NOT_STARTED: 0,
-        STARTED: 1,
-        STOPPED: 2,
-    });
-
-    if (droppingState === droppingState_t.NOT_STARTED) {
+    if (infusionState === infusionState_t.NOT_STARTED) {
         let text = "Not started";
         document.getElementById("time_1_drop_value").innerHTML = text;
         document.getElementById("time_btw_2_drops_value").innerHTML = text;
@@ -71,8 +71,8 @@ function onWsMessage(event) {
         document.getElementById("infused_volume_value").innerHTML = text;
         document.getElementById("infused_time_value").innerHTML = text;
     }
-    //  only update when dropping has started
-    else if (droppingState === droppingState_t.STARTED) {
+    //  only update when there are drops
+    else if (infusionState === infusionState_t.STARTED) {
         var time1Drop = dataObj["TIME_1_DROP"];
         var time_btw_2_drops = dataObj["TIME_BTW_2_DROPS"];
         var numDrops = dataObj["NUM_DROPS"];
@@ -90,7 +90,7 @@ function onWsMessage(event) {
         document.getElementById("infused_volume_value").innerHTML = infusedVolumeRounded;
         document.getElementById("infused_time_value").innerHTML = infusedTime;
     }
-    else if (droppingState === droppingState_t.STOPPED) {
+    else if (infusionState === infusionState_t.STOPPED) {
         let text = "No recent drop";
         document.getElementById("time_1_drop_value").innerHTML = text;
         document.getElementById("time_btw_2_drops_value").innerHTML = text;
@@ -98,7 +98,7 @@ function onWsMessage(event) {
         document.getElementById("drip_rate_value").innerHTML = text;
     }
     else {
-        console.log("droppingState value not recognized");
+        console.log("infusionState value not recognized");
     }
 }
 
