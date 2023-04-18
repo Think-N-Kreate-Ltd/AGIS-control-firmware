@@ -37,11 +37,11 @@ https://RandomNerdTutorials.com/esp32-esp8266-input-data-html-form/
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 
-#define OLED_MOSI   6
-#define OLED_CLK    7
-#define OLED_DC     16
-#define OLED_CS     42
-#define OLED_RESET  17
+#define OLED_MOSI   17
+#define OLED_CLK    47
+#define OLED_DC     5
+#define OLED_CS     6
+#define OLED_RESET  7
 
 #define SENSOR_OUT 36 // input pin for geting output from sensor
 #define SENSOR_IN 37  // input pin for input signal to sensor
