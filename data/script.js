@@ -19,10 +19,14 @@ var target_drip_rate = DRIP_RATE_NOT_SET;
 // otherwise, it won't work
 // NOTE:(2) Javascript enum declaration is not the same as in C :)
 const infusionState_t = Object.freeze({ 
-    NOT_STARTED: 0,
-    STARTED: 1,
-    STOPPED: 2,
+    NOT_STARTED: "NOT_STARTED",
+    STARTED: "STARTED",
+    IN_PROGRESS: "IN_PROGRESS",
+    ALARM_COMPLETED: "ALARM_COMPLETED",
+    ALARM_STOPPED: "ALARM_STOPPED",
 });
+
+var infusionState;
 
 function onLoad(event) {
     initWebSocket();
@@ -59,7 +63,7 @@ function onWsMessage(event) {
 
     // Parse JSON data
     const dataObj = JSON.parse(event.data);
-    var infusionState = parseInt(dataObj["INFUSION_STATE"]);
+    infusionState = dataObj["INFUSION_STATE"];
 
     if (infusionState === infusionState_t.NOT_STARTED) {
         let text = "Not started";
@@ -72,7 +76,8 @@ function onWsMessage(event) {
         document.getElementById("infused_time_value").innerHTML = text;
     }
     //  only update when there are drops
-    else if (infusionState === infusionState_t.STARTED) {
+    else if ((infusionState === infusionState_t.STARTED) ||
+             (infusionState === infusionState_t.IN_PROGRESS)) {
         var time1Drop = dataObj["TIME_1_DROP"];
         var time_btw_2_drops = dataObj["TIME_BTW_2_DROPS"];
         var numDrops = dataObj["NUM_DROPS"];
@@ -89,13 +94,29 @@ function onWsMessage(event) {
         document.getElementById("drip_rate_value").innerHTML = dripRate;
         document.getElementById("infused_volume_value").innerHTML = infusedVolumeRounded;
         document.getElementById("infused_time_value").innerHTML = infusedTime;
+
+        if (infusionState === infusionState_t.STARTED) {
+            document.getElementById("infusion_state_value").style.color = "black"
+            document.getElementById("infusion_state_value").innerHTML = "Drops are detected";
+        }
+
+        else if (infusionState === infusionState_t.IN_PROGRESS) {
+            document.getElementById("infusion_state_value").style.color = "blue"
+            document.getElementById("infusion_state_value").innerHTML = "In progress";
+        }
     }
-    else if (infusionState === infusionState_t.STOPPED) {
+    else if (infusionState === infusionState_t.ALARM_COMPLETED) {
+        document.getElementById("infusion_state_value").style.color = "green"
+        document.getElementById("infusion_state_value").innerHTML = "ALARM: infusion has completed";
+    }
+    else if (infusionState === infusionState_t.ALARM_STOPPED) {
         let text = "No recent drop";
         document.getElementById("time_1_drop_value").innerHTML = text;
         document.getElementById("time_btw_2_drops_value").innerHTML = text;
         document.getElementById("total_time_value").innerHTML = text;
         document.getElementById("drip_rate_value").innerHTML = text;
+        document.getElementById("infusion_state_value").style.color = "red"
+        document.getElementById("infusion_state_value").innerHTML = "ALARM: no recent drop";
     }
     else {
         console.log("infusionState value not recognized");
