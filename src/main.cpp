@@ -65,7 +65,6 @@ unsigned long next_time = 0;
 unsigned long totalTime = 0; // for calculating the time used within 15s
 unsigned int numDrops = 0;   // for counting the number of drops within 15s
 volatile unsigned int dripRate = 0;       // for calculating the drip rate
-volatile unsigned int prevDripRate = 0;   // use this to check if drip rate change drastically
 volatile unsigned int time1Drop = 0;      // for storing the time of 1 drop
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
 volatile float infusedVolume = 0;  // unit: mL
@@ -102,8 +101,8 @@ volatile bool infusionCompleted = false;   // true when infusion is completed
 volatile bool infusionStarted = false;     // true when button_ENTER is pressed the 1st time
                                          // to activate autoControl()
 
-volatile bool drippingIsStable = true; // true when receiving the first NUM_DROPS_TILL_STABLE drops
-                                       // initially needs to set to true, otherwise autoControl() cannot start
+// volatile bool drippingIsStable = true; // true when receiving the first NUM_DROPS_TILL_STABLE drops
+//                                        // initially needs to set to true, otherwise autoControl() cannot start
 
 volatile bool firstDropDetected = false; // to check when we receive the 1st drop
 volatile bool autoControlOnPeriod = false;
@@ -115,7 +114,7 @@ bool homingCompleted = false;   // true when lower limit switch is activated
 // #define DRIP_RATE_SAMPLE_PERIOD  5   // 5 seconds
 #define AUTO_CONTROL_ON_TIME     50  // motor will be enabled for this amount of time (unit: ms)
 #define AUTO_CONTROL_TOTAL_TIME  1000  // 1000ms
-#define DRIP_RATE_MAX_RANGE      1000  // no more than 1000 drops/min (this can be changed)
+#define DROP_DEBOUNCE_TIME       10   // if two pulses are generated within 10ms, it must be detected as 1 drop
 
 // WiFiManager, Local intialization. Once its business is done, there is no need
 // to keep it around
@@ -202,6 +201,7 @@ void IRAM_ATTR dropSensor() {
   static bool occur_state = false; // true when obstacle detected
   static int time_for_no_drop; // counting when no drop appears, for measuring
                                // the time that have no drop
+  static unsigned int timeDifference; 
 
   occur = digitalRead(DROP_SENSOR_PIN); // read the sensor value
 
@@ -226,9 +226,14 @@ void IRAM_ATTR dropSensor() {
       numDropsInterval++;
 
       occur_state = true;
-      numDrops++;       // counting the drop
       next_time = millis();
-      timeBtw2Drops = next_time - start_time;
+      timeDifference = next_time - start_time;
+      // FALSE COUNT DETECTION
+      // if 2 consecutive pulses are within 10ms, it's false alarm
+      if (timeDifference > DROP_DEBOUNCE_TIME) {
+        numDrops++;       // counting the drop
+        timeBtw2Drops = timeDifference;
+      }
       totalTime += timeBtw2Drops;
       start_time = millis();
     }
@@ -281,12 +286,6 @@ void IRAM_ATTR dropSensor() {
   // NOTE: use a fixed DRIP_RATE_MAX_RANGE to ignore huge drip rate from unstable measurements
   // get latest value of dripRate
   dripRate = 60000 / timeBtw2Drops; // TODO: explain this formular
-  if (dripRate < DRIP_RATE_MAX_RANGE) {
-    prevDripRate = dripRate;
-  }
-  else {
-    dripRate = prevDripRate;
-  }
 
   // Get infusion time so far:
   if (!infusionCompleted) {
