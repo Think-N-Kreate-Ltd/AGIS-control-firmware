@@ -130,7 +130,7 @@ void initWebSocket();
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
              AwsEventType type, void *arg, uint8_t *data, size_t len);
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
-void sendDataWs();
+void sendInfusionMonitoringDataWs();
 void homingRollerClamp();
 void infusionInit();
 
@@ -655,16 +655,16 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
         // Serial.printf("Target drip rate is set to: %u drops/min\n", targetDripRate);
         // Serial.printf("Target number of drops is: %d\n", targetNumDrops);
       }
-      else if (root.containsKey("GET_DATA_WS")) {
-        sendDataWs();
-      }
       else if (root.containsKey("COMMAND")) {
         // parse the command and execute
-        if (root["COMMAND"] == "ENABLE_AUTOCONTROL") {
+        if (root["COMMAND"] == "ENABLE_AUTOCONTROL_WS") {
           infusionInit();
 
           // override the ENTER button to enable autoControl()
           enableAutoControl = true;
+        }
+        else if (root["COMMAND"] == "GET_INFUSION_MONITORING_DATA_WS") {
+          sendInfusionMonitoringDataWs();
         }
         else {
           Serial.printf("Command undefined\n");
@@ -674,7 +674,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
   }
 }
 
-void sendDataWs() {
+void sendInfusionMonitoringDataWs() {
   // TODO: check how to migrate to newest version of DynamicJsonBuffer
   DynamicJsonBuffer dataBuffer;
   JsonObject &root = dataBuffer.createObject();
