@@ -132,6 +132,7 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
 void sendDataWs();
 void homingRollerClamp();
+void infusionInit();
 
 // HTML web page to handle 3 input fields (input1, input2, input3)
 
@@ -350,18 +351,7 @@ void IRAM_ATTR motorControl() {
     buttonState = buttonState_t::ENTER;
     enableAutoControl = !enableAutoControl;
 
-    // Reset infusion parameters the first time button_ENTER is pressed.
-    // Parameters need to be reset:
-    //    (1) numDrops
-    //    (2) infusedVolume
-    //    (3) infusedTime
-    //    Add more if necessary
-    if (!infusionStarted) {
-      numDrops = 0;
-      infusedVolume = 0.0f;
-      infusedTime = 0;
-      infusionStarted = true;
-    }
+    infusionInit();
   }
 
   if (button_UP.isReleased() || button_DOWN.isReleased() || button_ENTER.isReleased()) {
@@ -668,6 +658,18 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       else if (root.containsKey("GET_DATA_WS")) {
         sendDataWs();
       }
+      else if (root.containsKey("COMMAND")) {
+        // parse the command and execute
+        if (root["COMMAND"] == "ENABLE_AUTOCONTROL") {
+          infusionInit();
+
+          // override the ENTER button to enable autoControl()
+          enableAutoControl = true;
+        }
+        else {
+          Serial.printf("Command undefined\n");
+        }
+      }
     }
   }
 }
@@ -721,5 +723,20 @@ void homingRollerClamp() {
   else { // touched
     motorOff();
     homingCompleted = true;
+  }
+}
+
+void infusionInit() {
+  // Reset infusion parameters the first time button_ENTER is pressed.
+  // Parameters need to be reset:
+  //    (1) numDrops
+  //    (2) infusedVolume
+  //    (3) infusedTime
+  //    Add more if necessary
+  if (!infusionStarted) {
+    numDrops = 0;
+    infusedVolume = 0.0f;
+    infusedTime = 0;
+    infusionStarted = true;
   }
 }

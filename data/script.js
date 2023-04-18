@@ -36,7 +36,7 @@ function onWsOpen(event) {
     // Why doing this? We can actually use smallest possible interval and get
     // the new data asap. However, it is not necessary to do so, and to avoid
     // taking more resources from both the clients (browsers) and server (ESP32)
-    setInterval(get_data, GET_DATA_INTERVAL);
+    setInterval(getData, GET_DATA_INTERVAL);
 }
 
 function onWsClose(event) {
@@ -103,10 +103,10 @@ function onWsMessage(event) {
 }
 
 function initButton() {
-    document.getElementById('get_data_btn').addEventListener('click', get_data);
+    document.getElementById('get_data_btn').addEventListener('click', getData);
 }
 
-function get_data() {
+function getData() {
 
     const msg = {
         GET_DATA_WS: null
@@ -149,9 +149,23 @@ function setTargetDripRate() {
         };
         websocket.send(JSON.stringify(msg));
         console.log(JSON.stringify(msg));
+
+        return true;
     }
     else {
         alert("Please fill in all inputs");
+        return false;
+    }
+}
+
+function setTargetDripRateAndRun() {
+    if (setTargetDripRate()) {
+        // send a WebSocket message to enable autoControl()
+        const msg = {
+            COMMAND: "ENABLE_AUTOCONTROL",
+        };
+        websocket.send(JSON.stringify(msg));
+        console.log(JSON.stringify(msg));
     }
 }
 
