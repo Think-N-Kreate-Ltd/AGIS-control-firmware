@@ -33,7 +33,7 @@
 #define OLED_RESET  7
 
 #define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
-// #define SENSOR_IN 37  // input pin for input signal to sensor
+// #define SENSOR_IN 35  // input pin for input signal to sensor
 #define MOTOR_CTRL_PIN_1 15 // Motorl Control Board PWM 1
 #define MOTOR_CTRL_PIN_2 16 // Motorl Control Board PWM 2
 #define PWM_PIN          4  // input pin for the potentiometer
@@ -570,7 +570,15 @@ void tableOledDisplay(int n, int m) {
   display.printf("Infused volume: %d.%d\n", n, m);
 
   display.setCursor(1,32);  // set the position of the first letter
-  display.printf("Infused time: \n%dmin %ds\n", infusedTime/60, infusedTime%60);
+  // if less than 1hour / 1minute, then not to display them
+  if((infusedTime/3600) >= 1){
+    display.printf("Infused time: \n%dh %dmin %ds\n", infusedTime/3600, (infusedTime%3600)/60, infusedTime%60);
+  } else if((infusedTime/60) >= 1){
+    display.printf("Infused time: \n%dmin %ds\n", infusedTime/60, infusedTime%60);
+  } else {
+    display.printf("Infused time: \n%ds\n", infusedTime%60);
+  }
+  
   display.display();
 }
 
