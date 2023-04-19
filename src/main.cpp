@@ -64,7 +64,8 @@ volatile unsigned int numDropsInterval = 0;  // number of drops in 15 seconds
 volatile unsigned int autoControlCount = 0;  // use for regulating frequency of motor is on
 volatile unsigned int autoControlOnTime = 0;  // use for regulating frequency of motor is on
 int dripRateDifference = 0; 
-volatile unsigned int dripRatePeak = 0;       // drip rate at the position when 1st drop is detected
+volatile unsigned int dripRatePeak = 1;   // drip rate at the position when 1st drop is detected,
+                                          // set to 1 to avoid zero division
 
 // var for timer2 interrupt
 int PWMValue = 0; // PWM value to control the speed of motor
