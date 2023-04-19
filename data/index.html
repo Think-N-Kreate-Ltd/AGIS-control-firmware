@@ -62,7 +62,10 @@
         <!-- Button to send the target drip rate to ESP32 -->
         <br><br>
         <input type="button" name="set_button" value="Set" onclick="setTargetDripRate()">
-        <label for="submit_button">(send target drip rate to device)</label><br><br>
+        <label for="set_button">(send target drip rate to device)</label><br><br>
+
+        <input type="button" name="set_and_run_button" value="Set and Run" onclick="setTargetDripRateAndRun()">
+        <label for="set_and_run_button">(send target drip rate to device and also run)</label><br><br>
     </form>
 
     <table>
@@ -105,8 +108,7 @@
             </td>
         </tr>
         <tr>
-            <!-- TODO: convert to human readable, e.g. xx hours yy minutes zz seconds -->
-            <td class="highlight-section">Infused time (seconds): </td>
+            <td class="highlight-section">Infused time: </td>
             <td>
                 <div id="infused_time_value">Not started</div>
             </td>

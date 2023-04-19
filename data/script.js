@@ -1,9 +1,9 @@
 // Some define that can be quicky changed by developer
-const GET_DATA_INTERVAL = 500; // in milliseconds, avoid setting this number too small
+const GET_INFUSION_MONITORING_DATA_INTERVAL = 1000; // in milliseconds, avoid setting this number too small
 const DRIP_RATE_NOT_SET = -1;
 
 // Using Websocket for communication between server and clients
-var gateway = `ws://${window.location.hostname}/ws`;
+var gateway = `ws://${location.host}/ws`;
 var websocket;
 window.addEventListener('load', onLoad);
 
@@ -17,7 +17,7 @@ var target_drip_rate = DRIP_RATE_NOT_SET;
 
 function onLoad(event) {
     initWebSocket();
-    initButton();
+    // initButton();
 }
 
 function initWebSocket() {
@@ -36,7 +36,7 @@ function onWsOpen(event) {
     // Why doing this? We can actually use smallest possible interval and get
     // the new data asap. However, it is not necessary to do so, and to avoid
     // taking more resources from both the clients (browsers) and server (ESP32)
-    setInterval(get_data, GET_DATA_INTERVAL);
+    setInterval(getInfusionMonitoringData, GET_INFUSION_MONITORING_DATA_INTERVAL);
 }
 
 function onWsClose(event) {
@@ -45,8 +45,8 @@ function onWsClose(event) {
 }
 
 function onWsMessage(event) {
-    console.log("Received data:")
-    console.log(event.data);
+    // console.log("Received data:")
+    // console.log(event.data);
 
     // Parse JSON data
     const dataObj = JSON.parse(event.data);
@@ -80,7 +80,7 @@ function onWsMessage(event) {
         var dripRate = dataObj["DRIP_RATE"];
         var infusedVolume = dataObj["INFUSED_VOLUME"];
         var infusedVolumeRounded = parseFloat(infusedVolume).toFixed(2);
-        var infusedTime = dataObj["INFUSED_TIME"];
+        var infusedTime = convertSecondsToHHMMSS(dataObj["INFUSED_TIME"]);
 
         document.getElementById("time_1_drop_value").innerHTML = time1Drop;
         document.getElementById("time_btw_2_drops_value").innerHTML = time_btw_2_drops;
@@ -102,24 +102,16 @@ function onWsMessage(event) {
     }
 }
 
-function initButton() {
-    document.getElementById('get_data_btn').addEventListener('click', get_data);
-}
+// function initButton() {
+//     document.getElementById('get_data_btn').addEventListener('click', getInfusionMonitoringData);
+// }
 
-function get_data() {
-
+function getInfusionMonitoringData() {
     const msg = {
-        GET_DATA_WS: null
+        COMMAND: "GET_INFUSION_MONITORING_DATA_WS",
     };
     websocket.send(JSON.stringify(msg));
-
-    // websocket.send('GET_DATA_WS');
 }
-
-// function get_drip_rate() {
-//     websocket.send('GET_DRIP_RATE_WS');
-//     console.log("Requested Drip Rate from website")
-// }
 
 
 /* -----------End Websocket------------- */
@@ -149,9 +141,23 @@ function setTargetDripRate() {
         };
         websocket.send(JSON.stringify(msg));
         console.log(JSON.stringify(msg));
+
+        return true;
     }
     else {
         alert("Please fill in all inputs");
+        return false;
+    }
+}
+
+function setTargetDripRateAndRun() {
+    if (setTargetDripRate()) {
+        // send a WebSocket message to enable autoControl()
+        const msg = {
+            COMMAND: "ENABLE_AUTOCONTROL_WS",
+        };
+        websocket.send(JSON.stringify(msg));
+        console.log(JSON.stringify(msg));
     }
 }
 
@@ -173,6 +179,19 @@ function calculateTargetDripRate() {
         document.getElementById("drip_rate").innerHTML = target_drip_rate.toString();
     }
     // TODO: handle unsatisfy inputs
+}
+
+function convertSecondsToHHMMSS(seconds) {
+    var hhmmss;
+    if (seconds < 3600) {
+        // if seconds are less than 1 hour and you only need mm:ss
+        hhmmss = new Date(seconds * 1000).toISOString().slice(14, 19);
+    }
+    else {
+        // get hh:mm:ss string
+        hhmmss = new Date(seconds * 1000).toISOString().slice(11, 19);
+    }
+    return hhmmss;
 }
 
 // var chartT = new Highcharts.Chart({

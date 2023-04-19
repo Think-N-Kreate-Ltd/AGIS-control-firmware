@@ -1,14 +1,3 @@
-/*********
-  Rui Santos
-  Complete project details at
-https://RandomNerdTutorials.com/esp32-esp8266-input-data-html-form/
-
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files.
-
-  The above copyright notice and this permission notice shall be included in all
-  copies or substantial portions of the Software.
-*********/
 /*
   wifi ssid:AutoConnectAP, password:password.
   go to http://<IPAddress>/update for OTA update
@@ -43,12 +32,11 @@ https://RandomNerdTutorials.com/esp32-esp8266-input-data-html-form/
 #define OLED_CS     6
 #define OLED_RESET  7
 
-#define SENSOR_OUT 36 // input pin for geting output from sensor
-#define SENSOR_IN 37  // input pin for input signal to sensor
-
-#define motorCTRL_1 15 // Motorl Control Board PWM 1
-#define motorCTRL_2 16 // Motorl Control Board PWM 2
-#define PWM_PIN      4  // input pin for the potentiometer
+#define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
+// #define SENSOR_IN 37  // input pin for input signal to sensor
+#define MOTOR_CTRL_PIN_1 15 // Motorl Control Board PWM 1
+#define MOTOR_CTRL_PIN_2 16 // Motorl Control Board PWM 2
+#define PWM_PIN          4  // input pin for the potentiometer
 
 enum class motorState_t { UP, DOWN, OFF };
 motorState_t motorState = motorState_t::OFF;
@@ -67,74 +55,6 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT,
   OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);
 
 void oledSetUp() {
-  const unsigned char TNK_LOGO [] PROGMEM = {
-    // Give up
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-  };
-
   // Initialize OLED
   if(!display.begin(SSD1306_SWITCHCAPVCC)) {
     Serial.println(F("SSD1306 allocation failed"));
@@ -147,34 +67,33 @@ void oledSetUp() {
 }
 
 // var for checking the time
-volatile bool print_state = false; // true if it is printing currently
-volatile bool phase_change_for_timer1 = false; // true if timer1 phase chenge
-volatile int time_1ms = 0;                     // count for every 1ms passed
-volatile bool no_drop_with_20s = false; // true if no drop appears in next 20s
+volatile bool noDropWithin20s = false; // true if no drop appears in next 20s
 volatile bool volume_exceed = false;    // true if numDrops exceed amount
 
 // var for timer0 interrupt
 // for reading the sensor value
 volatile int occur;
 // for measuring the time that sensor detect a drop
-unsigned long start_time = 0;
+volatile unsigned long startTime = 0;
 // for measuring the time that sensor detect a drop is disappear
-unsigned long leave_time = 0;
+volatile unsigned long leaveTime = 0;
 // for measuring the time that sensor detect the next drop
-unsigned long next_time = 0;
-unsigned long totalTime = 0; // for calculating the time used within 15s
-unsigned int numDrops = 0;   // for counting the number of drops within 15s
-volatile unsigned int dripRate = 0;   // for calculating the drip rate
+volatile unsigned long nextTime = 0;
+volatile unsigned long totalTime = 0; // for calculating the time used within 15s
+volatile unsigned int numDrops = 0;   // for counting the number of drops within 15s
+volatile unsigned int dripRate = 0;       // for calculating the drip rate
 volatile unsigned int time1Drop = 0;      // for storing the time of 1 drop
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
 volatile float infusedVolume = 0;  // unit: mL
-volatile char* charInfusedVolume;
-volatile unsigned int infusedTime = 0;     // unit: seconds
+volatile unsigned long infusedTime = 0;     // unit: seconds
+volatile unsigned long infusionStartTime = 0;
+
+volatile unsigned int dripRateSamplingCount = 0;  // use for drip rate sampling
+volatile unsigned int numDropsInterval = 0;  // number of drops in 15 seconds
+volatile unsigned int autoControlCount = 0;  // use for regulating frequency of motor is on
 
 // var for timer2 interrupt
 int PWMValue = 0; // PWM value to control the speed of motor
-int Motor_Direction = LOW;
-int DripMode = LOW;
 
 ezButton button_UP(3);         // create ezButton object that attach to pin 6;
 ezButton button_ENTER(8);      // create ezButton object that attach to pin 7;
@@ -183,18 +102,13 @@ ezButton limitSwitch_Up(37);   // create ezButton object that attach to pin 7;
 ezButton limitSwitch_Down(38); // create ezButton object that attach to pin 7;
 
 // var for checking the currently condition
-// true if it is controlled by the real button currently
-volatile bool but_state = false;
- // true if it is controlled by the web button currently
-volatile bool web_state = false;
-// true if it is controlled automaticly currently
-volatile bool auto_state = false;
 // state that shows the condition of web button
 int web_but_state = 0; 
 // state that shows the condition of auto control
 unsigned int targetDripRate = 0; 
 unsigned int targetVTBI = 0;   // target total volume to be infused
 unsigned int targetTotalTime = 0;   // target total time to be infused
+unsigned int targetNumDrops = UINT_MAX;    // used for stopping infusion when complete
 unsigned int dropFactor = UINT_MAX;  // to avoid divide by zero, unit: drops/mL
 
 volatile bool enableAutoControl = false; // to enable AutoControl() or not
@@ -202,9 +116,16 @@ volatile bool infusionCompleted = false;   // true when infusion is completed
 volatile bool infusionStarted = false;     // true when button_ENTER is pressed the 1st time
                                          // to activate autoControl()
 
+volatile bool firstDropDetected = false; // to check when we receive the 1st drop
+volatile bool autoControlOnPeriod = false;
+bool homingCompleted = false;   // true when lower limit switch is activated
+
 // To reduce the sensitive of autoControl()
 // i.e. (targetDripRate +/-5) is good enough
 #define AUTO_CONTROL_ALLOW_RANGE 5
+#define AUTO_CONTROL_ON_TIME     50  // motor will be enabled for this amount of time (unit: ms)
+#define AUTO_CONTROL_TOTAL_TIME  1000  // 1000ms
+#define DROP_DEBOUNCE_TIME       10   // if two pulses are generated within 10ms, it must be detected as 1 drop
 
 // WiFiManager, Local intialization. Once its business is done, there is no need
 // to keep it around
@@ -232,17 +153,18 @@ void tableOledDisplay(int n, int m);
 void alertOledDisplay(const char* s);
 int getFloat(int n);
 int check_state();
-void Motor_On_Up();
-void Motor_On_Down();
-void Motor_Off();
-// void Motor_Mode();
-const char *get_motor_state(motorState_t state);
-const char *get_button_state(buttonState_t state);
+void motorOnUp();
+void motorOnDown();
+void motorOff();
+const char *getMotorState(motorState_t state);
+const char *getButtonState(buttonState_t state);
 void initWebSocket();
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
              AwsEventType type, void *arg, uint8_t *data, size_t len);
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
-void sendDataWs();
+void sendInfusionMonitoringDataWs();
+void homingRollerClamp();
+void infusionInit();
 
 // HTML web page to handle 3 input fields (input1, input2, input3)
 
@@ -291,101 +213,151 @@ hw_timer_t *Timer3_cfg = NULL; // create a pointer for timer0
 
 // timer0 interrupt, for sensor detected drops and measure the time
 void IRAM_ATTR dropSensor() {
-  static int phase;
-  static bool occur_state = false; // true when obstacle detected
-  static int time_for_no_drop; // counting when no drop appears, for measuring
+  static bool occurState = false; // true when obstacle detected
+  static int timeWithNoDrop; // counting when no drop appears, for measuring
                                // the time that have no drop
-  if (phase == 0) {
-    occur = digitalRead(SENSOR_OUT); // read the sensor value
-    phase++;
-  }
+  static unsigned int timeDifference; 
 
-  if (phase == 1) {
-      // if (occur == 1) {
-      if (occur == 0) {
-      time_for_no_drop = 0;
-      no_drop_with_20s = false;
-      droppingState = droppingState_t::STARTED; // droping has started
-      if (!occur_state) { // condition that check for the drop is just detected
-        occur_state = true;
-        next_time = millis();                  // record the time for measuring
-        totalTime += (next_time - start_time); // measure the time
-        numDrops++;                            // counting the drop
-        timeBtw2Drops = next_time - start_time;    // measure the time
-        start_time = millis(); // record th time for measuring
+  occur = digitalRead(DROP_SENSOR_PIN); // read the sensor value
+
+  dripRateSamplingCount++;  // increment 1ms
+
+  if (occur == 1) {
+    timeWithNoDrop = 0;
+    noDropWithin20s = false;
+    droppingState = droppingState_t::STARTED; // droping has started
+    if (!occurState) { // condition that check for the drop is just detected
+
+
+      // FIRST DROP DETECTION
+      // stop the motor and disable autoControl()
+      if (!firstDropDetected) {
+        firstDropDetected = true;
+
+        // mark this as starting time of infusion
+        infusionStartTime = millis();
       }
-    }
-    // if (occur == 0) {
-    if (occur == 1) {
-      time_for_no_drop++;
-      if (occur_state) {
-        leave_time = millis(); // record the time for measuring
-        occur_state = false;
-        time1Drop = leave_time - start_time;
+
+      numDropsInterval++;
+
+      occurState = true;
+      nextTime = millis();
+      timeDifference = nextTime - startTime;
+      // FALSE COUNT DETECTION
+      // if 2 consecutive pulses are within 10ms, it's false alarm
+      if (timeDifference > DROP_DEBOUNCE_TIME) {
+        numDrops++;       // counting the drop
+        timeBtw2Drops = timeDifference;
       }
+      totalTime += timeBtw2Drops;
+      startTime = millis();
     }
-    phase++;
   }
-  if (phase == 2) {
-    // call when no drop appears within 20s, reset all data
-    if ((time_for_no_drop >= 20000) && (droppingState == droppingState_t::STARTED)) {
-      time1Drop = 0;
-      // numDrops = 0;
-
-      // TODO: how do we define totalTime? Should it be RTC time or only the time
-      // when we have drops?
-      totalTime = 0;
-      no_drop_with_20s = true;
-
-      // set timeBtw2Drops to a very large number
-      timeBtw2Drops = UINT_MAX;
-      droppingState = droppingState_t::STOPPED;
+  else if (occur == 0) {
+    timeWithNoDrop++;
+    if (occurState) {
+      leaveTime = millis(); // record the time for measuring
+      occurState = false;
+      time1Drop = leaveTime - startTime;
     }
-    // call when the no of drops exceed target
-    // TODO: replace hardcoded maximum number of drops below
-    if (numDrops >= 5000) {
-      volume_exceed = true;
-      // TODO: alert volume exceed
-      // alert("VolumeExceed");
-    }
-    phase = 0;
   }
-  time_1ms++;                     // count for 1ms
-  print_state = true;             // start printing
-  phase_change_for_timer1 = true; // allow timer1 1 INT phase counting
+
+  // call when no drop appears within 20s, reset all data
+  if ((timeWithNoDrop >= 20000) && (droppingState == droppingState_t::STARTED)) {
+    time1Drop = 0;
+    // numDrops = 0;
+
+    // TODO: how do we define totalTime? Should it be RTC time or only the time
+    // when we have drops?
+    totalTime = 0;
+    noDropWithin20s = true;
+
+    // set timeBtw2Drops to a very large number
+    timeBtw2Drops = UINT_MAX;
+    droppingState = droppingState_t::STOPPED;
+
+    // reset this to enable the next first drop detection
+    firstDropDetected = false;
+  }
+  // call when the no of drops exceed target
+  // TODO: replace hardcoded maximum number of drops below
+  // if (numDrops >= 500) {
+  //   volume_exceed = true;
+  //   // TODO: alert volume exceed
+  //   // alert("VolumeExceed");
+  // }
 
   // get latest value of dripRate
   dripRate = 60000 / timeBtw2Drops; // TODO: explain this formular
 
-  // NOTE: maybe we should average most recent dripRate,
-  // s.t. the auto control is not too sensitive and motor runs too frequently
+  // Get infusion time so far:
+  if (!infusionCompleted) {
+    infusedTime = (millis() - infusionStartTime) / 1000;  // in seconds
+  }
 }
 
 void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
   // Only run autoControl() when the following conditions satisfy:
   //   1. button_ENTER is pressed
-  //   2. targetDripRate is set on the website by user
-  //   3. infusion is not completed, i.e. infusionCompleted = false
-  // TODO: update value of infusionCompleted in other function
-  if (enableAutoControl && (targetDripRate != 0) && !infusionCompleted) {
+  //   3. targetDripRate is set on the website by user
+  //   4. infusion is not completed, i.e. infusionCompleted = false
+
+  autoControlCount++;
+  if (firstDropDetected) {
+    // on for 50 ms, off for 950 ms
+    autoControlOnPeriod = (0 <= autoControlCount) && (autoControlCount <= AUTO_CONTROL_ON_TIME);
+  }
+  else {
+    autoControlOnPeriod = true;  // no limitation on motor on period
+  }
+
+  // Check if infusion has completed or not
+  if (numDrops >= targetNumDrops) {
+    infusionCompleted = true;
+
+    // disable autoControl()
+    enableAutoControl = false;
+
+    // TODO: sound the alarm
+
+    // TODO: notify website
+  }
+
+  if (enableAutoControl && autoControlOnPeriod && (targetDripRate != 0) && !infusionCompleted) {
 
     // TODO: alert when no drop is detected, i.e. could be out of fluid or get
     // stuck
 
     // if currently SLOWER than set value -> speed up, i.e. move up
     if (dripRate < (targetDripRate - AUTO_CONTROL_ALLOW_RANGE)) {
-      Motor_On_Up();
+      motorOnUp();
     }
 
     // if currently FASTER than set value -> slow down, i.e. move down
     else if (dripRate > (targetDripRate + AUTO_CONTROL_ALLOW_RANGE)) {
-      Motor_On_Down();
+      motorOnDown();
     }
 
     // otherwise, current drip rate is in allowed range -> stop motor
     else {
-      Motor_Off();
     }
+  }
+  else {
+    // motorOff();
+
+    if (infusionCompleted && !homingCompleted) {
+    // homing the roller clamp, i.e. move it down to completely closed position
+      homingRollerClamp();
+    }
+    else {
+      motorOff();
+    }
+    }
+  }
+
+  // reset this for the next autoControl()
+  if (autoControlCount == AUTO_CONTROL_TOTAL_TIME) {   // reset count every 1s
+    autoControlCount = 0;
   }
 }
 
@@ -398,13 +370,13 @@ void IRAM_ATTR motorControl() {
   // Use button_UP to manually move up
   if (!button_UP.getState()) {  // touched
     buttonState = buttonState_t::UP;
-    Motor_On_Up();
+    motorOnUp();
   }
 
-  // Use button_UP to manually move down
+  // Use button_DOWN to manually move down
   if (!button_DOWN.getState()) {  // touched
     buttonState = buttonState_t::DOWN;
-    Motor_On_Down();
+    motorOnDown();
   }
 
   // Use button_ENTER to toggle autoControl()
@@ -412,24 +384,12 @@ void IRAM_ATTR motorControl() {
     buttonState = buttonState_t::ENTER;
     enableAutoControl = !enableAutoControl;
 
-    // Reset infusion parameters the first time button_ENTER is pressed.
-    // Parameters need to be reset:
-    //    (1) numDrops
-    //    (2) infusedVolume
-    //    (3) infusedTime
-    //    Add more if necessary
-    if (!infusionStarted) {
-      numDrops = 0;
-      infusedVolume = 0.0f;
-      infusedTime = 0;
-
-      infusionStarted = true;
-    }
+    infusionInit();
   }
 
   if (button_UP.isReleased() || button_DOWN.isReleased() || button_ENTER.isReleased()) {
     buttonState = buttonState_t::IDLE;
-    Motor_Off();
+    motorOff();
   }
 }
 
@@ -446,9 +406,7 @@ void IRAM_ATTR OledDisplay(){
 
 void setup() {
   Serial.begin(9600);
-  pinMode(SENSOR_OUT, INPUT);
-  pinMode(SENSOR_IN, OUTPUT);
-  digitalWrite(SENSOR_IN, HIGH);
+  pinMode(DROP_SENSOR_PIN, INPUT);
 
   oledSetUp();
   
@@ -585,13 +543,57 @@ void setup() {
   server.onNotFound(notFound); // if 404 not found, go to 404 not found
   AsyncElegantOTA.begin(&server); // for OTA update
   server.begin();
+
+
+  // homing the roller clamp
+  while (!homingCompleted) {
+    homingRollerClamp();
+  }
+  homingCompleted = false;  // if not set, the infusion cannot be stopped
 }
 
 void loop() {
-  // DEBUG:
-  // Serial.printf(
-  //     "dripRate: %u \ttarget_drip_rate: %u \tmotor_state: %s\tint_time2: %u\n",
-  //     dripRate, targetDripRate, get_motor_state(motorState), timeBtw2Drops);
+
+}
+
+// display the table on the screen
+// only one display.display() should be used
+void tableOledDisplay(int n, int m) {
+  // initialize setting of display
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);  // draw 'on' pixels
+
+  display.setCursor(1,16);  // set the position of the first letter
+  display.printf("Drip rate: %d\n", dripRate);
+
+  display.setCursor(1,24);  // set the position of the first letter
+  display.printf("Infused volume: %d.%d\n", n, m);
+
+  display.setCursor(1,32);  // set the position of the first letter
+  display.printf("Infused time: \n%dmin %ds\n", infusedTime/60, infusedTime%60);
+  display.display();
+}
+
+// display the warning message on the screen
+void alertOledDisplay(const char* s) {
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+
+  display.setCursor(1,16);
+  display.println(F("Warning: "));
+  display.println(F(s));
+  display.display();
+}
+
+// get the first floating point number
+int getFloat(int n) {
+  static int j;
+  static int k;
+  j = (n / 10) * 10;
+  k = n - j;
+  return k;
 }
 
 // display the table on the screen
@@ -650,74 +652,48 @@ int check_state() {
   return state;
 }
 
-void Motor_On_Up() {
+void motorOnUp() {
   limitSwitch_Up.loop();   // MUST call the loop() function first
 
   if (limitSwitch_Up.getState()) { // untouched
     // Read PWM value
     PWMValue = analogRead(PWM_PIN);
 
-    analogWrite(motorCTRL_1, (PWMValue / 16)); // PWMValue: 0->4095
-    analogWrite(motorCTRL_2, 0);
+    analogWrite(MOTOR_CTRL_PIN_1, (PWMValue / 16)); // PWMValue: 0->4095
+    analogWrite(MOTOR_CTRL_PIN_2, 0);
 
     motorState = motorState_t::UP;
   }
   else { // touched
-    Motor_Off();
+    motorOff();
   }
 }
 
-void Motor_On_Down() {
+void motorOnDown() {
   limitSwitch_Down.loop();   // MUST call the loop() function first
 
   if (limitSwitch_Down.getState()) { // untouched
     // Read PWM value
     PWMValue = analogRead(PWM_PIN);
 
-    analogWrite(motorCTRL_2, (PWMValue / 16)); // PWMValue: 0->4095
-    analogWrite(motorCTRL_1, 0);
+    analogWrite(MOTOR_CTRL_PIN_2, (PWMValue / 16)); // PWMValue: 0->4095
+    analogWrite(MOTOR_CTRL_PIN_1, 0);
 
     motorState = motorState_t::DOWN;
   }
   else { // touched
-    Motor_Off();
+    motorOff();
   }
 }
 
-void Motor_Off() {
-  analogWrite(motorCTRL_1, 0);
-  analogWrite(motorCTRL_2, 0);
+void motorOff() {
+  analogWrite(MOTOR_CTRL_PIN_1, 0);
+  analogWrite(MOTOR_CTRL_PIN_2, 0);
 
   motorState = motorState_t::OFF;
 }
 
-// void Motor_Run() {
-//   if (Motor_Direction == LOW) {
-//     Motor_On_Up();
-//     if (limitSwitch_Up.isPressed()) {
-//       Motor_Direction = HIGH;
-//     }
-//   }
-//   if (Motor_Direction == HIGH) {
-//     Motor_On_Down();
-//     if (limitSwitch_Down.isPressed()) {
-//       Motor_Direction = LOW;
-//     }
-//   }
-// }
-
-// void Motor_Mode() {
-//   if (DripMode == LOW) {
-//     DripMode = HIGH;
-//     but_state = true;
-//   } else {
-//     DripMode = LOW;
-//     but_state = false;
-//     Motor_Off();
-//   }
-// }
-
-const char *get_motor_state(motorState_t state) {
+const char *getMotorState(motorState_t state) {
   switch (state) {
   case motorState_t::UP:
     return "UP";
@@ -731,7 +707,7 @@ const char *get_motor_state(motorState_t state) {
   }
 }
 
-const char *get_button_state(buttonState_t state) {
+const char *getButtonState(buttonState_t state) {
   switch (state) {
   case buttonState_t::UP:
     return "UP";
@@ -797,6 +773,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
         targetTotalTime = targetTotalTimeHours * 3600 +
                           targetTotalTimeMinutes * 60;
         dropFactor = root["SET_DROP_FACTOR_WS"];
+        targetNumDrops = targetVTBI / (1.0f / dropFactor);  // rounded to integer part
 
         // DEBUG:
         // Serial.printf("---\n");
@@ -804,15 +781,28 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
         // Serial.printf("Target total time is set to: %u seconds\n", targetTotalTime);
         // Serial.printf("Drop factor is set as: %u drops/mL\n", dropFactor);
         // Serial.printf("Target drip rate is set to: %u drops/min\n", targetDripRate);
+        // Serial.printf("Target number of drops is: %d\n", targetNumDrops);
       }
-      else if (root.containsKey("GET_DATA_WS")) {
-        sendDataWs();
+      else if (root.containsKey("COMMAND")) {
+        // parse the command and execute
+        if (root["COMMAND"] == "ENABLE_AUTOCONTROL_WS") {
+          infusionInit();
+
+          // override the ENTER button to enable autoControl()
+          enableAutoControl = true;
+        }
+        else if (root["COMMAND"] == "GET_INFUSION_MONITORING_DATA_WS") {
+          sendInfusionMonitoringDataWs();
+        }
+        else {
+          Serial.printf("Command undefined\n");
+        }
       }
     }
   }
 }
 
-void sendDataWs() {
+void sendInfusionMonitoringDataWs() {
   // TODO: check how to migrate to newest version of DynamicJsonBuffer
   DynamicJsonBuffer dataBuffer;
   JsonObject &root = dataBuffer.createObject();
@@ -830,8 +820,8 @@ void sendDataWs() {
   if (dropFactor != UINT_MAX) {
     infusedVolume = numDrops * (1.0f / dropFactor);
   }
-  root["INFUSED_VOLUME"] = infusedVolume;
 
+  root["INFUSED_VOLUME"] = infusedVolume;
   root["INFUSED_TIME"] = infusedTime;
   size_t len = root.measureLength();
   AsyncWebSocketMessageBuffer *buffer =
@@ -843,3 +833,38 @@ void sendDataWs() {
 }
 
 // TODO: refactor: create a function to send json object as websocket message
+
+// Move down the roller clamp to completely closed position
+// Copied and modified from motorOnDown()
+void homingRollerClamp() {
+  limitSwitch_Down.loop();   // MUST call the loop() function first
+
+  if (limitSwitch_Down.getState()) { // untouched
+    // Read PWM value
+    PWMValue = analogRead(PWM_PIN);
+
+    analogWrite(MOTOR_CTRL_PIN_2, (PWMValue / 16)); // PWMValue: 0->4095
+    analogWrite(MOTOR_CTRL_PIN_1, 0);
+
+    motorState = motorState_t::DOWN;
+  }
+  else { // touched
+    motorOff();
+    homingCompleted = true;
+  }
+}
+
+void infusionInit() {
+  // Reset infusion parameters the first time button_ENTER is pressed.
+  // Parameters need to be reset:
+  //    (1) numDrops
+  //    (2) infusedVolume
+  //    (3) infusedTime
+  //    Add more if necessary
+  if (!infusionStarted) {
+    numDrops = 0;
+    infusedVolume = 0.0f;
+    infusedTime = 0;
+    infusionStarted = true;
+  }
+}
