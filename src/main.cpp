@@ -35,11 +35,12 @@ buttonState_t buttonState = buttonState_t::IDLE;
 
 // NOTE: when infusionState_t type is modified, update the same type in script.js 
 enum class infusionState_t {
-  NOT_STARTED,      // when the board is powered on and no drops detected
-  STARTED,          // as soon as drops are detected
-  IN_PROGRESS,      // when infusion is started by user and not completed yet
-  ALARM_COMPLETED,  // when infusion has completed, i.e. infusedVolume reaches the target volume
-  ALARM_STOPPED     // when infusion stopped unexpectly, it's likely to have a problem
+  NOT_STARTED,           // when the board is powered on and no drops detected
+  STARTED,               // as soon as drops are detected
+  IN_PROGRESS,           // when infusion is started by user and not completed yet
+  ALARM_COMPLETED,       // when infusion has completed, i.e. infusedVolume reaches the target volume
+  ALARM_STOPPED,         // when infusion stopped unexpectly, it's likely to have a problem
+  ALARM_VOLUME_EXCEEDED  // when infusion has completed but we still detect drops
   // add more states here when needed
 };
 // Initially, infusionState is NOT_STARTED
@@ -47,7 +48,6 @@ infusionState_t infusionState = infusionState_t::NOT_STARTED;
 
 // var for checking the time
 volatile bool noDropWithin20s = false; // true if no drop appears in next 20s
-volatile bool volume_exceed = false;    // true if numDrops exceed amount
 
 // var for timer0 interrupt
 // for reading the sensor value
@@ -222,6 +222,13 @@ void IRAM_ATTR dropSensor() {
       }
       totalTime += timeBtw2Drops;
       startTime = millis();
+
+      // if infusion has completed but we still detect drop,
+      // something must be wrong. Need to sound the alarm.
+      if (infusionState == infusionState_t::ALARM_COMPLETED) {
+        infusionState = infusionState_t::ALARM_VOLUME_EXCEEDED;
+        // alert("VolumeExceed");
+      }
     }
   }
   else if (occur == 0) {
@@ -245,23 +252,17 @@ void IRAM_ATTR dropSensor() {
 
     // set timeBtw2Drops to a very large number
     timeBtw2Drops = UINT_MAX;
-    infusionState = infusionState_t::ALARM_STOPPED;  // TODO: test this case
+    infusionState = infusionState_t::ALARM_STOPPED;
 
     // reset this to enable the next first drop detection
     firstDropDetected = false;
   }
-  // call when the no of drops exceed target
-  // TODO: replace hardcoded maximum number of drops below
-  // if (numDrops >= 500) {
-  //   volume_exceed = true;
-  //   // TODO: alert volume exceed
-  //   // alert("VolumeExceed");
-  // }
 
   // get latest value of dripRate
-  dripRate = 60000 / timeBtw2Drops; // TODO: explain this formular
+  // explain: dripRate = 60 seconds / time between 2 consecutive drops
+  dripRate = 60000 / timeBtw2Drops;
 
-  // Get infusion time so far:
+  // get infusion time so far:
   if (infusionState != infusionState_t::ALARM_COMPLETED) {
     infusedTime = (millis() - infusionStartTime) / 1000;  // in seconds
   }

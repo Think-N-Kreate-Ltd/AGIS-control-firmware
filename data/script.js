@@ -24,6 +24,7 @@ const infusionState_t = Object.freeze({
     IN_PROGRESS: "IN_PROGRESS",
     ALARM_COMPLETED: "ALARM_COMPLETED",
     ALARM_STOPPED: "ALARM_STOPPED",
+    ALARM_VOLUME_EXCEEDED: "ALARM_VOLUME_EXCEEDED"
 });
 
 var infusionState;
@@ -117,6 +118,10 @@ function onWsMessage(event) {
         document.getElementById("drip_rate_value").innerHTML = text;
         document.getElementById("infusion_state_value").style.color = "red"
         document.getElementById("infusion_state_value").innerHTML = "ALARM: no recent drop";
+    }
+    else if (infusionState === infusionState_t.ALARM_VOLUME_EXCEEDED) {
+        document.getElementById("infusion_state_value").style.color = "red"
+        document.getElementById("infusion_state_value").innerHTML = "ALARM: volume exceeded";
     }
     else {
         console.log("infusionState value not recognized");
