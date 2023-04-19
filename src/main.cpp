@@ -424,10 +424,10 @@ void setup() {
   timerAlarmEnable(Timer1_cfg);            // start the interrupt
 
   // setup for timer2
-  Timer2_cfg = timerBegin(2, 80, true); // Prescaler = 80
+  Timer2_cfg = timerBegin(2, 4000, true); // Prescaler = 80
   timerAttachInterrupt(Timer2_cfg, &motorControl,
                        true);              // call the function motorControl()
-  timerAlarmWrite(Timer2_cfg, 1000, true); // Time = 1000*80/80,000,000 = 1ms
+  timerAlarmWrite(Timer2_cfg, 20, true); // Time = 4000*20/80,000,000 = 1ms
   timerAlarmEnable(Timer2_cfg);            // start the interrupt
 
   // setup for timer3
@@ -579,7 +579,7 @@ void tableOledDisplay(int n, int m) {
     display.printf("Infused time: \n%ds\n", infusedTime%60);
   }
   
-  display.display();
+  display.display();  
 }
 
 // display the warning message on the screen
