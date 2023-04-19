@@ -352,7 +352,6 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
     else {
       motorOff();
     }
-    }
   }
 
   // reset this for the next autoControl()
@@ -396,9 +395,9 @@ void IRAM_ATTR motorControl() {
 // timer3 inerrupt, for I2C OLED display
 void IRAM_ATTR OledDisplay(){
   if (volume_exceed) {
-    alertOledDisplay("Volume exceed");
-  } else if (no_drop_with_20s) {
-    alertOledDisplay("Out of Field");
+    alertOledDisplay("infusion completed");
+  } else if (noDropWithin20s) {
+    alertOledDisplay("no recent drop");
   } else {
     tableOledDisplay(numDrops/dropFactor, getFloat(numDrops*10/dropFactor));
   }
@@ -582,47 +581,7 @@ void alertOledDisplay(const char* s) {
   display.setTextColor(SSD1306_WHITE);
 
   display.setCursor(1,16);
-  display.println(F("Warning: "));
-  display.println(F(s));
-  display.display();
-}
-
-// get the first floating point number
-int getFloat(int n) {
-  static int j;
-  static int k;
-  j = (n / 10) * 10;
-  k = n - j;
-  return k;
-}
-
-// display the table on the screen
-// only one display.display() should be used
-void tableOledDisplay(int n, int m) {
-  // initialize setting of display
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);  // draw 'on' pixels
-
-  display.setCursor(1,16);  // set the position of the first letter
-  display.printf("Drip rate: %d\n", dripRate);
-
-  display.setCursor(1,24);  // set the position of the first letter
-  display.printf("Infused volume: %d.%d\n", n, m);
-
-  display.setCursor(1,32);  // set the position of the first letter
-  display.printf("Infused time: \n%dmin %ds\n", infusedTime/60, infusedTime%60);
-  display.display();
-}
-
-// display the warning message on the screen
-void alertOledDisplay(const char* s) {
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setTextColor(SSD1306_WHITE);
-
-  display.setCursor(1,16);
-  display.println(F("Warning: "));
+  display.println(F("ALARM: "));
   display.println(F(s));
   display.display();
 }
