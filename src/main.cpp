@@ -62,6 +62,9 @@ volatile unsigned long infusionStartTime = 0;
 volatile unsigned int dripRateSamplingCount = 0;  // use for drip rate sampling
 volatile unsigned int numDropsInterval = 0;  // number of drops in 15 seconds
 volatile unsigned int autoControlCount = 0;  // use for regulating frequency of motor is on
+volatile unsigned int autoControlOnTime = 0;  // use for regulating frequency of motor is on
+int dripRateDifference = 0; 
+volatile unsigned int dripRatePeak = 0;       // drip rate at the position when 1st drop is detected
 
 // var for timer2 interrupt
 int PWMValue = 0; // PWM value to control the speed of motor
@@ -94,7 +97,7 @@ bool homingCompleted = false;   // true when lower limit switch is activated
 // To reduce the sensitive of autoControl()
 // i.e. (targetDripRate +/-5) is good enough
 #define AUTO_CONTROL_ALLOW_RANGE 5
-#define AUTO_CONTROL_ON_TIME     50  // motor will be enabled for this amount of time (unit: ms)
+#define AUTO_CONTROL_ON_TIME_MAX 500  // motor will be enabled for this amount of time at maximum (unit: ms)
 #define AUTO_CONTROL_TOTAL_TIME  1000  // 1000ms
 #define DROP_DEBOUNCE_TIME       10   // if two pulses are generated within 10ms, it must be detected as 1 drop
 
@@ -257,6 +260,11 @@ void IRAM_ATTR dropSensor() {
   // get latest value of dripRate
   dripRate = 60000 / timeBtw2Drops; // TODO: explain this formular
 
+  // get dripRatePeak, i.e. drip rate when 1st drop is detected
+  if (firstDropDetected) {
+    dripRatePeak = max(dripRatePeak, dripRate);
+  }
+
   // Get infusion time so far:
   if (!infusionCompleted) {
     infusedTime = (millis() - infusionStartTime) / 1000;  // in seconds
@@ -272,7 +280,7 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
   autoControlCount++;
   if (firstDropDetected) {
     // on for 50 ms, off for 950 ms
-    autoControlOnPeriod = (0 <= autoControlCount) && (autoControlCount <= AUTO_CONTROL_ON_TIME);
+    autoControlOnPeriod = autoControlCount <= autoControlOnTime;
   }
   else {
     autoControlOnPeriod = true;  // no limitation on motor on period
@@ -325,6 +333,11 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
   // reset this for the next autoControl()
   if (autoControlCount == AUTO_CONTROL_TOTAL_TIME) {   // reset count every 1s
     autoControlCount = 0;
+
+    // calculate new autoControlOnTime based on the absolute difference
+    // between dripRate and targetDripRate
+    dripRateDifference = dripRate - targetDripRate;
+    autoControlOnTime = abs(dripRateDifference) * AUTO_CONTROL_ON_TIME_MAX / dripRatePeak;
   }
 }
 
