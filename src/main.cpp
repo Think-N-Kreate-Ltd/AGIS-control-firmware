@@ -104,6 +104,7 @@ bool homingCompleted = false;   // true when lower limit switch is activated
 // i.e. (targetDripRate +/-5) is good enough
 #define AUTO_CONTROL_ALLOW_RANGE 5
 #define AUTO_CONTROL_ON_TIME_MAX 500  // motor will be enabled for this amount of time at maximum (unit: ms)
+#define AUTO_CONTROL_ON_TIME_MIN 50   // motor will be enabled for this amount of time at minimum (unit: ms)
 #define AUTO_CONTROL_TOTAL_TIME  1000  // 1000ms
 #define DROP_DEBOUNCE_TIME       10   // if two pulses are generated within 10ms, it must be detected as 1 drop
 
@@ -338,7 +339,9 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
     // calculate new autoControlOnTime based on the absolute difference
     // between dripRate and targetDripRate
     dripRateDifference = dripRate - targetDripRate;
-    autoControlOnTime = abs(dripRateDifference) * AUTO_CONTROL_ON_TIME_MAX / dripRatePeak;
+    autoControlOnTime =
+        max(abs(dripRateDifference) * AUTO_CONTROL_ON_TIME_MAX / dripRatePeak,
+            (unsigned int)AUTO_CONTROL_ON_TIME_MIN);
   }
 }
 
