@@ -101,10 +101,10 @@ volatile bool autoControlOnPeriod = false;
 bool homingCompleted = false;   // true when lower limit switch is activated
 
 // To reduce the sensitive of autoControl()
-// i.e. (targetDripRate +/-5) is good enough
-#define AUTO_CONTROL_ALLOW_RANGE 5
-#define AUTO_CONTROL_ON_TIME_MAX 500  // motor will be enabled for this amount of time at maximum (unit: ms)
-#define AUTO_CONTROL_ON_TIME_MIN 50   // motor will be enabled for this amount of time at minimum (unit: ms)
+// i.e. (targetDripRate +/-3) is good enough
+#define AUTO_CONTROL_ALLOW_RANGE 3
+#define AUTO_CONTROL_ON_TIME_MAX 600  // motor will be enabled for this amount of time at maximum (unit: ms)
+#define AUTO_CONTROL_ON_TIME_MIN 30   // motor will be enabled for this amount of time at minimum (unit: ms)
 #define AUTO_CONTROL_TOTAL_TIME  1000  // 1000ms
 #define DROP_DEBOUNCE_TIME       10   // if two pulses are generated within 10ms, it must be detected as 1 drop
 
