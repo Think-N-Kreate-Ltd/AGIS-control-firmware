@@ -70,6 +70,10 @@ volatile unsigned long infusionStartTime = 0;
 volatile unsigned int dripRateSamplingCount = 0;  // use for drip rate sampling
 volatile unsigned int numDropsInterval = 0;  // number of drops in 15 seconds
 volatile unsigned int autoControlCount = 0;  // use for regulating frequency of motor is on
+volatile unsigned int autoControlOnTime = 0;  // use for regulating frequency of motor is on
+int dripRateDifference = 0; 
+volatile unsigned int dripRatePeak = 1;   // drip rate at the position when 1st drop is detected,
+                                          // set to 1 to avoid zero division
 
 // var for timer2 interrupt
 int PWMValue = 0; // PWM value to control the speed of motor
@@ -97,9 +101,10 @@ volatile bool autoControlOnPeriod = false;
 bool homingCompleted = false;   // true when lower limit switch is activated
 
 // To reduce the sensitive of autoControl()
-// i.e. (targetDripRate +/-5) is good enough
-#define AUTO_CONTROL_ALLOW_RANGE 5
-#define AUTO_CONTROL_ON_TIME     50  // motor will be enabled for this amount of time (unit: ms)
+// i.e. (targetDripRate +/-3) is good enough
+#define AUTO_CONTROL_ALLOW_RANGE 3
+#define AUTO_CONTROL_ON_TIME_MAX 600  // motor will be enabled for this amount of time at maximum (unit: ms)
+#define AUTO_CONTROL_ON_TIME_MIN 30   // motor will be enabled for this amount of time at minimum (unit: ms)
 #define AUTO_CONTROL_TOTAL_TIME  1000  // 1000ms
 #define DROP_DEBOUNCE_TIME       10   // if two pulses are generated within 10ms, it must be detected as 1 drop
 
@@ -199,6 +204,9 @@ void IRAM_ATTR dropSensor() {
     timeWithNoDrop = 0;
     noDropWithin20s = false;
     if (infusionState != infusionState_t::IN_PROGRESS) {
+      // TODO: when click "Set and Run" button on the website again to
+      // start another infusion, infusionState should be IN_PROGRESS but
+      // somehow it is STARTED
       infusionState = infusionState_t::STARTED; // droping has started
     }
     if (!occurState) { // condition that check for the drop is just detected
@@ -240,8 +248,8 @@ void IRAM_ATTR dropSensor() {
     }
   }
 
-  // call when no drop appears within 20s, reset all data
-  if ((timeWithNoDrop >= 20000) && (infusionState == infusionState_t::STARTED)) {
+  // call when no drop appears within 20s, reset dripping data
+  if (timeWithNoDrop >= 20000) {
     time1Drop = 0;
     // numDrops = 0;
 
@@ -252,7 +260,12 @@ void IRAM_ATTR dropSensor() {
 
     // set timeBtw2Drops to a very large number
     timeBtw2Drops = UINT_MAX;
-    infusionState = infusionState_t::ALARM_STOPPED;
+
+    // infusion is still in progress but we cannot detect drops for 20s,
+    // something must be wrong, sound the alarm
+    if (infusionState == infusionState_t::IN_PROGRESS) {
+      infusionState = infusionState_t::ALARM_STOPPED;
+    }
 
     // reset this to enable the next first drop detection
     firstDropDetected = false;
@@ -262,6 +275,11 @@ void IRAM_ATTR dropSensor() {
   // explain: dripRate = 60 seconds / time between 2 consecutive drops
   dripRate = 60000 / timeBtw2Drops;
 
+  // get dripRatePeak, i.e. drip rate when 1st drop is detected
+  if (firstDropDetected) {
+    dripRatePeak = max(dripRatePeak, dripRate);
+  }
+
   // get infusion time so far:
   if (infusionState != infusionState_t::ALARM_COMPLETED) {
     infusedTime = (millis() - infusionStartTime) / 1000;  // in seconds
@@ -270,14 +288,14 @@ void IRAM_ATTR dropSensor() {
 
 void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
   // Only run autoControl() when the following conditions satisfy:
-  //   1. button_ENTER is pressed
+  //   1. button_ENTER is pressed, or command is sent from website
   //   3. targetDripRate is set on the website by user
   //   4. infusion is not completed, i.e. infusionState != infusionState_t::ALARM_COMPLETED
 
   autoControlCount++;
   if (firstDropDetected) {
     // on for 50 ms, off for 950 ms
-    autoControlOnPeriod = (0 <= autoControlCount) && (autoControlCount <= AUTO_CONTROL_ON_TIME);
+    autoControlOnPeriod = autoControlCount <= autoControlOnTime;
   }
   else {
     autoControlOnPeriod = true;  // no limitation on motor on period
@@ -325,6 +343,13 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
   // reset this for the next autoControl()
   if (autoControlCount == AUTO_CONTROL_TOTAL_TIME) {   // reset count every 1s
     autoControlCount = 0;
+
+    // calculate new autoControlOnTime based on the absolute difference
+    // between dripRate and targetDripRate
+    dripRateDifference = dripRate - targetDripRate;
+    autoControlOnTime =
+        max(abs(dripRateDifference) * AUTO_CONTROL_ON_TIME_MAX / dripRatePeak,
+            (unsigned int)AUTO_CONTROL_ON_TIME_MIN);
   }
 }
 
@@ -496,16 +521,16 @@ void setup() {
   while (!homingCompleted) {
     homingRollerClamp();
   }
-  homingCompleted = false;  // if not set, the infusion cannot be stopped
 }
 
 void loop() {
   // DEBUG:
   // Serial.printf(
-  //     "dripRate: %u \ttarget_drip_rate: %u \tmotor_state: %s\tint_time2: %u\n",
-  //     dripRate, targetDripRate, getMotorState(motorState), timeBtw2Drops);
+  //     "dripRate: %u \ttarget_drip_rate: %u \tmotor_state: %s\n",
+  //     dripRate, targetDripRate, getMotorState(motorState));
 
-  // Serial.printf("numDrops: %d, \ttargetNumDrops: %d, \t%d\n", numDrops, targetNumDrops, infusionCompleted);
+  // Serial.printf("numDrops: %d, \ttargetNumDrops: %d, \t%s\n", numDrops, targetNumDrops, getInfusionState(infusionState));
+  // Serial.printf("enableAutoControl: %d\n", enableAutoControl);
 }
 
 // check the condition of the switch/input from web page
@@ -751,13 +776,15 @@ void infusionInit() {
   //    (2) infusedVolume
   //    (3) infusedTime
   //    Add more if necessary
-  if (infusionState != infusionState_t::IN_PROGRESS) {
-    numDrops = 0;
-    infusedVolume = 0.0f;
-    infusedTime = 0;
-    infusionState = infusionState_t::IN_PROGRESS;
+  numDrops = 0;
+  infusedVolume = 0.0f;
+  infusedTime = 0;
+  infusionState = infusionState_t::IN_PROGRESS;
 
-    // mark this as starting time of infusion
-    infusionStartTime = millis();
-  }
+  // TODO: start timing from here is not correct
+  // we should start timing from when we receive the first drop
+  // mark this as starting time of infusion
+  infusionStartTime = millis();
+
+  homingCompleted = false;  // if not set, the infusion cannot be stopped
 }
