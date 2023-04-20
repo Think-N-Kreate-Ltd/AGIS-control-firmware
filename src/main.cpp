@@ -522,7 +522,7 @@ void loop() {
   //     "dripRate: %u \ttarget_drip_rate: %u \tmotor_state: %s\tint_time2: %u\n",
   //     dripRate, targetDripRate, getMotorState(motorState), timeBtw2Drops);
 
-  // Serial.printf("numDrops: %d, \ttargetNumDrops: %d, \t%d\n", numDrops, targetNumDrops, infusionCompleted);
+  // Serial.printf("numDrops: %d, \ttargetNumDrops: %d, \t%s\n", numDrops, targetNumDrops, getInfusionState(infusionState));
 }
 
 // check the condition of the switch/input from web page

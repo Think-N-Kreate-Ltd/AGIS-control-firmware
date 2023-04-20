@@ -18,7 +18,7 @@ var target_drip_rate = DRIP_RATE_NOT_SET;
 // NOTE:(1) make sure infusionState_t type is the same as in main.cpp
 // otherwise, it won't work
 // NOTE:(2) Javascript enum declaration is not the same as in C :)
-const infusionState_t = Object.freeze({ 
+const infusionState_t = Object.freeze({
     NOT_STARTED: "NOT_STARTED",
     STARTED: "STARTED",
     IN_PROGRESS: "IN_PROGRESS",
@@ -78,7 +78,8 @@ function onWsMessage(event) {
     }
     //  only update when there are drops
     else if ((infusionState === infusionState_t.STARTED) ||
-             (infusionState === infusionState_t.IN_PROGRESS)) {
+        (infusionState === infusionState_t.IN_PROGRESS) ||
+        (infusionState === infusionState_t.ALARM_COMPLETED)) {
         var time1Drop = dataObj["TIME_1_DROP"];
         var time_btw_2_drops = dataObj["TIME_BTW_2_DROPS"];
         var numDrops = dataObj["NUM_DROPS"];
@@ -105,10 +106,11 @@ function onWsMessage(event) {
             document.getElementById("infusion_state_value").style.color = "blue"
             document.getElementById("infusion_state_value").innerHTML = "In progress";
         }
-    }
-    else if (infusionState === infusionState_t.ALARM_COMPLETED) {
-        document.getElementById("infusion_state_value").style.color = "green"
-        document.getElementById("infusion_state_value").innerHTML = "ALARM: infusion has completed";
+
+        else if (infusionState === infusionState_t.ALARM_COMPLETED) {
+            document.getElementById("infusion_state_value").style.color = "green"
+            document.getElementById("infusion_state_value").innerHTML = "ALARM: infusion has completed";
+        }
     }
     else if (infusionState === infusionState_t.ALARM_STOPPED) {
         let text = "No recent drop";
@@ -199,7 +201,7 @@ function calculateTargetDripRate() {
         && Number.isInteger(total_time_minutes) && (drop_factor_obj != null)) {
 
         // Calculate drip rate based on formular
-        target_drip_rate = vtbi / (total_time_hours*60 + total_time_minutes) * drop_factor_obj.value;
+        target_drip_rate = vtbi / (total_time_hours * 60 + total_time_minutes) * drop_factor_obj.value;
         // TODO: handle boundary cases
         document.getElementById("drip_rate").style.color = "green"
         document.getElementById("drip_rate").innerHTML = target_drip_rate.toString();
