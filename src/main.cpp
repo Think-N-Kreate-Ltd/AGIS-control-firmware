@@ -294,6 +294,36 @@ void IRAM_ATTR dropSensor() {
   if (!infusionCompleted) {
     infusedTime = (millis() - infusionStartTime) / 1000;  // in seconds
   }
+
+  // Read buttons and switches state
+  button_UP.loop();        // MUST call the loop() function first
+  button_ENTER.loop();     // MUST call the loop() function first
+  button_DOWN.loop();      // MUST call the loop() function first
+
+  // Use button_UP to manually move up
+  if (!button_UP.getState()) {  // touched
+    buttonState = buttonState_t::UP;
+    motorOnUp();
+  }
+
+  // Use button_DOWN to manually move down
+  if (!button_DOWN.getState()) {  // touched
+    buttonState = buttonState_t::DOWN;
+    motorOnDown();
+  }
+
+  // Use button_ENTER to toggle autoControl()
+  if (button_ENTER.isPressed()) {  // pressed is different from touched
+    buttonState = buttonState_t::ENTER;
+    enableAutoControl = !enableAutoControl;
+
+    infusionInit();
+  }
+
+  if (button_UP.isReleased() || button_DOWN.isReleased() || button_ENTER.isReleased()) {
+    buttonState = buttonState_t::IDLE;
+    motorOff();
+  }
 }
 
 void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
@@ -361,35 +391,35 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
 }
 
 void IRAM_ATTR motorControl() {
-  // Read buttons and switches state
-  button_UP.loop();        // MUST call the loop() function first
-  button_ENTER.loop();     // MUST call the loop() function first
-  button_DOWN.loop();      // MUST call the loop() function first
+  // // Read buttons and switches state
+  // button_UP.loop();        // MUST call the loop() function first
+  // button_ENTER.loop();     // MUST call the loop() function first
+  // button_DOWN.loop();      // MUST call the loop() function first
 
-  // Use button_UP to manually move up
-  if (!button_UP.getState()) {  // touched
-    buttonState = buttonState_t::UP;
-    motorOnUp();
-  }
+  // // Use button_UP to manually move up
+  // if (!button_UP.getState()) {  // touched
+  //   buttonState = buttonState_t::UP;
+  //   motorOnUp();
+  // }
 
-  // Use button_DOWN to manually move down
-  if (!button_DOWN.getState()) {  // touched
-    buttonState = buttonState_t::DOWN;
-    motorOnDown();
-  }
+  // // Use button_DOWN to manually move down
+  // if (!button_DOWN.getState()) {  // touched
+  //   buttonState = buttonState_t::DOWN;
+  //   motorOnDown();
+  // }
 
-  // Use button_ENTER to toggle autoControl()
-  if (button_ENTER.isPressed()) {  // pressed is different from touched
-    buttonState = buttonState_t::ENTER;
-    enableAutoControl = !enableAutoControl;
+  // // Use button_ENTER to toggle autoControl()
+  // if (button_ENTER.isPressed()) {  // pressed is different from touched
+  //   buttonState = buttonState_t::ENTER;
+  //   enableAutoControl = !enableAutoControl;
 
-    infusionInit();
-  }
+  //   infusionInit();
+  // }
 
-  if (button_UP.isReleased() || button_DOWN.isReleased() || button_ENTER.isReleased()) {
-    buttonState = buttonState_t::IDLE;
-    motorOff();
-  }
+  // if (button_UP.isReleased() || button_DOWN.isReleased() || button_ENTER.isReleased()) {
+  //   buttonState = buttonState_t::IDLE;
+  //   motorOff();
+  // }
 }
 
 // timer3 inerrupt, for I2C OLED display
