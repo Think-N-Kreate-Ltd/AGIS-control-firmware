@@ -388,8 +388,10 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
 
 // timer3 inerrupt, for I2C OLED display
 void IRAM_ATTR OledDisplay(){
-  if (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED) {
+  if (infusionState == infusionState_t::ALARM_COMPLETED) {
     alertOledDisplay("infusion completed");
+  } else if (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED) {
+    alertOledDisplay("volume exceeded");
   } else if (infusionState == infusionState_t::ALARM_STOPPED) {
     alertOledDisplay("no recent drop");
   } else {
