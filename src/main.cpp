@@ -227,6 +227,11 @@ void IRAM_ATTR dropSensor() {
       if (firstDropDetected) {
         dripRatePeak = max(dripRatePeak, dripRate);
       }
+
+      // get infusion time so far:
+      if (infusionState != infusionState_t::ALARM_COMPLETED) {
+        infusedTime = (millis() - infusionStartTime) / 1000;  // in seconds
+      }
     } else if (sensor_READ.getStateRaw() == 0) {/*nothing*/}
   } 
 }
@@ -249,11 +254,6 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
     }
   } else {
     timeWithNoDrop = 0;
-
-    // get infusion time so far:
-    if (infusionState != infusionState_t::ALARM_COMPLETED) {
-      infusedTime = (millis() - infusionStartTime) / 1000;  // in seconds
-    }
   }
 
   // Only run when the following conditions satisfy:
