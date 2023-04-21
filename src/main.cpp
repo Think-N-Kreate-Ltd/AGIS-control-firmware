@@ -142,6 +142,7 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
              AwsEventType type, void *arg, uint8_t *data, size_t len);
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
 void sendInfusionMonitoringDataWs();
+void logInfusionMonitoringData();
 void homingRollerClamp();
 void infusionInit();
 
@@ -415,21 +416,6 @@ void setup() {
     Serial.println("An Error has occurred while mounting SPIFFS");
     return;
   }
-
-  // Create a text file to save infusion data
-  // TODO: csv file seems better
-  File file = SPIFFS.open("/single_data.txt", FILE_WRITE);
-  if (!file) {
-    Serial.println("There was an error opening the file for writing");
-    return;
-  }
-
-  if(file.print("Hello World!")) {
-    Serial.println("File was written");
-  }else {
-      Serial.println("File write failed");
-  }
-  file.close();
 
   WiFi.mode(WIFI_STA); // wifi station mode
 
@@ -728,6 +714,10 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
         }
         else if (doc["COMMAND"] == "GET_INFUSION_MONITORING_DATA_WS") {
           sendInfusionMonitoringDataWs();
+
+          // we also want to log the infusion data to file
+          // frequency of logging is set from script.js file
+          logInfusionMonitoringData();
         }
         else {
           Serial.printf("Command undefined\n");
@@ -760,6 +750,23 @@ void sendInfusionMonitoringDataWs() {
   char buffer[1024];
   size_t len = serializeJson(root, buffer);
   ws.textAll(buffer);
+}
+
+void logInfusionMonitoringData() {
+  // Create a text file to save infusion data
+  // TODO: csv file seems better
+  File file = SPIFFS.open("/single_data.txt", FILE_APPEND);
+  if (!file) {
+    Serial.println("There was an error opening the file for writing");
+    return;
+  }
+
+  if(file.println(dripRate)) {
+    Serial.println("File was written");
+  }else {
+      Serial.println("File write failed");
+  }
+  file.close();
 }
 
 // TODO: refactor: create a function to send json object as websocket message
