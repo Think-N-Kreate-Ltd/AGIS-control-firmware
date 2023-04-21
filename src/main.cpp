@@ -46,29 +46,20 @@ enum class infusionState_t {
 // Initially, infusionState is NOT_STARTED
 infusionState_t infusionState = infusionState_t::NOT_STARTED;
 
-// var for checking the time
-volatile bool noDropWithin20s = false; // true if no drop appears in next 20s
-
-// var for timer0 interrupt
-// for reading the sensor value
-volatile int occur;
-// for measuring the time that sensor detect a drop
-volatile unsigned long startTime = 0;
-// for measuring the time that sensor detect a drop is disappear
-volatile unsigned long leaveTime = 0;
-// for measuring the time that sensor detect the next drop
-volatile unsigned long nextTime = 0;
+// TODO: delete time1Drop, totalTime
+// var for EXT interrupt (sensor)
 volatile unsigned long totalTime = 0; // for calculating the time used within 15s
 volatile unsigned int numDrops = 0;   // for counting the number of drops within 15s
-volatile unsigned int dripRate = 0;       // for calculating the drip rate
-volatile unsigned int time1Drop = 0;      // for storing the time of 1 drop
+volatile unsigned int dripRate = 0;   // for calculating the drip rate
+volatile unsigned int time1Drop = 0;  // for storing the time of 1 drop
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
+ezButton sensor_READ(DROP_SENSOR_PIN);     // create ezButton object that attach to pin 36;
+
+// var for timer1 interrupt
 volatile float infusedVolume = 0;  // unit: mL
 volatile unsigned long infusedTime = 0;     // unit: seconds
 volatile unsigned long infusionStartTime = 0;
 
-volatile unsigned int dripRateSamplingCount = 0;  // use for drip rate sampling
-volatile unsigned int numDropsInterval = 0;  // number of drops in 15 seconds
 volatile unsigned int autoControlCount = 0;  // use for regulating frequency of motor is on
 volatile unsigned int autoControlOnTime = 0;  // use for regulating frequency of motor is on
 int dripRateDifference = 0; 
@@ -189,105 +180,83 @@ hw_timer_t *Timer0_cfg = NULL; // create a pointer for timer0
 hw_timer_t *Timer1_cfg = NULL; // create a pointer for timer1
 hw_timer_t *Timer2_cfg = NULL; // create a pointer for timer2
 
-// timer0 interrupt, for sensor detected drops and measure the time
+// EXT interrupt to pin 36, for sensor detected drops and measure the time
 void IRAM_ATTR dropSensor() {
-  static bool occurState = false; // true when obstacle detected
-  static int timeWithNoDrop; // counting when no drop appears, for measuring
-                               // the time that have no drop
-  static unsigned int timeDifference; 
+  static int lastState;    // var to record the last value of the sensor
+  static int lastTime;     // var to record the last value of the calling time
+  static int lastDropTime; // var to record the time of last drop
 
-  occur = digitalRead(DROP_SENSOR_PIN); // read the sensor value
-
-  dripRateSamplingCount++;  // increment 1ms
-
-  if (occur == 1) {
-    timeWithNoDrop = 0;
-    noDropWithin20s = false;
-    if (infusionState != infusionState_t::IN_PROGRESS) {
-      // TODO: when click "Set and Run" button on the website again to
-      // start another infusion, infusionState should be IN_PROGRESS but
-      // somehow it is STARTED
-      infusionState = infusionState_t::STARTED; // droping has started
-    }
-    if (!occurState) { // condition that check for the drop is just detected
-
+  // in fact, the interrupt will only be called when state change
+  // just one more protection to prevent calling twice when state doesn't change
+  if (lastState != sensor_READ.getStateRaw()) {
+    lastState = sensor_READ.getStateRaw();
+    // call when drop detected
+    // disable for 10 ms after called
+    if ((sensor_READ.getStateRaw() == 1) && 
+        ((millis()-lastTime)>=DROP_DEBOUNCE_TIME)) {
+      lastTime = millis();
 
       // FIRST DROP DETECTION
-      if (!firstDropDetected) {
+      if (!firstDropDetected){
         firstDropDetected = true;
+        lastDropTime = -9999; // prevent timeBtw2Drops become inf
+      }
+      if (infusionState != infusionState_t::IN_PROGRESS) {
+        // TODO: when click "Set and Run" button on the website again to
+        // start another infusion, infusionState should be IN_PROGRESS but
+        // somehow it is STARTED
+        infusionState = infusionState_t::STARTED; // droping has started
       }
 
-      numDropsInterval++;
-
-      occurState = true;
-      nextTime = millis();
-      timeDifference = nextTime - startTime;
-      // FALSE COUNT DETECTION
-      // if 2 consecutive pulses are within 10ms, it's false alarm
-      if (timeDifference > DROP_DEBOUNCE_TIME) {
-        numDrops++;       // counting the drop
-        timeBtw2Drops = timeDifference;
-      }
-      totalTime += timeBtw2Drops;
-      startTime = millis();
+      // record the value
+      timeBtw2Drops = millis() - lastDropTime;
+      lastDropTime = millis();
+      numDrops++;
 
       // if infusion has completed but we still detect drop,
       // something must be wrong. Need to sound the alarm.
       if (infusionState == infusionState_t::ALARM_COMPLETED) {
         infusionState = infusionState_t::ALARM_VOLUME_EXCEEDED;
-        // alert("VolumeExceed");
       }
-    }
-  }
-  else if (occur == 0) {
-    timeWithNoDrop++;
-    if (occurState) {
-      leaveTime = millis(); // record the time for measuring
-      occurState = false;
-      time1Drop = leaveTime - startTime;
-    }
-  }
+      
+      // get latest value of dripRate
+      // explain: dripRate = 60 seconds / time between 2 consecutive drops
+      dripRate = 60000 / timeBtw2Drops;
 
-  // call when no drop appears within 20s, reset dripping data
-  if (timeWithNoDrop >= 20000) {
-    time1Drop = 0;
-    // numDrops = 0;
-
-    // TODO: how do we define totalTime? Should it be RTC time or only the time
-    // when we have drops?
-    totalTime = 0;
-    noDropWithin20s = true;
-
-    // set timeBtw2Drops to a very large number
-    timeBtw2Drops = UINT_MAX;
-
-    // infusion is still in progress but we cannot detect drops for 20s,
-    // something must be wrong, sound the alarm
-    if (infusionState == infusionState_t::IN_PROGRESS) {
-      infusionState = infusionState_t::ALARM_STOPPED;
-    }
-
-    // reset this to enable the next first drop detection
-    firstDropDetected = false;
-  }
-
-  // get latest value of dripRate
-  // explain: dripRate = 60 seconds / time between 2 consecutive drops
-  dripRate = 60000 / timeBtw2Drops;
-
-  // get dripRatePeak, i.e. drip rate when 1st drop is detected
-  if (firstDropDetected) {
-    dripRatePeak = max(dripRatePeak, dripRate);
-  }
-
-  // get infusion time so far:
-  if (infusionState != infusionState_t::ALARM_COMPLETED) {
-    infusedTime = (millis() - infusionStartTime) / 1000;  // in seconds
-  }
+      // get dripRatePeak, i.e. drip rate when 1st drop is detected
+      if (firstDropDetected) {
+        dripRatePeak = max(dripRatePeak, dripRate);
+      }
+    } else if (sensor_READ.getStateRaw() == 0) {/*nothing*/}
+  } 
 }
 
 void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
-  // Only run autoControl() when the following conditions satisfy:
+  // Checking for no drop for 20s
+    static int timeWithNoDrop;
+  if (sensor_READ.getStateRaw() == 0) {
+    timeWithNoDrop++;
+    if (timeWithNoDrop >= 20000) {
+      // reset these values
+      firstDropDetected = false;
+      timeBtw2Drops = UINT_MAX;
+
+      // infusion is still in progress but we cannot detect drops for 20s,
+      // something must be wrong, sound the alarm
+      if (infusionState == infusionState_t::IN_PROGRESS) {
+        infusionState = infusionState_t::ALARM_STOPPED;
+      }
+    }
+  } else {
+    timeWithNoDrop = 0;
+
+    // get infusion time so far:
+    if (infusionState != infusionState_t::ALARM_COMPLETED) {
+      infusedTime = (millis() - infusionStartTime) / 1000;  // in seconds
+    }
+  }
+
+  // Only run when the following conditions satisfy:
   //   1. button_ENTER is pressed, or command is sent from website
   //   3. targetDripRate is set on the website by user
   //   4. infusion is not completed, i.e. infusionState != infusionState_t::ALARM_COMPLETED
@@ -389,12 +358,8 @@ void setup() {
   Serial.begin(9600);
   pinMode(DROP_SENSOR_PIN, INPUT);
 
-  // setup for timer0
-  Timer0_cfg = timerBegin(0, 80, true); // Prescaler = 80
-  timerAttachInterrupt(Timer0_cfg, &dropSensor,
-                       true);              // call the function dropSensor()
-  timerAlarmWrite(Timer0_cfg, 1000, true); // Time = 1000*80/80,000,000 = 1ms
-  timerAlarmEnable(Timer0_cfg);            // start the interrupt
+  // setup for sensor interrupt
+  attachInterrupt(DROP_SENSOR_PIN, &dropSensor, CHANGE);  // call interrupt when state change
 
   // setup for timer1
   Timer1_cfg = timerBegin(1, 80, true); // Prescaler = 80
