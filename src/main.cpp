@@ -416,6 +416,21 @@ void setup() {
     return;
   }
 
+  // Create a text file to save infusion data
+  // TODO: csv file seems better
+  File file = SPIFFS.open("single_data.txt", FILE_WRITE);
+  if (!file) {
+    Serial.println("There was an error opening the file for writing");
+    return;
+  }
+
+  if(file.print("Hello World!")) {
+    Serial.println("File was written");
+  }else {
+      Serial.println("File write failed");
+  }
+  file.close();
+
   WiFi.mode(WIFI_STA); // wifi station mode
 
   // reset settings - wipe stored credentials for testing
@@ -456,6 +471,10 @@ void setup() {
 
   server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(SPIFFS, "/script.js", "text/javascript");
+  });
+
+  server.on("/data", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(SPIFFS, "/single_data.txt", "text/plain");
   });
 
   // TODO: should we use websocket for below requests?
