@@ -418,7 +418,7 @@ void setup() {
 
   // Create a text file to save infusion data
   // TODO: csv file seems better
-  File file = SPIFFS.open("single_data.txt", FILE_WRITE);
+  File file = SPIFFS.open("/single_data.txt", FILE_WRITE);
   if (!file) {
     Serial.println("There was an error opening the file for writing");
     return;
@@ -474,7 +474,7 @@ void setup() {
   });
 
   server.on("/data", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SPIFFS, "/single_data.txt", "text/plain");
+    request->send(SPIFFS, "/single_data.txt", "text/plain", true);  // force download the file
   });
 
   // TODO: should we use websocket for below requests?
