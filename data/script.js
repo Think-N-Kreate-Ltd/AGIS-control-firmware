@@ -15,6 +15,20 @@ var drop_factor_obj;
 var target_drip_rate = DRIP_RATE_NOT_SET;
 
 
+// NOTE:(1) make sure infusionState_t type is the same as in main.cpp
+// otherwise, it won't work
+// NOTE:(2) Javascript enum declaration is not the same as in C :)
+const infusionState_t = Object.freeze({
+    NOT_STARTED: "NOT_STARTED",
+    STARTED: "STARTED",
+    IN_PROGRESS: "IN_PROGRESS",
+    ALARM_COMPLETED: "ALARM_COMPLETED",
+    ALARM_STOPPED: "ALARM_STOPPED",
+    ALARM_VOLUME_EXCEEDED: "ALARM_VOLUME_EXCEEDED"
+});
+
+var infusionState;
+
 function onLoad(event) {
     initWebSocket();
     // initButton();
@@ -50,18 +64,9 @@ function onWsMessage(event) {
 
     // Parse JSON data
     const dataObj = JSON.parse(event.data);
-    var droppingState = parseInt(dataObj["DROPPING_STATE"]);
+    infusionState = dataObj["INFUSION_STATE"];
 
-    // NOTE:(1) make sure droppingState_t type is the same as in main.cpp
-    // otherwise, it won't work
-    // NOTE:(2) Javascript enum declaration is not the same as in C :)
-    const droppingState_t = Object.freeze({ 
-        NOT_STARTED: 0,
-        STARTED: 1,
-        STOPPED: 2,
-    });
-
-    if (droppingState === droppingState_t.NOT_STARTED) {
+    if (infusionState === infusionState_t.NOT_STARTED) {
         let text = "Not started";
         document.getElementById("time_1_drop_value").innerHTML = text;
         document.getElementById("time_btw_2_drops_value").innerHTML = text;
@@ -71,8 +76,10 @@ function onWsMessage(event) {
         document.getElementById("infused_volume_value").innerHTML = text;
         document.getElementById("infused_time_value").innerHTML = text;
     }
-    //  only update when dropping has started
-    else if (droppingState === droppingState_t.STARTED) {
+    //  only update when there are drops
+    else if ((infusionState === infusionState_t.STARTED) ||
+        (infusionState === infusionState_t.IN_PROGRESS) ||
+        (infusionState === infusionState_t.ALARM_COMPLETED)) {
         var time1Drop = dataObj["TIME_1_DROP"];
         var time_btw_2_drops = dataObj["TIME_BTW_2_DROPS"];
         var numDrops = dataObj["NUM_DROPS"];
@@ -89,16 +96,37 @@ function onWsMessage(event) {
         document.getElementById("drip_rate_value").innerHTML = dripRate;
         document.getElementById("infused_volume_value").innerHTML = infusedVolumeRounded;
         document.getElementById("infused_time_value").innerHTML = infusedTime;
+
+        if (infusionState === infusionState_t.STARTED) {
+            document.getElementById("infusion_state_value").style.color = "black"
+            document.getElementById("infusion_state_value").innerHTML = "Drops are detected";
+        }
+
+        else if (infusionState === infusionState_t.IN_PROGRESS) {
+            document.getElementById("infusion_state_value").style.color = "blue"
+            document.getElementById("infusion_state_value").innerHTML = "In progress";
+        }
+
+        else if (infusionState === infusionState_t.ALARM_COMPLETED) {
+            document.getElementById("infusion_state_value").style.color = "green"
+            document.getElementById("infusion_state_value").innerHTML = "ALARM: infusion has completed";
+        }
     }
-    else if (droppingState === droppingState_t.STOPPED) {
+    else if (infusionState === infusionState_t.ALARM_STOPPED) {
         let text = "No recent drop";
         document.getElementById("time_1_drop_value").innerHTML = text;
         document.getElementById("time_btw_2_drops_value").innerHTML = text;
         document.getElementById("total_time_value").innerHTML = text;
         document.getElementById("drip_rate_value").innerHTML = text;
+        document.getElementById("infusion_state_value").style.color = "red"
+        document.getElementById("infusion_state_value").innerHTML = "ALARM: no recent drop";
+    }
+    else if (infusionState === infusionState_t.ALARM_VOLUME_EXCEEDED) {
+        document.getElementById("infusion_state_value").style.color = "red"
+        document.getElementById("infusion_state_value").innerHTML = "ALARM: volume exceeded";
     }
     else {
-        console.log("droppingState value not recognized");
+        console.log("infusionState value not recognized");
     }
 }
 
@@ -173,7 +201,7 @@ function calculateTargetDripRate() {
         && Number.isInteger(total_time_minutes) && (drop_factor_obj != null)) {
 
         // Calculate drip rate based on formular
-        target_drip_rate = vtbi / (total_time_hours*60 + total_time_minutes) * drop_factor_obj.value;
+        target_drip_rate = vtbi / (total_time_hours * 60 + total_time_minutes) * drop_factor_obj.value;
         // TODO: handle boundary cases
         document.getElementById("drip_rate").style.color = "green"
         document.getElementById("drip_rate").innerHTML = target_drip_rate.toString();
