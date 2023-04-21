@@ -674,20 +674,21 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     // Serial.printf("Received from website: %s\n", (char *)data);
 
     // Parse the received WebSocket message as JSON
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.parseObject((const char *)data);
-    if (!root.success()) {
-      Serial.printf("Parse WebSocket message failed\n");
+    DynamicJsonDocument doc(1024);
+    DeserializationError error = deserializeJson(doc, (const char *)data);
+    if (error) {
+      Serial.printf("deserializeJson() failed: \n");
+      Serial.println(error.c_str());
     } else {
-      if (root.containsKey("SET_TARGET_DRIP_RATE_WS")) {
-        targetDripRate = root["SET_TARGET_DRIP_RATE_WS"];
-        targetVTBI = root["SET_VTBI_WS"];
+      if (doc.containsKey("SET_TARGET_DRIP_RATE_WS")) {
+        targetDripRate = doc["SET_TARGET_DRIP_RATE_WS"];
+        targetVTBI = doc["SET_VTBI_WS"];
         // convert total time to number of seconds
-        unsigned int targetTotalTimeHours = root["SET_TOTAL_TIME_HOURS_WS"];
-        unsigned int targetTotalTimeMinutes = root["SET_TOTAL_TIME_MINUTES_WS"];
+        unsigned int targetTotalTimeHours = doc["SET_TOTAL_TIME_HOURS_WS"];
+        unsigned int targetTotalTimeMinutes = doc["SET_TOTAL_TIME_MINUTES_WS"];
         targetTotalTime = targetTotalTimeHours * 3600 +
                           targetTotalTimeMinutes * 60;
-        dropFactor = root["SET_DROP_FACTOR_WS"];
+        dropFactor = doc["SET_DROP_FACTOR_WS"];
         targetNumDrops = targetVTBI / (1.0f / dropFactor);  // rounded to integer part
 
         // DEBUG:
@@ -698,15 +699,15 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
         // Serial.printf("Target drip rate is set to: %u drops/min\n", targetDripRate);
         // Serial.printf("Target number of drops is: %d\n", targetNumDrops);
       }
-      else if (root.containsKey("COMMAND")) {
+      else if (doc.containsKey("COMMAND")) {
         // parse the command and execute
-        if (root["COMMAND"] == "ENABLE_AUTOCONTROL_WS") {
+        if (doc["COMMAND"] == "ENABLE_AUTOCONTROL_WS") {
           infusionInit();
 
           // override the ENTER button to enable autoControl()
           enableAutoControl = true;
         }
-        else if (root["COMMAND"] == "GET_INFUSION_MONITORING_DATA_WS") {
+        else if (doc["COMMAND"] == "GET_INFUSION_MONITORING_DATA_WS") {
           sendInfusionMonitoringDataWs();
         }
         else {
@@ -718,9 +719,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
 }
 
 void sendInfusionMonitoringDataWs() {
-  // TODO: check how to migrate to newest version of DynamicJsonBuffer
-  DynamicJsonBuffer dataBuffer;
-  JsonObject &root = dataBuffer.createObject();
+  DynamicJsonDocument doc(1024);
+  JsonObject root = doc.to<JsonObject>();
   root["INFUSION_STATE"] = getInfusionState(infusionState);
   root["TIME_1_DROP"] = time1Drop;
   root["TIME_BTW_2_DROPS"] = timeBtw2Drops;
@@ -738,13 +738,9 @@ void sendInfusionMonitoringDataWs() {
 
   root["INFUSED_VOLUME"] = infusedVolume;
   root["INFUSED_TIME"] = infusedTime;
-  size_t len = root.measureLength();
-  AsyncWebSocketMessageBuffer *buffer =
-      ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
-  if (buffer) {
-    root.printTo((char *)buffer->get(), len + 1);
-    ws.textAll(buffer);
-  }
+  char buffer[1024];
+  size_t len = serializeJson(root, buffer);
+  ws.textAll(buffer);
 }
 
 // TODO: refactor: create a function to send json object as websocket message
