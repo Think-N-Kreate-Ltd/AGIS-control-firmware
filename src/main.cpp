@@ -18,6 +18,7 @@
 #include <limits.h>
 #include <ArduinoJson.h>
 #include <AsyncElegantOTA.h>  // define after <ESPAsyncWebServer.h>
+#include <time.h>
 
 // TODO: refactor names, follow standard naming conventions
 
@@ -100,6 +101,12 @@ volatile bool firstDropDetected = false; // to check when we receive the 1st dro
 volatile bool autoControlOnPeriod = false;
 bool homingCompleted = false;   // true when lower limit switch is activated
 
+// for data logging
+char *logFilePath;
+const char* ntpServer = "pool.ntp.org";
+const long gmtOffset_sec = 28800;  // for Hong Kong
+const int daylightOffset_sec = 0;
+
 // To reduce the sensitive of autoControl()
 // i.e. (targetDripRate +/-3) is good enough
 #define AUTO_CONTROL_ALLOW_RANGE 3
@@ -142,9 +149,10 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
              AwsEventType type, void *arg, uint8_t *data, size_t len);
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
 void sendInfusionMonitoringDataWs();
-void logInfusionMonitoringData();
+void logInfusionMonitoringData(char *logFilePath);
 void homingRollerClamp();
 void infusionInit();
+char* generateFilename();
 
 // HTML web page to handle 3 input fields (input1, input2, input3)
 
@@ -204,12 +212,12 @@ void IRAM_ATTR dropSensor() {
   if (occur == 1) {
     timeWithNoDrop = 0;
     noDropWithin20s = false;
-    if (infusionState != infusionState_t::IN_PROGRESS) {
-      // TODO: when click "Set and Run" button on the website again to
-      // start another infusion, infusionState should be IN_PROGRESS but
-      // somehow it is STARTED
-      infusionState = infusionState_t::STARTED; // droping has started
-    }
+    // if (infusionState != infusionState_t::IN_PROGRESS) {
+    //   // TODO: when click "Set and Run" button on the website again to
+    //   // start another infusion, infusionState should be IN_PROGRESS but
+    //   // somehow it is STARTED
+    //   infusionState = infusionState_t::STARTED; // droping has started
+    // }
     if (!occurState) { // condition that check for the drop is just detected
 
 
@@ -459,8 +467,8 @@ void setup() {
     request->send(SPIFFS, "/script.js", "text/javascript");
   });
 
-  server.on("/data", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SPIFFS, "/single_data.txt", "text/plain", true);  // force download the file
+  server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(SPIFFS, logFilePath, "text/plain", true);  // force download the file
   });
 
   // TODO: should we use websocket for below requests?
@@ -521,6 +529,8 @@ void setup() {
   AsyncElegantOTA.begin(&server); // for OTA update
   server.begin();
 
+  // config time logging with NTP server
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
   // homing the roller clamp
   while (!homingCompleted) {
@@ -711,13 +721,19 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
 
           // override the ENTER button to enable autoControl()
           enableAutoControl = true;
+
+          // generating logFilePath for logging
+          logFilePath = generateFilename();
+          // Serial.printf("logFilePath: %s\n", logFilePath);
         }
         else if (doc["COMMAND"] == "GET_INFUSION_MONITORING_DATA_WS") {
           sendInfusionMonitoringDataWs();
 
           // we also want to log the infusion data to file
           // frequency of logging is set from script.js file
-          logInfusionMonitoringData();
+          if (infusionState == infusionState_t::IN_PROGRESS) {
+            logInfusionMonitoringData(logFilePath);
+          }
         }
         else {
           Serial.printf("Command undefined\n");
@@ -752,21 +768,47 @@ void sendInfusionMonitoringDataWs() {
   ws.textAll(buffer);
 }
 
-void logInfusionMonitoringData() {
+void logInfusionMonitoringData(char* logFilePath) {
   // Create a text file to save infusion data
-  // TODO: csv file seems better
-  File file = SPIFFS.open("/single_data.txt", FILE_APPEND);
+  // TODO: add csv header, e.g. time, drip rate
+
+  // TODO: use folder for all data files
+  File file = SPIFFS.open(logFilePath, FILE_APPEND);
   if (!file) {
     Serial.println("There was an error opening the file for writing");
     return;
   }
 
-  if(file.println(dripRate)) {
-    Serial.println("File was written");
+  if(file.printf("%u, %u\n", infusedTime, dripRate)) {
+    // Serial.println("File was written");
   }else {
       Serial.println("File write failed");
   }
   file.close();
+}
+
+char* generateFilename() {
+  // logFilePath format: datetime_volume_time_dropfactor
+  // e.g. 2023April21084024_100_3600_20.csv
+
+  // get date and time from NTP server
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Failed to obtain time");
+    return NULL;
+  }
+
+  // NOTE: SPIFFS maximum logFilePath is 32 characters
+  char datetime[30];
+  strftime(datetime,30, "%Y%B%d%H%M%S", &timeinfo);
+
+  if (asprintf(&logFilePath, "/%s_%u_%u_%u.csv", datetime, targetVTBI,
+               targetTotalTime, dropFactor)) {
+    return logFilePath;
+  } else {
+    Serial.printf("Error when creating logFilePath\n");
+    return NULL;
+  }
 }
 
 // TODO: refactor: create a function to send json object as websocket message

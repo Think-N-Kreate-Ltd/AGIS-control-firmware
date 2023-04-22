@@ -7,6 +7,9 @@ var gateway = `ws://${location.host}/ws`;
 var websocket;
 window.addEventListener('load', onLoad);
 
+// for logging
+var logRoute = "log";
+
 // Variables for infusion
 var vtbi;
 var total_time_hours;
@@ -220,6 +223,10 @@ function convertSecondsToHHMMSS(seconds) {
         hhmmss = new Date(seconds * 1000).toISOString().slice(11, 19);
     }
     return hhmmss;
+}
+
+function downloadInfusionData() {
+    window.open(logRoute);
 }
 
 // var chartT = new Highcharts.Chart({
