@@ -543,7 +543,6 @@ void setup() {
 }
 
 void loop() {
-  Serial.printf("testing number: %d.%d%d%d\n", 12, getLastDigit(123), getLastDigit(1234), getLastDigit(12345));
   // DEBUG:
   // Serial.printf(
   //     "dripRate: %u \ttarget_drip_rate: %u \tmotor_state: %s\n",
