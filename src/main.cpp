@@ -771,8 +771,23 @@ void sendInfusionMonitoringDataWs() {
 }
 
 void logInfusionMonitoringData(char* logFilePath) {
-  // Create a text file to save infusion data
-  // TODO: add csv header, e.g. time, drip rate
+  // write csv header
+  if (!SPIFFS.exists(logFilePath)) {
+    Serial.printf("Logging started...\n");
+    File file = SPIFFS.open(logFilePath, FILE_WRITE);
+    if (!file) {
+      Serial.println("There was an error opening the file for writing");
+      return;
+    }
+
+    if (file.printf("%s, %s\n", "Time", "Drip Rate")) {
+      // Serial.println("Header write OK");
+    }
+    else {
+      Serial.println("Header write failed");
+    }
+    file.close();
+  }
 
   // TODO: use folder for all data files
   File file = SPIFFS.open(logFilePath, FILE_APPEND);
@@ -800,9 +815,13 @@ char* generateFilename() {
     return NULL;
   }
 
+  // char datetime[30];
+  // strftime(datetime,30, "%Y%B%d%H%M%S", &timeinfo);
+
   // NOTE: SPIFFS maximum logFilePath is 32 characters
-  char datetime[30];
-  strftime(datetime,30, "%Y%B%d%H%M%S", &timeinfo);
+  // only use H:M:S to save characters
+  char datetime[9];
+  strftime(datetime,9, "%H%M%S", &timeinfo);
 
   if (asprintf(&logFilePath, "/%s_%u_%u_%u.csv", datetime, targetVTBI,
                targetTotalTime, dropFactor)) {
