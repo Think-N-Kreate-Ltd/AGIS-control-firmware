@@ -149,9 +149,9 @@ const char *PARAM_INPUT_3 = "input3";
 const char *PARAM_AUTO_1 = "auto1";
 
 // Function prototypes
-void tableOledDisplay(int n, int m);
+void tableOledDisplay(int i, int j, int k);
 void alertOledDisplay(const char* s);
-int getFloat(int n);
+int getLastDigit(int n);
 int check_state();
 void motorOnUp();
 void motorOnDown();
@@ -395,7 +395,7 @@ void IRAM_ATTR OledDisplay(){
   } else if (infusionState == infusionState_t::ALARM_STOPPED) {
     alertOledDisplay("no recent drop");
   } else {
-    tableOledDisplay(numDrops/dropFactor, getFloat(numDrops*10/dropFactor));
+    tableOledDisplay(numDrops/dropFactor, getLastDigit(numDrops*10/dropFactor), getLastDigit(numDrops*100/dropFactor));
   }
 }
 
@@ -543,6 +543,7 @@ void setup() {
 }
 
 void loop() {
+  Serial.printf("testing number: %d.%d%d%d\n", 12, getLastDigit(123), getLastDigit(1234), getLastDigit(12345));
   // DEBUG:
   // Serial.printf(
   //     "dripRate: %u \ttarget_drip_rate: %u \tmotor_state: %s\n",
@@ -552,26 +553,36 @@ void loop() {
 
 // display the table on the screen
 // only one display.display() should be used
-void tableOledDisplay(int n, int m) {
+void tableOledDisplay(int i, int j, int k) {
   // initialize setting of display
   display.clearDisplay();
-  display.setTextSize(1);
+  display.setTextSize(2);
   display.setTextColor(SSD1306_WHITE);  // draw 'on' pixels
 
+  // display.setCursor(1,16);  // set the position of the first letter
+  // display.printf("Drip rate: %d\n", dripRate);
+
+  // display.setCursor(1,24);  // set the position of the first letter
+  // display.printf("Infused volume: %d.%d%d\n", i, j, k);
+
+  // display.setCursor(1,32);  // set the position of the first letter
+  // // if less than 1hour / 1minute, then not to display them
+  // if((infusedTime/3600) >= 1){
+  //   display.printf("Infused time: \n%dh %dmin %ds\n", infusedTime/3600, (infusedTime%3600)/60, infusedTime%60);
+  // } else if((infusedTime/60) >= 1){
+  //   display.printf("Infused time: \n%dmin %ds\n", infusedTime/60, infusedTime%60);
+  // } else {
+  //   display.printf("Infused time: \n%ds\n", infusedTime%60);
+  // }
+
   display.setCursor(1,16);  // set the position of the first letter
-  display.printf("Drip rate: %d\n", dripRate);
-
-  display.setCursor(1,24);  // set the position of the first letter
-  display.printf("Infused volume: %d.%d\n", n, m);
-
-  display.setCursor(1,32);  // set the position of the first letter
-  // if less than 1hour / 1minute, then not to display them
+  display.printf("%d.%d%d\n", i, j, k);
   if((infusedTime/3600) >= 1){
-    display.printf("Infused time: \n%dh %dmin %ds\n", infusedTime/3600, (infusedTime%3600)/60, infusedTime%60);
+    display.printf("%dh %dmin %ds\n", infusedTime/3600, (infusedTime%3600)/60, infusedTime%60);
   } else if((infusedTime/60) >= 1){
-    display.printf("Infused time: \n%dmin %ds\n", infusedTime/60, infusedTime%60);
+    display.printf("%dmin %ds\n", infusedTime/60, infusedTime%60);
   } else {
-    display.printf("Infused time: \n%ds\n", infusedTime%60);
+    display.printf("%ds\n", infusedTime%60);
   }
   
   display.display();  
@@ -589,8 +600,8 @@ void alertOledDisplay(const char* s) {
   display.display();
 }
 
-// get the first floating point number
-int getFloat(int n) {
+// get the last digit of a number
+int getLastDigit(int n) {
   static int j;
   static int k;
   j = (n / 10) * 10;
