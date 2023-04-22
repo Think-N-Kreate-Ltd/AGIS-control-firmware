@@ -212,12 +212,9 @@ void IRAM_ATTR dropSensor() {
   if (occur == 1) {
     timeWithNoDrop = 0;
     noDropWithin20s = false;
-    // if (infusionState != infusionState_t::IN_PROGRESS) {
-    //   // TODO: when click "Set and Run" button on the website again to
-    //   // start another infusion, infusionState should be IN_PROGRESS but
-    //   // somehow it is STARTED
-    //   infusionState = infusionState_t::STARTED; // droping has started
-    // }
+    if (infusionState == infusionState_t::NOT_STARTED) {
+      infusionState = infusionState_t::STARTED; // droping has started
+    }
     if (!occurState) { // condition that check for the drop is just detected
 
 
@@ -318,6 +315,11 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
     enableAutoControl = false;
 
     // TODO: sound the alarm
+  }
+  else {
+    if (enableAutoControl) {
+      infusionState = infusionState_t::IN_PROGRESS;
+    }
   }
 
   if (enableAutoControl && autoControlOnPeriod && (targetDripRate != 0) &&
@@ -544,8 +546,7 @@ void loop() {
   //     "dripRate: %u \ttarget_drip_rate: %u \tmotor_state: %s\n",
   //     dripRate, targetDripRate, getMotorState(motorState));
 
-  // Serial.printf("numDrops: %d, \ttargetNumDrops: %d, \t%s\n", numDrops, targetNumDrops, getInfusionState(infusionState));
-  // Serial.printf("enableAutoControl: %d\n", enableAutoControl);
+  // Serial.printf("%s\n", getInfusionState(infusionState));
 }
 
 // check the condition of the switch/input from web page
@@ -721,6 +722,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
 
           // override the ENTER button to enable autoControl()
           enableAutoControl = true;
+          infusionState = infusionState_t::NOT_STARTED;
 
           // generating logFilePath for logging
           logFilePath = generateFilename();
@@ -843,7 +845,6 @@ void infusionInit() {
   numDrops = 0;
   infusedVolume = 0.0f;
   infusedTime = 0;
-  infusionState = infusionState_t::IN_PROGRESS;
 
   // TODO: start timing from here is not correct
   // we should start timing from when we receive the first drop
