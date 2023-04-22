@@ -106,6 +106,7 @@ char *logFilePath;
 const char* ntpServer = "pool.ntp.org";
 const long gmtOffset_sec = 28800;  // for Hong Kong
 const int daylightOffset_sec = 0;
+bool loggingCompleted = false;
 
 // To reduce the sensitive of autoControl()
 // i.e. (targetDripRate +/-3) is good enough
@@ -149,10 +150,10 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
              AwsEventType type, void *arg, uint8_t *data, size_t len);
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
 void sendInfusionMonitoringDataWs();
-void logInfusionMonitoringData(char *logFilePath);
+bool logInfusionMonitoringData(char *logFilePath);
 void homingRollerClamp();
 void infusionInit();
-char* generateFilename();
+char* logInit();
 
 // HTML web page to handle 3 input fields (input1, input2, input3)
 
@@ -725,7 +726,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
           infusionState = infusionState_t::NOT_STARTED;
 
           // generating logFilePath for logging
-          logFilePath = generateFilename();
+          logFilePath = logInit();
           // Serial.printf("logFilePath: %s\n", logFilePath);
         }
         else if (doc["COMMAND"] == "GET_INFUSION_MONITORING_DATA_WS") {
@@ -733,8 +734,10 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
 
           // we also want to log the infusion data to file
           // frequency of logging is set from script.js file
-          if (infusionState == infusionState_t::IN_PROGRESS) {
-            logInfusionMonitoringData(logFilePath);
+          if ((infusionState == infusionState_t::IN_PROGRESS ||
+               infusionState == infusionState_t::ALARM_COMPLETED) &&
+               !loggingCompleted) {
+            loggingCompleted = logInfusionMonitoringData(logFilePath);
           }
         }
         else {
@@ -770,17 +773,20 @@ void sendInfusionMonitoringDataWs() {
   ws.textAll(buffer);
 }
 
-void logInfusionMonitoringData(char* logFilePath) {
+// Return value:
+//    true when logging is completed
+//    false when logging is still in progress
+bool logInfusionMonitoringData(char* logFilePath) {
   // write csv header
   if (!SPIFFS.exists(logFilePath)) {
     Serial.printf("Logging started...\n");
     File file = SPIFFS.open(logFilePath, FILE_WRITE);
     if (!file) {
       Serial.println("There was an error opening the file for writing");
-      return;
+      return false;
     }
 
-    if (file.printf("%s, %s\n", "Time", "Drip Rate")) {
+    if (file.printf("%s, %s, %s\n", "Time", "Drip Rate", "Infused Volume")) {
       // Serial.println("Header write OK");
     }
     else {
@@ -793,18 +799,22 @@ void logInfusionMonitoringData(char* logFilePath) {
   File file = SPIFFS.open(logFilePath, FILE_APPEND);
   if (!file) {
     Serial.println("There was an error opening the file for writing");
-    return;
+    return false;
   }
 
-  if(file.printf("%u, %u\n", infusedTime, dripRate)) {
+  if(file.printf("%u, %u, %f\n", infusedTime, dripRate, infusedVolume)) {
     // Serial.println("File was written");
   }else {
       Serial.println("File write failed");
   }
   file.close();
+
+  // check if we can end logging
+  if (infusionState == infusionState_t::ALARM_COMPLETED) return true;
+  else return false;
 }
 
-char* generateFilename() {
+char* logInit() {
   // logFilePath format: datetime_volume_time_dropfactor
   // e.g. 2023April21084024_100_3600_20.csv
 
@@ -830,6 +840,8 @@ char* generateFilename() {
     Serial.printf("Error when creating logFilePath\n");
     return NULL;
   }
+
+  loggingCompleted = false;
 }
 
 // TODO: refactor: create a function to send json object as websocket message
