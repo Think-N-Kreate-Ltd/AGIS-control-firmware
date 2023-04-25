@@ -835,13 +835,12 @@ char* logInit() {
 
   if (asprintf(&logFilePath, "/%s_%u_%u_%u.csv", datetime, targetVTBI,
                targetTotalTime, dropFactor)) {
+    loggingCompleted = false;
     return logFilePath;
   } else {
     Serial.printf("Error when creating logFilePath\n");
     return NULL;
   }
-
-  loggingCompleted = false;
 }
 
 // TODO: refactor: create a function to send json object as websocket message
