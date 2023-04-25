@@ -390,11 +390,11 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
 // timer3 inerrupt, for I2C OLED display
 void IRAM_ATTR OledDisplay(){
   if (infusionState == infusionState_t::ALARM_COMPLETED) {
-    alertOledDisplay("infusion completed");
+    alertOledDisplay("infusion \ncompleted");
   } else if (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED) {
-    alertOledDisplay("volume exceeded");
+    alertOledDisplay("volume \nexceeded");
   } else if (infusionState == infusionState_t::ALARM_STOPPED) {
-    alertOledDisplay("no recent drop");
+    alertOledDisplay("no recent \ndrop");
   } else {
     tableOledDisplay(numDrops/dropFactor, getLastDigit(numDrops*10/dropFactor), getLastDigit(numDrops*100/dropFactor));
   }
@@ -576,11 +576,11 @@ void tableOledDisplay(int i, int j, int k) {
   // }
 
   display.setCursor(1,16);  // set the position of the first letter
-  display.printf("%d.%d%d\n", i, j, k);
+  display.printf("%d.%d%dmL\n", i, j, k);
   if((infusedTime/3600) >= 1){
-    display.printf("%dh %dmin %ds\n", infusedTime/3600, (infusedTime%3600)/60, infusedTime%60);
+    display.printf("%dh%dm%ds\n", infusedTime/3600, (infusedTime%3600)/60, infusedTime%60);
   } else if((infusedTime/60) >= 1){
-    display.printf("%dmin %ds\n", infusedTime/60, infusedTime%60);
+    display.printf("%dm%ds\n", infusedTime/60, infusedTime%60);
   } else {
     display.printf("%ds\n", infusedTime%60);
   }
