@@ -7,6 +7,9 @@ var gateway = `ws://${location.host}/ws`;
 var websocket;
 window.addEventListener('load', onLoad);
 
+// for logging
+var logRoute = "log";
+
 // Variables for infusion
 var vtbi;
 var total_time_hours;
@@ -105,11 +108,17 @@ function onWsMessage(event) {
         else if (infusionState === infusionState_t.IN_PROGRESS) {
             document.getElementById("infusion_state_value").style.color = "blue"
             document.getElementById("infusion_state_value").innerHTML = "In progress";
+
+            document.getElementById("download_infusion_data_btn").disabled = true;
         }
 
         else if (infusionState === infusionState_t.ALARM_COMPLETED) {
             document.getElementById("infusion_state_value").style.color = "green"
             document.getElementById("infusion_state_value").innerHTML = "ALARM: infusion has completed";
+
+            // allow download infusion data only if it has completed
+            document.getElementById("download_infusion_data_btn").disabled = false;
+
         }
     }
     else if (infusionState === infusionState_t.ALARM_STOPPED) {
@@ -220,6 +229,10 @@ function convertSecondsToHHMMSS(seconds) {
         hhmmss = new Date(seconds * 1000).toISOString().slice(11, 19);
     }
     return hhmmss;
+}
+
+function downloadInfusionData() {
+    window.open(logRoute);
 }
 
 // var chartT = new Highcharts.Chart({
