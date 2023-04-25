@@ -25,6 +25,7 @@
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
+#define OLED_TEXT_FONT 2
 
 #define OLED_MOSI   17
 #define OLED_CLK    47
@@ -555,7 +556,7 @@ void loop() {
 void tableOledDisplay(int i, int j, int k) {
   // initialize setting of display
   display.clearDisplay();
-  display.setTextSize(2);
+  display.setTextSize(OLED_TEXT_FONT);
   display.setTextColor(SSD1306_WHITE);  // draw 'on' pixels
 
   // display.setCursor(1,16);  // set the position of the first letter
@@ -590,7 +591,7 @@ void tableOledDisplay(int i, int j, int k) {
 // display the warning message on the screen
 void alertOledDisplay(const char* s) {
   display.clearDisplay();
-  display.setTextSize(2);
+  display.setTextSize(OLED_TEXT_FONT);
   display.setTextColor(SSD1306_WHITE);
 
   display.setCursor(1,16);
