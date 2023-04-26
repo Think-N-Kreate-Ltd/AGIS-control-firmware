@@ -269,126 +269,8 @@ void IRAM_ATTR dropSensor() {
   } 
 }
 
-// timer1 interrupt, for motor control
-void IRAM_ATTR motorControl() {
-  // Read buttons and switches state
-  button_UP.loop();        // MUST call the loop() function first
-  button_ENTER.loop();     // MUST call the loop() function first
-  button_DOWN.loop();      // MUST call the loop() function first
-
-  // Use button_UP to manually move up
-  if (!button_UP.getState()) {  // touched
-    buttonState = buttonState_t::UP;
-    motorOnUp();
-  }
-
-  // Use button_DOWN to manually move down
-  if (!button_DOWN.getState()) {  // touched
-    buttonState = buttonState_t::DOWN;
-    motorOnDown();
-  }
-
-  // Use button_ENTER to toggle autoControl()
-  if (button_ENTER.isPressed()) {  // pressed is different from touched
-    buttonState = buttonState_t::ENTER;
-    enableAutoControl = !enableAutoControl;
-
-    infusionInit();
-  }
-
-  if (button_UP.isReleased() || button_DOWN.isReleased() || button_ENTER.isReleased()) {
-    buttonState = buttonState_t::IDLE;
-    motorOff();
-  }
-}
-
-void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
-  // Checking for no drop for 20s
-    static int timeWithNoDrop;
-  if (sensor_READ.getStateRaw() == 0) {
-    timeWithNoDrop++;
-    if (timeWithNoDrop >= 20000) {
-      // reset these values
-      firstDropDetected = false;
-      timeBtw2Drops = UINT_MAX;
-
-      // infusion is still in progress but we cannot detect drops for 20s,
-      // something must be wrong, sound the alarm
-      if (infusionState == infusionState_t::IN_PROGRESS) {
-        infusionState = infusionState_t::ALARM_STOPPED;
-      }
-    }
-  } else {
-    timeWithNoDrop = 0;
-  }
-
-  // Only run when the following conditions satisfy:
-  //   1. button_ENTER is pressed, or command is sent from website
-  //   3. targetDripRate is set on the website by user
-  //   4. infusion is not completed, i.e. infusionState != infusionState_t::ALARM_COMPLETED
-
-  autoControlCount++;
-  if (firstDropDetected) {
-    // on for 50 ms, off for 950 ms
-    autoControlOnPeriod = autoControlCount <= autoControlOnTime;
-  }
-  else {
-    autoControlOnPeriod = true;  // no limitation on motor on period
-  }
-
-  // Check if infusion has completed or not
-  if (numDrops >= targetNumDrops) {
-    infusionState = infusionState_t::ALARM_COMPLETED;
-
-    // disable autoControl()
-    enableAutoControl = false;
-
-    // TODO: sound the alarm
-  }
-
-  if (enableAutoControl && autoControlOnPeriod && (targetDripRate != 0) &&
-      (infusionState != infusionState_t::ALARM_COMPLETED)) {
-
-    // if currently SLOWER than set value -> speed up, i.e. move up
-    if (dripRate < (targetDripRate - AUTO_CONTROL_ALLOW_RANGE)) {
-      motorOnUp();
-    }
-
-    // if currently FASTER than set value -> slow down, i.e. move down
-    else if (dripRate > (targetDripRate + AUTO_CONTROL_ALLOW_RANGE)) {
-      motorOnDown();
-    }
-
-    // otherwise, current drip rate is in allowed range -> stop motor
-    else {
-    }
-  } else {
-    // motorOff();
-
-    if ((infusionState == infusionState_t::ALARM_COMPLETED) && !homingCompleted) {
-    // homing the roller clamp, i.e. move it down to completely closed position
-      homingRollerClamp();
-    }
-    else {
-      motorOff();
-    }
-  }
-
-  // reset this for the next autoControl()
-  if (autoControlCount == AUTO_CONTROL_TOTAL_TIME) {   // reset count every 1s
-    autoControlCount = 0;
-
-    // calculate new autoControlOnTime based on the absolute difference
-    // between dripRate and targetDripRate
-    dripRateDifference = dripRate - targetDripRate;
-    autoControlOnTime =
-        max(abs(dripRateDifference) * AUTO_CONTROL_ON_TIME_MAX / dripRatePeak,
-            (unsigned int)AUTO_CONTROL_ON_TIME_MIN);
-  }
-}
-
 // timer3 inerrupt, for I2C OLED display
-void IRAM_ATTR OledDisplay(){
+void IRAM_ATTR OledDisplayISR(){
   if (infusionState == infusionState_t::ALARM_COMPLETED) {
     alertOledDisplay("infusion \ncompleted");
   } else if (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED) {
@@ -409,24 +291,10 @@ void setup() {
   // setup for sensor interrupt
   attachInterrupt(DROP_SENSOR_PIN, &dropSensor, CHANGE);  // call interrupt when state change
 
-  // setup for timer0
-  Timer0_cfg = timerBegin(0, 4000, true); // Prescaler = 80
-  timerAttachInterrupt(Timer0_cfg, &motorControl,
-                       true);              // call the function motorControl()
-  timerAlarmWrite(Timer0_cfg, 20, true); // Time = 4000*20/80,000,000 = 1ms
-  timerAlarmEnable(Timer0_cfg);            // start the interrupt
-
-  // setup for timer1
-  Timer1_cfg = timerBegin(1, 80, true); // Prescaler = 80
-  timerAttachInterrupt(Timer1_cfg, &autoControl,
-                       true);              // call the function autoControl()
-  timerAlarmWrite(Timer1_cfg, 1000, true); // Time = 80*1000/80,000,000 = 1ms
-  timerAlarmEnable(Timer1_cfg);            // start the interrupt
-
   // setup for timer3
   Timer3_cfg = timerBegin(3, 4000, true); // Prescaler = 4000
-  timerAttachInterrupt(Timer3_cfg, &OledDisplay,
-                       true);              // call the function OledDisplay()
+  timerAttachInterrupt(Timer3_cfg, &OledDisplayISR,
+                       true);              // call the function OledDisplayISR()
   timerAlarmWrite(Timer3_cfg, 1000, true); // Time = 4000*1000/80,000,000 = 50ms
   timerAlarmEnable(Timer3_cfg);            // start the interrupt
 
