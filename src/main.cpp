@@ -76,7 +76,7 @@ ezButton button_ENTER(8);      // create ezButton object that attach to pin 7;
 ezButton button_DOWN(46);      // create ezButton object that attach to pin 8;
 ezButton limitSwitch_Up(37);   // create ezButton object that attach to pin 7;
 ezButton limitSwitch_Down(38); // create ezButton object that attach to pin 7;
-ezButton sensor_READ(DROP_SENSOR_PIN);     // create ezButton object that attach to pin 36;
+ezButton dropSensor(DROP_SENSOR_PIN);     // create ezButton object that attach to pin 36;
 
 // var for checking the currently condition
 // state that shows the condition of web button
@@ -101,7 +101,7 @@ const long gmtOffset_sec = 28800;  // for Hong Kong
 const int daylightOffset_sec = 0;
 bool loggingCompleted = false;
 
-// To reduce the sensitive of autoControl()
+// To reduce the sensitive of autoControlISR()
 // i.e. (targetDripRate +/-3) is good enough
 #define AUTO_CONTROL_ALLOW_RANGE 3
 #define AUTO_CONTROL_ON_TIME_MAX 600  // motor will be enabled for this amount of time at maximum (unit: ms)
@@ -193,18 +193,19 @@ hw_timer_t *Timer1_cfg = NULL; // create a pointer for timer1
 hw_timer_t *Timer2_cfg = NULL; // create a pointer for timer2
 
 // EXT interrupt to pin 36, for sensor detected drops and measure the time
-void IRAM_ATTR dropSensor() {
+void IRAM_ATTR dropSensorISR() {
   static int lastState;    // var to record the last value of the sensor
   static int lastTime;     // var to record the last value of the calling time
   static int lastDropTime; // var to record the time of last drop
 
   // in fact, the interrupt will only be called when state change
   // just one more protection to prevent calling twice when state doesn't change
-  if (lastState != sensor_READ.getStateRaw()) {
-    lastState = sensor_READ.getStateRaw();
+  int dropSensorState = dropSensor.getStateRaw();
+  if (lastState != dropSensorState) {
+    lastState = dropSensorState;
     // call when drop detected
     // disable for 10 ms after called
-    if ((sensor_READ.getStateRaw() == 1) && 
+    if ((dropSensorState == 1) && 
         ((millis()-lastTime)>=DROP_DEBOUNCE_TIME)) {
       lastTime = millis();
 
@@ -240,14 +241,15 @@ void IRAM_ATTR dropSensor() {
       if (infusionState != infusionState_t::ALARM_COMPLETED) {
         infusedTime = (millis() - infusionStartTime) / 1000;  // in seconds
       }
-    } else if (sensor_READ.getStateRaw() == 0) {/*nothing*/}
+    } else if (dropSensorState == 0) {/*nothing*/}
   } 
 }
 
-void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
+void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
   // Checking for no drop for 20s
   static int timeWithNoDrop;
-  if (sensor_READ.getStateRaw() == 0) {
+  int dropSensorState = dropSensor.getStateRaw();
+  if (dropSensorState == 0) {
     timeWithNoDrop++;
     if (timeWithNoDrop >= 20000) {
       // reset these values
@@ -271,7 +273,7 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
   // NOTE: this needs to be done in timer interrupt
   dripRate = 60000 / timeBtw2Drops;
 
-  // Only run autoControl() when the following conditions satisfy:
+  // Only run autoControlISR() when the following conditions satisfy:
   //   1. button_ENTER is pressed, or command is sent from website
   //   3. targetDripRate is set on the website by user
   //   4. infusion is not completed, i.e. infusionState != infusionState_t::ALARM_COMPLETED
@@ -289,7 +291,7 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
   if (numDrops >= targetNumDrops) {
     infusionState = infusionState_t::ALARM_COMPLETED;
 
-    // disable autoControl()
+    // disable autoControlISR()
     enableAutoControl = false;
 
     // TODO: sound the alarm
@@ -329,7 +331,7 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
     }
   }
 
-  // reset this for the next autoControl()
+  // reset this for the next autoControlISR()
   if (autoControlCount == AUTO_CONTROL_TOTAL_TIME) {   // reset count every 1s
     autoControlCount = 0;
 
@@ -342,7 +344,7 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
   }
 }
 
-void IRAM_ATTR motorControl() {
+void IRAM_ATTR motorControlISR() {
   // Read buttons and switches state
   button_UP.loop();        // MUST call the loop() function first
   button_ENTER.loop();     // MUST call the loop() function first
@@ -360,7 +362,7 @@ void IRAM_ATTR motorControl() {
     motorOnDown();
   }
 
-  // Use button_ENTER to toggle autoControl()
+  // Use button_ENTER to toggle autoControlISR()
   if (button_ENTER.isPressed()) {  // pressed is different from touched
     buttonState = buttonState_t::ENTER;
     enableAutoControl = !enableAutoControl;
@@ -379,19 +381,19 @@ void setup() {
   pinMode(DROP_SENSOR_PIN, INPUT);
 
   // setup for sensor interrupt
-  attachInterrupt(DROP_SENSOR_PIN, &dropSensor, CHANGE);  // call interrupt when state change
+  attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
 
   // setup for timer0
   Timer0_cfg = timerBegin(0, 4000, true); // prescaler = 4000
-  timerAttachInterrupt(Timer0_cfg, &motorControl,
+  timerAttachInterrupt(Timer0_cfg, &motorControlISR,
                        true);              // call the function motorcontrol()
   timerAlarmWrite(Timer0_cfg, 20, true); // time = 4000*20/80,000,000 = 1ms
   timerAlarmEnable(Timer0_cfg);            // start the interrupt
 
   // setup for timer1
   Timer1_cfg = timerBegin(1, 80, true); // Prescaler = 80
-  timerAttachInterrupt(Timer1_cfg, &autoControl,
-                       true);              // call the function autoControl()
+  timerAttachInterrupt(Timer1_cfg, &autoControlISR,
+                       true);              // call the function autoControlISR()
   timerAlarmWrite(Timer1_cfg, 1000, true); // Time = 80*1000/80,000,000 = 1ms
   timerAlarmEnable(Timer1_cfg);            // start the interrupt
 
