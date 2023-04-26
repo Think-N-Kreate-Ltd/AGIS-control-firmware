@@ -20,6 +20,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <AsyncElegantOTA.h>  // define after <ESPAsyncWebServer.h>
+#include <time.h>
 
 // TODO: refactor names, follow standard naming conventions
 
@@ -34,7 +35,6 @@
 #define OLED_RESET  7
 
 #define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
-// #define SENSOR_IN 35  // input pin for input signal to sensor
 #define MOTOR_CTRL_PIN_1 15 // Motorl Control Board PWM 1
 #define MOTOR_CTRL_PIN_2 16 // Motorl Control Board PWM 2
 #define PWM_PIN          4  // input pin for the potentiometer
@@ -79,16 +79,17 @@ void oledSetUp() {
 // var for EXT interrupt (sensor)
 volatile unsigned long totalTime = 0; // for calculating the time used within 15s
 volatile unsigned int numDrops = 0;   // for counting the number of drops within 15s
-volatile unsigned int dripRate = 0;   // for calculating the drip rate
-volatile unsigned int time1Drop = 0;  // for storing the time of 1 drop
+volatile unsigned int dripRate = 0;       // for calculating the drip rate
+volatile unsigned int time1Drop = 0;      // for storing the time of 1 drop
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
-ezButton sensor_READ(DROP_SENSOR_PIN);     // create ezButton object that attach to pin 36;
 
 // var for timer1 interrupt
 volatile float infusedVolume = 0;  // unit: mL
 volatile unsigned long infusedTime = 0;     // unit: seconds
 volatile unsigned long infusionStartTime = 0;
 
+volatile unsigned int dripRateSamplingCount = 0;  // use for drip rate sampling
+volatile unsigned int numDropsInterval = 0;  // number of drops in 15 seconds
 volatile unsigned int autoControlCount = 0;  // use for regulating frequency of motor is on
 volatile unsigned int autoControlOnTime = 0;  // use for regulating frequency of motor is on
 int dripRateDifference = 0; 
@@ -103,6 +104,7 @@ ezButton button_ENTER(8);      // create ezButton object that attach to pin 7;
 ezButton button_DOWN(46);      // create ezButton object that attach to pin 8;
 ezButton limitSwitch_Up(37);   // create ezButton object that attach to pin 7;
 ezButton limitSwitch_Down(38); // create ezButton object that attach to pin 7;
+ezButton dropSensor(DROP_SENSOR_PIN);     // create ezButton object that attach to pin 36;
 
 // var for checking the currently condition
 // state that shows the condition of web button
@@ -120,7 +122,14 @@ volatile bool firstDropDetected = false; // to check when we receive the 1st dro
 volatile bool autoControlOnPeriod = false;
 bool homingCompleted = false;   // true when lower limit switch is activated
 
-// To reduce the sensitive of autoControl()
+// for data logging
+char *logFilePath;
+const char* ntpServer = "pool.ntp.org";
+const long gmtOffset_sec = 28800;  // for Hong Kong
+const int daylightOffset_sec = 0;
+bool loggingCompleted = false;
+
+// To reduce the sensitive of autoControlISR()
 // i.e. (targetDripRate +/-3) is good enough
 #define AUTO_CONTROL_ALLOW_RANGE 3
 #define AUTO_CONTROL_ON_TIME_MAX 600  // motor will be enabled for this amount of time at maximum (unit: ms)
@@ -150,9 +159,6 @@ const char *PARAM_INPUT_3 = "input3";
 const char *PARAM_AUTO_1 = "auto1";
 
 // Function prototypes
-void tableOledDisplay(int i, int j, int k);
-void alertOledDisplay(const char* s);
-int getLastDigit(int n);
 int check_state();
 void motorOnUp();
 void motorOnDown();
@@ -165,8 +171,13 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
              AwsEventType type, void *arg, uint8_t *data, size_t len);
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
 void sendInfusionMonitoringDataWs();
+bool logInfusionMonitoringData(char *logFilePath);
 void homingRollerClamp();
 void infusionInit();
+char* logInit();
+void tableOledDisplay(int i, int j, int k);
+void alertOledDisplay(const char* s);
+int getLastDigit(int n);
 
 // HTML web page to handle 3 input fields (input1, input2, input3)
 
@@ -211,21 +222,22 @@ void writeFile(fs::FS &fs, const char *path, const char *message) {
 hw_timer_t *Timer0_cfg = NULL; // create a pointer for timer0
 hw_timer_t *Timer1_cfg = NULL; // create a pointer for timer1
 hw_timer_t *Timer2_cfg = NULL; // create a pointer for timer2
-hw_timer_t *Timer3_cfg = NULL; // create a pointer for timer0
+hw_timer_t *Timer3_cfg = NULL; // create a pointer for timer3
 
 // EXT interrupt to pin 36, for sensor detected drops and measure the time
-void IRAM_ATTR dropSensor() {
+void IRAM_ATTR dropSensorISR() {
   static int lastState;    // var to record the last value of the sensor
   static int lastTime;     // var to record the last value of the calling time
   static int lastDropTime; // var to record the time of last drop
 
   // in fact, the interrupt will only be called when state change
   // just one more protection to prevent calling twice when state doesn't change
-  if (lastState != sensor_READ.getStateRaw()) {
-    lastState = sensor_READ.getStateRaw();
+  int dropSensorState = dropSensor.getStateRaw();
+  if (lastState != dropSensorState) {
+    lastState = dropSensorState;
     // call when drop detected
     // disable for 10 ms after called
-    if ((sensor_READ.getStateRaw() == 1) && 
+    if ((dropSensorState == 1) && 
         ((millis()-lastTime)>=DROP_DEBOUNCE_TIME)) {
       lastTime = millis();
 
@@ -251,10 +263,6 @@ void IRAM_ATTR dropSensor() {
       if (infusionState == infusionState_t::ALARM_COMPLETED) {
         infusionState = infusionState_t::ALARM_VOLUME_EXCEEDED;
       }
-      
-      // get latest value of dripRate
-      // explain: dripRate = 60 seconds / time between 2 consecutive drops
-      dripRate = 60000 / timeBtw2Drops;
 
       // get dripRatePeak, i.e. drip rate when 1st drop is detected
       if (firstDropDetected) {
@@ -265,8 +273,139 @@ void IRAM_ATTR dropSensor() {
       if (infusionState != infusionState_t::ALARM_COMPLETED) {
         infusedTime = (millis() - infusionStartTime) / 1000;  // in seconds
       }
-    } else if (sensor_READ.getStateRaw() == 0) {/*nothing*/}
+    } else if (dropSensorState == 0) {/*nothing*/}
   } 
+}
+
+void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
+  // Checking for no drop for 20s
+  static int timeWithNoDrop;
+  int dropSensorState = dropSensor.getStateRaw();
+  if (dropSensorState == 0) {
+    timeWithNoDrop++;
+    if (timeWithNoDrop >= 20000) {
+      // reset these values
+      firstDropDetected = false;
+      timeBtw2Drops = UINT_MAX;
+
+      infusionState = infusionState_t::NOT_STARTED;
+
+      // infusion is still in progress but we cannot detect drops for 20s,
+      // something must be wrong, sound the alarm
+      if (infusionState == infusionState_t::IN_PROGRESS) {
+        infusionState = infusionState_t::ALARM_STOPPED;
+      }
+    }
+  } else {
+    timeWithNoDrop = 0;
+  }
+
+  // get latest value of dripRate
+  // explain: dripRate = 60 seconds / time between 2 consecutive drops
+  // NOTE: this needs to be done in timer interrupt
+  dripRate = 60000 / timeBtw2Drops;
+
+  // Only run autoControlISR() when the following conditions satisfy:
+  //   1. button_ENTER is pressed, or command is sent from website
+  //   3. targetDripRate is set on the website by user
+  //   4. infusion is not completed, i.e. infusionState != infusionState_t::ALARM_COMPLETED
+
+  autoControlCount++;
+  if (firstDropDetected) {
+    // on for 50 ms, off for 950 ms
+    autoControlOnPeriod = autoControlCount <= autoControlOnTime;
+  }
+  else {
+    autoControlOnPeriod = true;  // no limitation on motor on period
+  }
+
+  // Check if infusion has completed or not
+  if (numDrops >= targetNumDrops) {
+    infusionState = infusionState_t::ALARM_COMPLETED;
+
+    // disable autoControlISR()
+    enableAutoControl = false;
+
+    // TODO: sound the alarm
+  }
+  else {
+    if (enableAutoControl) {
+      infusionState = infusionState_t::IN_PROGRESS;
+    }
+  }
+
+  if (enableAutoControl && autoControlOnPeriod && (targetDripRate != 0) &&
+      (infusionState != infusionState_t::ALARM_COMPLETED)) {
+
+    // if currently SLOWER than set value -> speed up, i.e. move up
+    if (dripRate < (targetDripRate - AUTO_CONTROL_ALLOW_RANGE)) {
+      motorOnUp();
+    }
+
+    // if currently FASTER than set value -> slow down, i.e. move down
+    else if (dripRate > (targetDripRate + AUTO_CONTROL_ALLOW_RANGE)) {
+      motorOnDown();
+    }
+
+    // otherwise, current drip rate is in allowed range -> stop motor
+    else {
+      motorOff();
+    }
+  } else {
+    if ((infusionState == infusionState_t::ALARM_COMPLETED) && !homingCompleted) {
+    // homing the roller clamp, i.e. move it down to completely closed position
+      homingRollerClamp();
+    }
+    else {
+      if (enableAutoControl) {
+        motorOff();
+      }
+    }
+  }
+
+  // reset this for the next autoControlISR()
+  if (autoControlCount == AUTO_CONTROL_TOTAL_TIME) {   // reset count every 1s
+    autoControlCount = 0;
+
+    // calculate new autoControlOnTime based on the absolute difference
+    // between dripRate and targetDripRate
+    dripRateDifference = dripRate - targetDripRate;
+    autoControlOnTime =
+        max(abs(dripRateDifference) * AUTO_CONTROL_ON_TIME_MAX / dripRatePeak,
+            (unsigned int)AUTO_CONTROL_ON_TIME_MIN);
+  }
+}
+
+void IRAM_ATTR motorControlISR() {
+  // Read buttons and switches state
+  button_UP.loop();        // MUST call the loop() function first
+  button_ENTER.loop();     // MUST call the loop() function first
+  button_DOWN.loop();      // MUST call the loop() function first
+
+  // Use button_UP to manually move up
+  if (!button_UP.getState()) {  // touched
+    buttonState = buttonState_t::UP;
+    motorOnUp();
+  }
+
+  // Use button_DOWN to manually move down
+  if (!button_DOWN.getState()) {  // touched
+    buttonState = buttonState_t::DOWN;
+    motorOnDown();
+  }
+
+  // Use button_ENTER to toggle autoControlISR()
+  if (button_ENTER.isPressed()) {  // pressed is different from touched
+    buttonState = buttonState_t::ENTER;
+    enableAutoControl = !enableAutoControl;
+
+    infusionInit();
+  }
+
+  if (button_UP.isReleased() || button_DOWN.isReleased() || button_ENTER.isReleased()) {
+    buttonState = buttonState_t::IDLE;
+    motorOff();
+  }
 }
 
 // timer3 inerrupt, for I2C OLED display
@@ -286,10 +425,22 @@ void setup() {
   Serial.begin(9600);
   pinMode(DROP_SENSOR_PIN, INPUT);
 
-  oledSetUp();
-  
   // setup for sensor interrupt
-  attachInterrupt(DROP_SENSOR_PIN, &dropSensor, CHANGE);  // call interrupt when state change
+  attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
+
+  // setup for timer0
+  Timer0_cfg = timerBegin(0, 4000, true); // prescaler = 4000
+  timerAttachInterrupt(Timer0_cfg, &motorControlISR,
+                       true);              // call the function motorcontrol()
+  timerAlarmWrite(Timer0_cfg, 20, true); // time = 4000*20/80,000,000 = 1ms
+  timerAlarmEnable(Timer0_cfg);            // start the interrupt
+
+  // setup for timer1
+  Timer1_cfg = timerBegin(1, 80, true); // Prescaler = 80
+  timerAttachInterrupt(Timer1_cfg, &autoControlISR,
+                       true);              // call the function autoControlISR()
+  timerAlarmWrite(Timer1_cfg, 1000, true); // Time = 80*1000/80,000,000 = 1ms
+  timerAlarmEnable(Timer1_cfg);            // start the interrupt
 
   // setup for timer3
   Timer3_cfg = timerBegin(3, 4000, true); // Prescaler = 4000
@@ -344,6 +495,10 @@ void setup() {
 
   server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(SPIFFS, "/script.js", "text/javascript");
+  });
+
+  server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(SPIFFS, logFilePath, "text/plain", true);  // force download the file
   });
 
   // TODO: should we use websocket for below requests?
@@ -404,6 +559,8 @@ void setup() {
   AsyncElegantOTA.begin(&server); // for OTA update
   server.begin();
 
+  // config time logging with NTP server
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
   // homing the roller clamp
   while (!homingCompleted) {
@@ -417,64 +574,7 @@ void loop() {
   //     "dripRate: %u \ttarget_drip_rate: %u \tmotor_state: %s\n",
   //     dripRate, targetDripRate, getMotorState(motorState));
 
-}
-
-// display the table on the screen
-// only one display.display() should be used
-void tableOledDisplay(int i, int j, int k) {
-  // initialize setting of display
-  display.clearDisplay();
-  display.setTextSize(OLED_TEXT_FONT);
-  display.setTextColor(SSD1306_WHITE);  // draw 'on' pixels
-
-  // display.setCursor(1,16);  // set the position of the first letter
-  // display.printf("Drip rate: %d\n", dripRate);
-
-  // display.setCursor(1,24);  // set the position of the first letter
-  // display.printf("Infused volume: %d.%d%d\n", i, j, k);
-
-  // display.setCursor(1,32);  // set the position of the first letter
-  // // if less than 1hour / 1minute, then not to display them
-  // if((infusedTime/3600) >= 1){
-  //   display.printf("Infused time: \n%dh %dmin %ds\n", infusedTime/3600, (infusedTime%3600)/60, infusedTime%60);
-  // } else if((infusedTime/60) >= 1){
-  //   display.printf("Infused time: \n%dmin %ds\n", infusedTime/60, infusedTime%60);
-  // } else {
-  //   display.printf("Infused time: \n%ds\n", infusedTime%60);
-  // }
-
-  display.setCursor(1,16);  // set the position of the first letter
-  display.printf("%d.%d%dmL\n", i, j, k);
-  if((infusedTime/3600) >= 1){
-    display.printf("%dh%dm%ds\n", infusedTime/3600, (infusedTime%3600)/60, infusedTime%60);
-  } else if((infusedTime/60) >= 1){
-    display.printf("%dm%ds\n", infusedTime/60, infusedTime%60);
-  } else {
-    display.printf("%ds\n", infusedTime%60);
-  }
-  
-  display.display();  
-}
-
-// display the warning message on the screen
-void alertOledDisplay(const char* s) {
-  display.clearDisplay();
-  display.setTextSize(OLED_TEXT_FONT);
-  display.setTextColor(SSD1306_WHITE);
-
-  display.setCursor(1,16);
-  display.println(F("ALARM: "));
-  display.println(F(s));
-  display.display();
-}
-
-// get the last digit of a number
-int getLastDigit(int n) {
-  static int j;
-  static int k;
-  j = (n / 10) * 10;
-  k = n - j;
-  return k;
+  // Serial.printf("%s\n", getInfusionState(infusionState));
 }
 
 // check the condition of the switch/input from web page
@@ -618,20 +718,21 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     // Serial.printf("Received from website: %s\n", (char *)data);
 
     // Parse the received WebSocket message as JSON
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.parseObject((const char *)data);
-    if (!root.success()) {
-      Serial.printf("Parse WebSocket message failed\n");
+    DynamicJsonDocument doc(1024);
+    DeserializationError error = deserializeJson(doc, (const char *)data);
+    if (error) {
+      Serial.printf("deserializeJson() failed: \n");
+      Serial.println(error.c_str());
     } else {
-      if (root.containsKey("SET_TARGET_DRIP_RATE_WS")) {
-        targetDripRate = root["SET_TARGET_DRIP_RATE_WS"];
-        targetVTBI = root["SET_VTBI_WS"];
+      if (doc.containsKey("SET_TARGET_DRIP_RATE_WS")) {
+        targetDripRate = doc["SET_TARGET_DRIP_RATE_WS"];
+        targetVTBI = doc["SET_VTBI_WS"];
         // convert total time to number of seconds
-        unsigned int targetTotalTimeHours = root["SET_TOTAL_TIME_HOURS_WS"];
-        unsigned int targetTotalTimeMinutes = root["SET_TOTAL_TIME_MINUTES_WS"];
+        unsigned int targetTotalTimeHours = doc["SET_TOTAL_TIME_HOURS_WS"];
+        unsigned int targetTotalTimeMinutes = doc["SET_TOTAL_TIME_MINUTES_WS"];
         targetTotalTime = targetTotalTimeHours * 3600 +
                           targetTotalTimeMinutes * 60;
-        dropFactor = root["SET_DROP_FACTOR_WS"];
+        dropFactor = doc["SET_DROP_FACTOR_WS"];
         targetNumDrops = targetVTBI / (1.0f / dropFactor);  // rounded to integer part
 
         // DEBUG:
@@ -642,16 +743,29 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
         // Serial.printf("Target drip rate is set to: %u drops/min\n", targetDripRate);
         // Serial.printf("Target number of drops is: %d\n", targetNumDrops);
       }
-      else if (root.containsKey("COMMAND")) {
+      else if (doc.containsKey("COMMAND")) {
         // parse the command and execute
-        if (root["COMMAND"] == "ENABLE_AUTOCONTROL_WS") {
+        if (doc["COMMAND"] == "ENABLE_AUTOCONTROL_WS") {
           infusionInit();
 
           // override the ENTER button to enable autoControl()
           enableAutoControl = true;
+          infusionState = infusionState_t::NOT_STARTED;
+
+          // generating logFilePath for logging
+          logFilePath = logInit();
+          // Serial.printf("logFilePath: %s\n", logFilePath);
         }
-        else if (root["COMMAND"] == "GET_INFUSION_MONITORING_DATA_WS") {
+        else if (doc["COMMAND"] == "GET_INFUSION_MONITORING_DATA_WS") {
           sendInfusionMonitoringDataWs();
+
+          // we also want to log the infusion data to file
+          // frequency of logging is set from script.js file
+          if ((infusionState == infusionState_t::IN_PROGRESS ||
+               infusionState == infusionState_t::ALARM_COMPLETED) &&
+               !loggingCompleted) {
+            loggingCompleted = logInfusionMonitoringData(logFilePath);
+          }
         }
         else {
           Serial.printf("Command undefined\n");
@@ -662,9 +776,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
 }
 
 void sendInfusionMonitoringDataWs() {
-  // TODO: check how to migrate to newest version of DynamicJsonBuffer
-  DynamicJsonBuffer dataBuffer;
-  JsonObject &root = dataBuffer.createObject();
+  DynamicJsonDocument doc(1024);
+  JsonObject root = doc.to<JsonObject>();
   root["INFUSION_STATE"] = getInfusionState(infusionState);
   root["TIME_1_DROP"] = time1Drop;
   root["TIME_BTW_2_DROPS"] = timeBtw2Drops;
@@ -682,12 +795,78 @@ void sendInfusionMonitoringDataWs() {
 
   root["INFUSED_VOLUME"] = infusedVolume;
   root["INFUSED_TIME"] = infusedTime;
-  size_t len = root.measureLength();
-  AsyncWebSocketMessageBuffer *buffer =
-      ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
-  if (buffer) {
-    root.printTo((char *)buffer->get(), len + 1);
-    ws.textAll(buffer);
+  char buffer[1024];
+  size_t len = serializeJson(root, buffer);
+  ws.textAll(buffer);
+}
+
+// Return value:
+//    true when logging is completed
+//    false when logging is still in progress
+bool logInfusionMonitoringData(char* logFilePath) {
+  // write csv header
+  if (!SPIFFS.exists(logFilePath)) {
+    Serial.printf("Logging started...\n");
+    File file = SPIFFS.open(logFilePath, FILE_WRITE);
+    if (!file) {
+      Serial.println("There was an error opening the file for writing");
+      return false;
+    }
+
+    if (file.printf("%s, %s, %s\n", "Time", "Drip Rate", "Infused Volume")) {
+      // Serial.println("Header write OK");
+    }
+    else {
+      Serial.println("Header write failed");
+    }
+    file.close();
+  }
+
+  // TODO: use folder for all data files
+  File file = SPIFFS.open(logFilePath, FILE_APPEND);
+  if (!file) {
+    Serial.println("There was an error opening the file for writing");
+    return false;
+  }
+
+  if(file.printf("%u, %u, %f\n", infusedTime, dripRate, infusedVolume)) {
+    // Serial.println("File was written");
+  }else {
+      Serial.println("File write failed");
+  }
+  file.close();
+
+  // check if we can end logging
+  if (infusionState == infusionState_t::ALARM_COMPLETED) return true;
+  else return false;
+}
+
+char* logInit() {
+  // logFilePath format: datetime_volume_time_dropfactor
+  // e.g. 2023April21084024_100_3600_20.csv
+
+  // get date and time from NTP server
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Failed to obtain time");
+    return NULL;
+  }
+
+  // char datetime[30];
+  // strftime(datetime,30, "%Y%B%d%H%M%S", &timeinfo);
+
+  // NOTE: SPIFFS maximum logFilePath is 32 characters
+  // only use H:M:S to save characters
+  char datetime[9];
+  strftime(datetime,9, "%H%M%S", &timeinfo);
+
+  if (asprintf(&logFilePath, "/%s_%u_%u_%u.csv", datetime, targetVTBI,
+               targetTotalTime, dropFactor)) {
+    loggingCompleted = false;
+    return logFilePath;
+  } else {
+    Serial.printf("Error when creating logFilePath\n");
+    return NULL;
   }
 }
 
@@ -723,7 +902,6 @@ void infusionInit() {
   numDrops = 0;
   infusedVolume = 0.0f;
   infusedTime = 0;
-  infusionState = infusionState_t::IN_PROGRESS;
 
   // TODO: start timing from here is not correct
   // we should start timing from when we receive the first drop
@@ -731,4 +909,62 @@ void infusionInit() {
   infusionStartTime = millis();
 
   homingCompleted = false;  // if not set, the infusion cannot be stopped
+}
+
+// display the table on the screen
+// only one display.display() should be used
+void tableOledDisplay(int i, int j, int k) {
+  // initialize setting of display
+  display.clearDisplay();
+  display.setTextSize(OLED_TEXT_FONT);
+  display.setTextColor(SSD1306_WHITE);  // draw 'on' pixels
+
+  // display.setCursor(1,16);  // set the position of the first letter
+  // display.printf("Drip rate: %d\n", dripRate);
+
+  // display.setCursor(1,24);  // set the position of the first letter
+  // display.printf("Infused volume: %d.%d%d\n", i, j, k);
+
+  // display.setCursor(1,32);  // set the position of the first letter
+  // // if less than 1hour / 1minute, then not to display them
+  // if((infusedTime/3600) >= 1){
+  //   display.printf("Infused time: \n%dh %dmin %ds\n", infusedTime/3600, (infusedTime%3600)/60, infusedTime%60);
+  // } else if((infusedTime/60) >= 1){
+  //   display.printf("Infused time: \n%dmin %ds\n", infusedTime/60, infusedTime%60);
+  // } else {
+  //   display.printf("Infused time: \n%ds\n", infusedTime%60);
+  // }
+
+  display.setCursor(1,16);  // set the position of the first letter
+  display.printf("%d.%d%dmL\n", i, j, k);
+  if((infusedTime/3600) >= 1){
+    display.printf("%dh%dm%ds\n", infusedTime/3600, (infusedTime%3600)/60, infusedTime%60);
+  } else if((infusedTime/60) >= 1){
+    display.printf("%dm%ds\n", infusedTime/60, infusedTime%60);
+  } else {
+    display.printf("%ds\n", infusedTime%60);
+  }
+  
+  display.display();  
+}
+
+// display the warning message on the screen
+void alertOledDisplay(const char* s) {
+  display.clearDisplay();
+  display.setTextSize(OLED_TEXT_FONT);
+  display.setTextColor(SSD1306_WHITE);
+
+  display.setCursor(1,16);
+  display.println(F("ALARM: "));
+  display.println(F(s));
+  display.display();
+}
+
+// get the last digit of a number
+int getLastDigit(int n) {
+  static int j;
+  static int k;
+  j = (n / 10) * 10;
+  k = n - j;
+  return k;
 }

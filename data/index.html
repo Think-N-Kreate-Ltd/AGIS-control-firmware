@@ -7,13 +7,12 @@
     <script src="https://code.highcharts.com/modules/exporting.js"></script>
     <script src="https://code.highcharts.com/modules/export-data.js"></script>
     <script src="https://code.highcharts.com/modules/accessibility.js"></script>
+    <script></script>
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
     AGIS 1 UP<label class='switch'><input type='checkbox' onchange='sendInput(this)' id='Up'><span
-            class='slider'></span></label>
-    AGIS 1 Up and Down<label class='switch'><input type='checkbox' onchange='sendInput(this)' id='Up_and_Down'><span
             class='slider'></span></label>
     AGIS 1 Down<label class='switch'><input type='checkbox' onchange='sendInput(this)' id='Down'><span
             class='slider'></span></label>
@@ -120,7 +119,9 @@
             </td>
         </tr>
     </table>
-    <br><br>
+    <br>
+
+    <button type="button" id="download_infusion_data_btn" disabled onclick="downloadInfusionData()">Download Infusion Data</button>
 
 
     <!-- <iframe style="display:none" name="hidden-form"></iframe>
