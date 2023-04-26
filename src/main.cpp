@@ -230,10 +230,6 @@ void IRAM_ATTR dropSensor() {
       if (infusionState == infusionState_t::ALARM_COMPLETED) {
         infusionState = infusionState_t::ALARM_VOLUME_EXCEEDED;
       }
-      
-      // get latest value of dripRate
-      // explain: dripRate = 60 seconds / time between 2 consecutive drops
-      dripRate = 60000 / timeBtw2Drops;
 
       // get dripRatePeak, i.e. drip rate when 1st drop is detected
       if (firstDropDetected) {
@@ -249,6 +245,30 @@ void IRAM_ATTR dropSensor() {
 }
 
 void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
+  // Checking for no drop for 20s
+  static int timeWithNoDrop;
+  if (sensor_READ.getStateRaw() == 0) {
+    timeWithNoDrop++;
+    if (timeWithNoDrop >= 20000) {
+      // reset these values
+      firstDropDetected = false;
+      timeBtw2Drops = UINT_MAX;
+
+      // infusion is still in progress but we cannot detect drops for 20s,
+      // something must be wrong, sound the alarm
+      if (infusionState == infusionState_t::IN_PROGRESS) {
+        infusionState = infusionState_t::ALARM_STOPPED;
+      }
+    }
+  } else {
+    timeWithNoDrop = 0;
+  }
+
+  // get latest value of dripRate
+  // explain: dripRate = 60 seconds / time between 2 consecutive drops
+  // NOTE: this needs to be done in timer interrupt
+  dripRate = 60000 / timeBtw2Drops;
+
   // Only run autoControl() when the following conditions satisfy:
   //   1. button_ENTER is pressed, or command is sent from website
   //   3. targetDripRate is set on the website by user
