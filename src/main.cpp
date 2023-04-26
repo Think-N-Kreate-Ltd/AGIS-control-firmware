@@ -18,11 +18,11 @@
 #include <limits.h>
 #include <ArduinoJson.h>
 #include <AsyncElegantOTA.h>  // define after <ESPAsyncWebServer.h>
+#include <time.h>
 
 // TODO: refactor names, follow standard naming conventions
 
 #define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
-// #define SENSOR_IN 35  // input pin for input signal to sensor
 #define MOTOR_CTRL_PIN_1 15 // Motorl Control Board PWM 1
 #define MOTOR_CTRL_PIN_2 16 // Motorl Control Board PWM 2
 #define PWM_PIN          4  // input pin for the potentiometer
@@ -51,8 +51,8 @@ infusionState_t infusionState = infusionState_t::NOT_STARTED;
 // var for EXT interrupt (sensor)
 volatile unsigned long totalTime = 0; // for calculating the time used within 15s
 volatile unsigned int numDrops = 0;   // for counting the number of drops within 15s
-volatile unsigned int dripRate = 0;   // for calculating the drip rate
-volatile unsigned int time1Drop = 0;  // for storing the time of 1 drop
+volatile unsigned int dripRate = 0;       // for calculating the drip rate
+volatile unsigned int time1Drop = 0;      // for storing the time of 1 drop
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
 
 // var for timer1 interrupt
@@ -60,6 +60,8 @@ volatile float infusedVolume = 0;  // unit: mL
 volatile unsigned long infusedTime = 0;     // unit: seconds
 volatile unsigned long infusionStartTime = 0;
 
+volatile unsigned int dripRateSamplingCount = 0;  // use for drip rate sampling
+volatile unsigned int numDropsInterval = 0;  // number of drops in 15 seconds
 volatile unsigned int autoControlCount = 0;  // use for regulating frequency of motor is on
 volatile unsigned int autoControlOnTime = 0;  // use for regulating frequency of motor is on
 int dripRateDifference = 0; 
@@ -91,6 +93,13 @@ volatile bool enableAutoControl = false; // to enable AutoControl() or not
 volatile bool firstDropDetected = false; // to check when we receive the 1st drop
 volatile bool autoControlOnPeriod = false;
 bool homingCompleted = false;   // true when lower limit switch is activated
+
+// for data logging
+char *logFilePath;
+const char* ntpServer = "pool.ntp.org";
+const long gmtOffset_sec = 28800;  // for Hong Kong
+const int daylightOffset_sec = 0;
+bool loggingCompleted = false;
 
 // To reduce the sensitive of autoControl()
 // i.e. (targetDripRate +/-3) is good enough
@@ -134,8 +143,10 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
              AwsEventType type, void *arg, uint8_t *data, size_t len);
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
 void sendInfusionMonitoringDataWs();
+bool logInfusionMonitoringData(char *logFilePath);
 void homingRollerClamp();
 void infusionInit();
+char* logInit();
 
 // HTML web page to handle 3 input fields (input1, input2, input3)
 
@@ -180,7 +191,6 @@ void writeFile(fs::FS &fs, const char *path, const char *message) {
 hw_timer_t *Timer0_cfg = NULL; // create a pointer for timer0
 hw_timer_t *Timer1_cfg = NULL; // create a pointer for timer1
 hw_timer_t *Timer2_cfg = NULL; // create a pointer for timer2
-hw_timer_t *Timer3_cfg = NULL; // create a pointer for timer0
 
 // EXT interrupt to pin 36, for sensor detected drops and measure the time
 void IRAM_ATTR dropSensor() {
@@ -238,60 +248,8 @@ void IRAM_ATTR dropSensor() {
   } 
 }
 
-// timer1 interrupt, for motor control
-void IRAM_ATTR motorControl() {
-  // Read buttons and switches state
-  button_UP.loop();        // MUST call the loop() function first
-  button_ENTER.loop();     // MUST call the loop() function first
-  button_DOWN.loop();      // MUST call the loop() function first
-
-  // Use button_UP to manually move up
-  if (!button_UP.getState()) {  // touched
-    buttonState = buttonState_t::UP;
-    motorOnUp();
-  }
-
-  // Use button_DOWN to manually move down
-  if (!button_DOWN.getState()) {  // touched
-    buttonState = buttonState_t::DOWN;
-    motorOnDown();
-  }
-
-  // Use button_ENTER to toggle autoControl()
-  if (button_ENTER.isPressed()) {  // pressed is different from touched
-    buttonState = buttonState_t::ENTER;
-    enableAutoControl = !enableAutoControl;
-
-    infusionInit();
-  }
-
-  if (button_UP.isReleased() || button_DOWN.isReleased() || button_ENTER.isReleased()) {
-    buttonState = buttonState_t::IDLE;
-    motorOff();
-  }
-}
-
 void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
-  // Checking for no drop for 20s
-    static int timeWithNoDrop;
-  if (sensor_READ.getStateRaw() == 0) {
-    timeWithNoDrop++;
-    if (timeWithNoDrop >= 20000) {
-      // reset these values
-      firstDropDetected = false;
-      timeBtw2Drops = UINT_MAX;
-
-      // infusion is still in progress but we cannot detect drops for 20s,
-      // something must be wrong, sound the alarm
-      if (infusionState == infusionState_t::IN_PROGRESS) {
-        infusionState = infusionState_t::ALARM_STOPPED;
-      }
-    }
-  } else {
-    timeWithNoDrop = 0;
-  }
-
-  // Only run when the following conditions satisfy:
+  // Only run autoControl() when the following conditions satisfy:
   //   1. button_ENTER is pressed, or command is sent from website
   //   3. targetDripRate is set on the website by user
   //   4. infusion is not completed, i.e. infusionState != infusionState_t::ALARM_COMPLETED
@@ -314,6 +272,11 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
 
     // TODO: sound the alarm
   }
+  else {
+    if (enableAutoControl) {
+      infusionState = infusionState_t::IN_PROGRESS;
+    }
+  }
 
   if (enableAutoControl && autoControlOnPeriod && (targetDripRate != 0) &&
       (infusionState != infusionState_t::ALARM_COMPLETED)) {
@@ -330,6 +293,7 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
 
     // otherwise, current drip rate is in allowed range -> stop motor
     else {
+      motorOff();
     }
   } else {
     // motorOff();
@@ -365,10 +329,10 @@ void setup() {
   attachInterrupt(DROP_SENSOR_PIN, &dropSensor, CHANGE);  // call interrupt when state change
 
   // setup for timer0
-  Timer0_cfg = timerBegin(0, 4000, true); // Prescaler = 80
-  timerAttachInterrupt(Timer0_cfg, &motorControl,
-                       true);              // call the function motorControl()
-  timerAlarmWrite(Timer0_cfg, 20, true); // Time = 4000*20/80,000,000 = 1ms
+  Timer0_cfg = timerBegin(0, 80, true); // Prescaler = 80
+  timerAttachInterrupt(Timer0_cfg, &dropSensor,
+                       true);              // call the function dropSensor()
+  timerAlarmWrite(Timer0_cfg, 1000, true); // Time = 1000*80/80,000,000 = 1ms
   timerAlarmEnable(Timer0_cfg);            // start the interrupt
 
   // setup for timer1
@@ -424,6 +388,10 @@ void setup() {
 
   server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(SPIFFS, "/script.js", "text/javascript");
+  });
+
+  server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(SPIFFS, logFilePath, "text/plain", true);  // force download the file
   });
 
   // TODO: should we use websocket for below requests?
@@ -484,6 +452,8 @@ void setup() {
   AsyncElegantOTA.begin(&server); // for OTA update
   server.begin();
 
+  // config time logging with NTP server
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
   // homing the roller clamp
   while (!homingCompleted) {
@@ -497,6 +467,7 @@ void loop() {
   //     "dripRate: %u \ttarget_drip_rate: %u \tmotor_state: %s\n",
   //     dripRate, targetDripRate, getMotorState(motorState));
 
+  // Serial.printf("%s\n", getInfusionState(infusionState));
 }
 
 // check the condition of the switch/input from web page
@@ -640,20 +611,21 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     // Serial.printf("Received from website: %s\n", (char *)data);
 
     // Parse the received WebSocket message as JSON
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.parseObject((const char *)data);
-    if (!root.success()) {
-      Serial.printf("Parse WebSocket message failed\n");
+    DynamicJsonDocument doc(1024);
+    DeserializationError error = deserializeJson(doc, (const char *)data);
+    if (error) {
+      Serial.printf("deserializeJson() failed: \n");
+      Serial.println(error.c_str());
     } else {
-      if (root.containsKey("SET_TARGET_DRIP_RATE_WS")) {
-        targetDripRate = root["SET_TARGET_DRIP_RATE_WS"];
-        targetVTBI = root["SET_VTBI_WS"];
+      if (doc.containsKey("SET_TARGET_DRIP_RATE_WS")) {
+        targetDripRate = doc["SET_TARGET_DRIP_RATE_WS"];
+        targetVTBI = doc["SET_VTBI_WS"];
         // convert total time to number of seconds
-        unsigned int targetTotalTimeHours = root["SET_TOTAL_TIME_HOURS_WS"];
-        unsigned int targetTotalTimeMinutes = root["SET_TOTAL_TIME_MINUTES_WS"];
+        unsigned int targetTotalTimeHours = doc["SET_TOTAL_TIME_HOURS_WS"];
+        unsigned int targetTotalTimeMinutes = doc["SET_TOTAL_TIME_MINUTES_WS"];
         targetTotalTime = targetTotalTimeHours * 3600 +
                           targetTotalTimeMinutes * 60;
-        dropFactor = root["SET_DROP_FACTOR_WS"];
+        dropFactor = doc["SET_DROP_FACTOR_WS"];
         targetNumDrops = targetVTBI / (1.0f / dropFactor);  // rounded to integer part
 
         // DEBUG:
@@ -664,16 +636,29 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
         // Serial.printf("Target drip rate is set to: %u drops/min\n", targetDripRate);
         // Serial.printf("Target number of drops is: %d\n", targetNumDrops);
       }
-      else if (root.containsKey("COMMAND")) {
+      else if (doc.containsKey("COMMAND")) {
         // parse the command and execute
-        if (root["COMMAND"] == "ENABLE_AUTOCONTROL_WS") {
+        if (doc["COMMAND"] == "ENABLE_AUTOCONTROL_WS") {
           infusionInit();
 
           // override the ENTER button to enable autoControl()
           enableAutoControl = true;
+          infusionState = infusionState_t::NOT_STARTED;
+
+          // generating logFilePath for logging
+          logFilePath = logInit();
+          // Serial.printf("logFilePath: %s\n", logFilePath);
         }
-        else if (root["COMMAND"] == "GET_INFUSION_MONITORING_DATA_WS") {
+        else if (doc["COMMAND"] == "GET_INFUSION_MONITORING_DATA_WS") {
           sendInfusionMonitoringDataWs();
+
+          // we also want to log the infusion data to file
+          // frequency of logging is set from script.js file
+          if ((infusionState == infusionState_t::IN_PROGRESS ||
+               infusionState == infusionState_t::ALARM_COMPLETED) &&
+               !loggingCompleted) {
+            loggingCompleted = logInfusionMonitoringData(logFilePath);
+          }
         }
         else {
           Serial.printf("Command undefined\n");
@@ -684,9 +669,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
 }
 
 void sendInfusionMonitoringDataWs() {
-  // TODO: check how to migrate to newest version of DynamicJsonBuffer
-  DynamicJsonBuffer dataBuffer;
-  JsonObject &root = dataBuffer.createObject();
+  DynamicJsonDocument doc(1024);
+  JsonObject root = doc.to<JsonObject>();
   root["INFUSION_STATE"] = getInfusionState(infusionState);
   root["TIME_1_DROP"] = time1Drop;
   root["TIME_BTW_2_DROPS"] = timeBtw2Drops;
@@ -704,12 +688,78 @@ void sendInfusionMonitoringDataWs() {
 
   root["INFUSED_VOLUME"] = infusedVolume;
   root["INFUSED_TIME"] = infusedTime;
-  size_t len = root.measureLength();
-  AsyncWebSocketMessageBuffer *buffer =
-      ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
-  if (buffer) {
-    root.printTo((char *)buffer->get(), len + 1);
-    ws.textAll(buffer);
+  char buffer[1024];
+  size_t len = serializeJson(root, buffer);
+  ws.textAll(buffer);
+}
+
+// Return value:
+//    true when logging is completed
+//    false when logging is still in progress
+bool logInfusionMonitoringData(char* logFilePath) {
+  // write csv header
+  if (!SPIFFS.exists(logFilePath)) {
+    Serial.printf("Logging started...\n");
+    File file = SPIFFS.open(logFilePath, FILE_WRITE);
+    if (!file) {
+      Serial.println("There was an error opening the file for writing");
+      return false;
+    }
+
+    if (file.printf("%s, %s, %s\n", "Time", "Drip Rate", "Infused Volume")) {
+      // Serial.println("Header write OK");
+    }
+    else {
+      Serial.println("Header write failed");
+    }
+    file.close();
+  }
+
+  // TODO: use folder for all data files
+  File file = SPIFFS.open(logFilePath, FILE_APPEND);
+  if (!file) {
+    Serial.println("There was an error opening the file for writing");
+    return false;
+  }
+
+  if(file.printf("%u, %u, %f\n", infusedTime, dripRate, infusedVolume)) {
+    // Serial.println("File was written");
+  }else {
+      Serial.println("File write failed");
+  }
+  file.close();
+
+  // check if we can end logging
+  if (infusionState == infusionState_t::ALARM_COMPLETED) return true;
+  else return false;
+}
+
+char* logInit() {
+  // logFilePath format: datetime_volume_time_dropfactor
+  // e.g. 2023April21084024_100_3600_20.csv
+
+  // get date and time from NTP server
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Failed to obtain time");
+    return NULL;
+  }
+
+  // char datetime[30];
+  // strftime(datetime,30, "%Y%B%d%H%M%S", &timeinfo);
+
+  // NOTE: SPIFFS maximum logFilePath is 32 characters
+  // only use H:M:S to save characters
+  char datetime[9];
+  strftime(datetime,9, "%H%M%S", &timeinfo);
+
+  if (asprintf(&logFilePath, "/%s_%u_%u_%u.csv", datetime, targetVTBI,
+               targetTotalTime, dropFactor)) {
+    loggingCompleted = false;
+    return logFilePath;
+  } else {
+    Serial.printf("Error when creating logFilePath\n");
+    return NULL;
   }
 }
 
@@ -745,7 +795,6 @@ void infusionInit() {
   numDrops = 0;
   infusedVolume = 0.0f;
   infusedTime = 0;
-  infusionState = infusionState_t::IN_PROGRESS;
 
   // TODO: start timing from here is not correct
   // we should start timing from when we receive the first drop
