@@ -339,6 +339,7 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
       homingRollerClamp();
     }
     else {
+      // BUG: cannot control using physical switch
       motorOff();
     }
   }
