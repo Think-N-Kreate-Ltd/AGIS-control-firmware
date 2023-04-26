@@ -323,7 +323,6 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
       homingRollerClamp();
     }
     else {
-      // BUG: cannot control using physical switch
       motorOff();
     }
   }
@@ -341,6 +340,38 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
   }
 }
 
+void IRAM_ATTR motorControl() {
+  // Read buttons and switches state
+  button_UP.loop();        // MUST call the loop() function first
+  button_ENTER.loop();     // MUST call the loop() function first
+  button_DOWN.loop();      // MUST call the loop() function first
+
+  // Use button_UP to manually move up
+  if (!button_UP.getState()) {  // touched
+    buttonState = buttonState_t::UP;
+    motorOnUp();
+  }
+
+  // Use button_DOWN to manually move down
+  if (!button_DOWN.getState()) {  // touched
+    buttonState = buttonState_t::DOWN;
+    motorOnDown();
+  }
+
+  // Use button_ENTER to toggle autoControl()
+  if (button_ENTER.isPressed()) {  // pressed is different from touched
+    buttonState = buttonState_t::ENTER;
+    enableAutoControl = !enableAutoControl;
+
+    infusionInit();
+  }
+
+  if (button_UP.isReleased() || button_DOWN.isReleased() || button_ENTER.isReleased()) {
+    buttonState = buttonState_t::IDLE;
+    motorOff();
+  }
+}
+
 void setup() {
   Serial.begin(9600);
   pinMode(DROP_SENSOR_PIN, INPUT);
@@ -349,10 +380,10 @@ void setup() {
   attachInterrupt(DROP_SENSOR_PIN, &dropSensor, CHANGE);  // call interrupt when state change
 
   // setup for timer0
-  Timer0_cfg = timerBegin(0, 80, true); // Prescaler = 80
-  timerAttachInterrupt(Timer0_cfg, &dropSensor,
-                       true);              // call the function dropSensor()
-  timerAlarmWrite(Timer0_cfg, 1000, true); // Time = 1000*80/80,000,000 = 1ms
+  Timer0_cfg = timerBegin(0, 4000, true); // Prescaler = 4000
+  timerAttachInterrupt(Timer2_cfg, &motorControl,
+                       true);              // call the function motorControl()
+  timerAlarmWrite(Timer0_cfg, 20, true); // Time = 4000*20/80,000,000 = 1ms
   timerAlarmEnable(Timer0_cfg);            // start the interrupt
 
   // setup for timer1
