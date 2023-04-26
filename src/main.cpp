@@ -17,10 +17,22 @@
 #include <ezButton.h>
 #include <limits.h>
 #include <ArduinoJson.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 #include <AsyncElegantOTA.h>  // define after <ESPAsyncWebServer.h>
 #include <time.h>
 
 // TODO: refactor names, follow standard naming conventions
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_TEXT_FONT 2
+
+#define OLED_MOSI   17
+#define OLED_CLK    47
+#define OLED_DC     5
+#define OLED_CS     6
+#define OLED_RESET  7
 
 #define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
 #define MOTOR_CTRL_PIN_1 15 // Motorl Control Board PWM 1
@@ -46,6 +58,22 @@ enum class infusionState_t {
 };
 // Initially, infusionState is NOT_STARTED
 infusionState_t infusionState = infusionState_t::NOT_STARTED;
+
+// set up for OLED display
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT,
+  OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);
+
+void oledSetUp() {
+  // Initialize OLED
+  if(!display.begin(SSD1306_SWITCHCAPVCC)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    return;
+  } else {
+    // clear the original display on the screen
+    display.clearDisplay();
+    display.display();
+  }
+}
 
 // TODO: delete time1Drop, totalTime
 // var for EXT interrupt (sensor)
@@ -147,6 +175,9 @@ bool logInfusionMonitoringData(char *logFilePath);
 void homingRollerClamp();
 void infusionInit();
 char* logInit();
+void tableOledDisplay(int i, int j, int k);
+void alertOledDisplay(const char* s);
+int getLastDigit(int n);
 
 // HTML web page to handle 3 input fields (input1, input2, input3)
 
@@ -191,6 +222,7 @@ void writeFile(fs::FS &fs, const char *path, const char *message) {
 hw_timer_t *Timer0_cfg = NULL; // create a pointer for timer0
 hw_timer_t *Timer1_cfg = NULL; // create a pointer for timer1
 hw_timer_t *Timer2_cfg = NULL; // create a pointer for timer2
+hw_timer_t *Timer3_cfg = NULL; // create a pointer for timer3
 
 // EXT interrupt to pin 36, for sensor detected drops and measure the time
 void IRAM_ATTR dropSensorISR() {
@@ -376,18 +408,33 @@ void IRAM_ATTR motorControlISR() {
   }
 }
 
+// timer3 inerrupt, for I2C OLED display
+void IRAM_ATTR OledDisplayISR(){
+  if (infusionState == infusionState_t::ALARM_COMPLETED) {
+    alertOledDisplay("infusion \ncompleted");
+  } else if (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED) {
+    alertOledDisplay("volume \nexceeded");
+  } else if (infusionState == infusionState_t::ALARM_STOPPED) {
+    alertOledDisplay("no recent \ndrop");
+  } else {
+    tableOledDisplay(numDrops/dropFactor, getLastDigit(numDrops*10/dropFactor), getLastDigit(numDrops*100/dropFactor));
+  }
+}
+
 void setup() {
   Serial.begin(9600);
   pinMode(DROP_SENSOR_PIN, INPUT);
+  
+  oledSetUp();
 
   // setup for sensor interrupt
   attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
 
   // setup for timer0
-  Timer0_cfg = timerBegin(0, 4000, true); // prescaler = 4000
+  Timer0_cfg = timerBegin(0, 80, true); // prescaler = 80
   timerAttachInterrupt(Timer0_cfg, &motorControlISR,
                        true);              // call the function motorcontrol()
-  timerAlarmWrite(Timer0_cfg, 20, true); // time = 4000*20/80,000,000 = 1ms
+  timerAlarmWrite(Timer0_cfg, 1000, true); // time = 80*1000/80,000,000 = 1ms
   timerAlarmEnable(Timer0_cfg);            // start the interrupt
 
   // setup for timer1
@@ -396,6 +443,13 @@ void setup() {
                        true);              // call the function autoControlISR()
   timerAlarmWrite(Timer1_cfg, 1000, true); // Time = 80*1000/80,000,000 = 1ms
   timerAlarmEnable(Timer1_cfg);            // start the interrupt
+
+  // setup for timer3
+  Timer3_cfg = timerBegin(3, 40000, true); // Prescaler = 40000
+  timerAttachInterrupt(Timer3_cfg, &OledDisplayISR,
+                       true);              // call the function OledDisplayISR()
+  timerAlarmWrite(Timer3_cfg, 1000, true); // Time = 40000*1000/80,000,000 = 500ms
+  timerAlarmEnable(Timer3_cfg);            // start the interrupt
 
   // Initialize SPIFFS
   if (!SPIFFS.begin(true)) {
@@ -857,4 +911,62 @@ void infusionInit() {
   infusionStartTime = millis();
 
   homingCompleted = false;  // if not set, the infusion cannot be stopped
+}
+
+// display the table on the screen
+// only one display.display() should be used
+void tableOledDisplay(int i, int j, int k) {
+  // initialize setting of display
+  display.clearDisplay();
+  display.setTextSize(OLED_TEXT_FONT);
+  display.setTextColor(SSD1306_WHITE);  // draw 'on' pixels
+
+  // display.setCursor(1,16);  // set the position of the first letter
+  // display.printf("Drip rate: %d\n", dripRate);
+
+  // display.setCursor(1,24);  // set the position of the first letter
+  // display.printf("Infused volume: %d.%d%d\n", i, j, k);
+
+  // display.setCursor(1,32);  // set the position of the first letter
+  // // if less than 1hour / 1minute, then not to display them
+  // if((infusedTime/3600) >= 1){
+  //   display.printf("Infused time: \n%dh %dmin %ds\n", infusedTime/3600, (infusedTime%3600)/60, infusedTime%60);
+  // } else if((infusedTime/60) >= 1){
+  //   display.printf("Infused time: \n%dmin %ds\n", infusedTime/60, infusedTime%60);
+  // } else {
+  //   display.printf("Infused time: \n%ds\n", infusedTime%60);
+  // }
+
+  display.setCursor(1,16);  // set the position of the first letter
+  display.printf("%d.%d%dmL\n", i, j, k);
+  if((infusedTime/3600) >= 1){
+    display.printf("%dh%dm%ds\n", infusedTime/3600, (infusedTime%3600)/60, infusedTime%60);
+  } else if((infusedTime/60) >= 1){
+    display.printf("%dm%ds\n", infusedTime/60, infusedTime%60);
+  } else {
+    display.printf("%ds\n", infusedTime%60);
+  }
+  
+  display.display();  
+}
+
+// display the warning message on the screen
+void alertOledDisplay(const char* s) {
+  display.clearDisplay();
+  display.setTextSize(OLED_TEXT_FONT);
+  display.setTextColor(SSD1306_WHITE);
+
+  display.setCursor(1,16);
+  display.println(F("ALARM: "));
+  display.println(F(s));
+  display.display();
+}
+
+// get the last digit of a number
+int getLastDigit(int n) {
+  static int j;
+  static int k;
+  j = (n / 10) * 10;
+  k = n - j;
+  return k;
 }
