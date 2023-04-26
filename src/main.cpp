@@ -245,6 +245,9 @@ void IRAM_ATTR dropSensorISR() {
       if (!firstDropDetected){
         firstDropDetected = true;
         lastDropTime = -9999; // prevent timeBtw2Drops become inf
+
+        // mark this as starting time of infusion
+        infusionStartTime = millis();
       }
       if (infusionState != infusionState_t::IN_PROGRESS) {
         // TODO: when click "Set and Run" button on the website again to
@@ -267,11 +270,6 @@ void IRAM_ATTR dropSensorISR() {
       // get dripRatePeak, i.e. drip rate when 1st drop is detected
       if (firstDropDetected) {
         dripRatePeak = max(dripRatePeak, dripRate);
-      }
-
-      // get infusion time so far:
-      if (infusionState != infusionState_t::ALARM_COMPLETED) {
-        infusedTime = (millis() - infusionStartTime) / 1000;  // in seconds
       }
     } else if (dropSensorState == 0) {/*nothing*/}
   } 
@@ -304,6 +302,11 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
   // explain: dripRate = 60 seconds / time between 2 consecutive drops
   // NOTE: this needs to be done in timer interrupt
   dripRate = 60000 / timeBtw2Drops;
+
+  // get infusion time so far:
+  if ((infusionState != infusionState_t::ALARM_COMPLETED) && firstDropDetected) {
+    infusedTime = (millis() - infusionStartTime) / 1000;  // in seconds
+  }
 
   // Only run autoControlISR() when the following conditions satisfy:
   //   1. button_ENTER is pressed, or command is sent from website
@@ -904,11 +907,6 @@ void infusionInit() {
   numDrops = 0;
   infusedVolume = 0.0f;
   infusedTime = 0;
-
-  // TODO: start timing from here is not correct
-  // we should start timing from when we receive the first drop
-  // mark this as starting time of infusion
-  infusionStartTime = millis();
 
   homingCompleted = false;  // if not set, the infusion cannot be stopped
 }
