@@ -17,21 +17,9 @@
 #include <ezButton.h>
 #include <limits.h>
 #include <ArduinoJson.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
 #include <AsyncElegantOTA.h>  // define after <ESPAsyncWebServer.h>
 
 // TODO: refactor names, follow standard naming conventions
-
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-#define OLED_TEXT_FONT 2
-
-#define OLED_MOSI   17
-#define OLED_CLK    47
-#define OLED_DC     5
-#define OLED_CS     6
-#define OLED_RESET  7
 
 #define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
 // #define SENSOR_IN 35  // input pin for input signal to sensor
@@ -59,22 +47,6 @@ enum class infusionState_t {
 // Initially, infusionState is NOT_STARTED
 infusionState_t infusionState = infusionState_t::NOT_STARTED;
 
-// set up for OLED display
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT,
-  OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);
-
-void oledSetUp() {
-  // Initialize OLED
-  if(!display.begin(SSD1306_SWITCHCAPVCC)) {
-    Serial.println(F("SSD1306 allocation failed"));
-    return;
-  } else {
-    // clear the original display on the screen
-    display.clearDisplay();
-    display.display();
-  }
-}
-
 // TODO: delete time1Drop, totalTime
 // var for EXT interrupt (sensor)
 volatile unsigned long totalTime = 0; // for calculating the time used within 15s
@@ -82,7 +54,6 @@ volatile unsigned int numDrops = 0;   // for counting the number of drops within
 volatile unsigned int dripRate = 0;   // for calculating the drip rate
 volatile unsigned int time1Drop = 0;  // for storing the time of 1 drop
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
-ezButton sensor_READ(DROP_SENSOR_PIN);     // create ezButton object that attach to pin 36;
 
 // var for timer1 interrupt
 volatile float infusedVolume = 0;  // unit: mL
@@ -103,6 +74,7 @@ ezButton button_ENTER(8);      // create ezButton object that attach to pin 7;
 ezButton button_DOWN(46);      // create ezButton object that attach to pin 8;
 ezButton limitSwitch_Up(37);   // create ezButton object that attach to pin 7;
 ezButton limitSwitch_Down(38); // create ezButton object that attach to pin 7;
+ezButton sensor_READ(DROP_SENSOR_PIN);     // create ezButton object that attach to pin 36;
 
 // var for checking the currently condition
 // state that shows the condition of web button
@@ -150,9 +122,6 @@ const char *PARAM_INPUT_3 = "input3";
 const char *PARAM_AUTO_1 = "auto1";
 
 // Function prototypes
-void tableOledDisplay(int i, int j, int k);
-void alertOledDisplay(const char* s);
-int getLastDigit(int n);
 int check_state();
 void motorOnUp();
 void motorOnDown();
@@ -387,25 +356,10 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
   }
 }
 
-// timer3 inerrupt, for I2C OLED display
-void IRAM_ATTR OledDisplay(){
-  if (infusionState == infusionState_t::ALARM_COMPLETED) {
-    alertOledDisplay("infusion \ncompleted");
-  } else if (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED) {
-    alertOledDisplay("volume \nexceeded");
-  } else if (infusionState == infusionState_t::ALARM_STOPPED) {
-    alertOledDisplay("no recent \ndrop");
-  } else {
-    tableOledDisplay(numDrops/dropFactor, getLastDigit(numDrops*10/dropFactor), getLastDigit(numDrops*100/dropFactor));
-  }
-}
-
 void setup() {
   Serial.begin(9600);
   pinMode(DROP_SENSOR_PIN, INPUT);
 
-  oledSetUp();
-  
   // setup for sensor interrupt
   attachInterrupt(DROP_SENSOR_PIN, &dropSensor, CHANGE);  // call interrupt when state change
 
@@ -422,13 +376,6 @@ void setup() {
                        true);              // call the function autoControl()
   timerAlarmWrite(Timer1_cfg, 1000, true); // Time = 80*1000/80,000,000 = 1ms
   timerAlarmEnable(Timer1_cfg);            // start the interrupt
-
-  // setup for timer3
-  Timer3_cfg = timerBegin(3, 4000, true); // Prescaler = 4000
-  timerAttachInterrupt(Timer3_cfg, &OledDisplay,
-                       true);              // call the function OledDisplay()
-  timerAlarmWrite(Timer3_cfg, 1000, true); // Time = 4000*1000/80,000,000 = 50ms
-  timerAlarmEnable(Timer3_cfg);            // start the interrupt
 
   // Initialize SPIFFS
   if (!SPIFFS.begin(true)) {
@@ -549,64 +496,6 @@ void loop() {
   //     "dripRate: %u \ttarget_drip_rate: %u \tmotor_state: %s\n",
   //     dripRate, targetDripRate, getMotorState(motorState));
 
-}
-
-// display the table on the screen
-// only one display.display() should be used
-void tableOledDisplay(int i, int j, int k) {
-  // initialize setting of display
-  display.clearDisplay();
-  display.setTextSize(OLED_TEXT_FONT);
-  display.setTextColor(SSD1306_WHITE);  // draw 'on' pixels
-
-  // display.setCursor(1,16);  // set the position of the first letter
-  // display.printf("Drip rate: %d\n", dripRate);
-
-  // display.setCursor(1,24);  // set the position of the first letter
-  // display.printf("Infused volume: %d.%d%d\n", i, j, k);
-
-  // display.setCursor(1,32);  // set the position of the first letter
-  // // if less than 1hour / 1minute, then not to display them
-  // if((infusedTime/3600) >= 1){
-  //   display.printf("Infused time: \n%dh %dmin %ds\n", infusedTime/3600, (infusedTime%3600)/60, infusedTime%60);
-  // } else if((infusedTime/60) >= 1){
-  //   display.printf("Infused time: \n%dmin %ds\n", infusedTime/60, infusedTime%60);
-  // } else {
-  //   display.printf("Infused time: \n%ds\n", infusedTime%60);
-  // }
-
-  display.setCursor(1,16);  // set the position of the first letter
-  display.printf("%d.%d%dmL\n", i, j, k);
-  if((infusedTime/3600) >= 1){
-    display.printf("%dh%dm%ds\n", infusedTime/3600, (infusedTime%3600)/60, infusedTime%60);
-  } else if((infusedTime/60) >= 1){
-    display.printf("%dm%ds\n", infusedTime/60, infusedTime%60);
-  } else {
-    display.printf("%ds\n", infusedTime%60);
-  }
-  
-  display.display();  
-}
-
-// display the warning message on the screen
-void alertOledDisplay(const char* s) {
-  display.clearDisplay();
-  display.setTextSize(OLED_TEXT_FONT);
-  display.setTextColor(SSD1306_WHITE);
-
-  display.setCursor(1,16);
-  display.println(F("ALARM: "));
-  display.println(F(s));
-  display.display();
-}
-
-// get the last digit of a number
-int getLastDigit(int n) {
-  static int j;
-  static int k;
-  j = (n / 10) * 10;
-  k = n - j;
-  return k;
 }
 
 // check the condition of the switch/input from web page
