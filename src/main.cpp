@@ -380,10 +380,10 @@ void setup() {
   attachInterrupt(DROP_SENSOR_PIN, &dropSensor, CHANGE);  // call interrupt when state change
 
   // setup for timer0
-  Timer0_cfg = timerBegin(0, 4000, true); // Prescaler = 4000
-  timerAttachInterrupt(Timer2_cfg, &motorControl,
-                       true);              // call the function motorControl()
-  timerAlarmWrite(Timer0_cfg, 20, true); // Time = 4000*20/80,000,000 = 1ms
+  Timer0_cfg = timerBegin(0, 4000, true); // prescaler = 4000
+  timerAttachInterrupt(Timer0_cfg, &motorControl,
+                       true);              // call the function motorcontrol()
+  timerAlarmWrite(Timer0_cfg, 20, true); // time = 4000*20/80,000,000 = 1ms
   timerAlarmEnable(Timer0_cfg);            // start the interrupt
 
   // setup for timer1
