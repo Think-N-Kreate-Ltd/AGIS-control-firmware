@@ -424,15 +424,17 @@ void IRAM_ATTR OledDisplayISR(){
 void setup() {
   Serial.begin(9600);
   pinMode(DROP_SENSOR_PIN, INPUT);
+  
+  oledSetUp();
 
   // setup for sensor interrupt
   attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
 
   // setup for timer0
-  Timer0_cfg = timerBegin(0, 4000, true); // prescaler = 4000
+  Timer0_cfg = timerBegin(0, 80, true); // prescaler = 80
   timerAttachInterrupt(Timer0_cfg, &motorControlISR,
                        true);              // call the function motorcontrol()
-  timerAlarmWrite(Timer0_cfg, 20, true); // time = 4000*20/80,000,000 = 1ms
+  timerAlarmWrite(Timer0_cfg, 1000, true); // time = 80*1000/80,000,000 = 1ms
   timerAlarmEnable(Timer0_cfg);            // start the interrupt
 
   // setup for timer1
@@ -443,10 +445,10 @@ void setup() {
   timerAlarmEnable(Timer1_cfg);            // start the interrupt
 
   // setup for timer3
-  Timer3_cfg = timerBegin(3, 4000, true); // Prescaler = 4000
+  Timer3_cfg = timerBegin(3, 40000, true); // Prescaler = 40000
   timerAttachInterrupt(Timer3_cfg, &OledDisplayISR,
                        true);              // call the function OledDisplayISR()
-  timerAlarmWrite(Timer3_cfg, 1000, true); // Time = 4000*1000/80,000,000 = 50ms
+  timerAlarmWrite(Timer3_cfg, 1000, true); // Time = 40000*1000/80,000,000 = 500ms
   timerAlarmEnable(Timer3_cfg);            // start the interrupt
 
   // Initialize SPIFFS
