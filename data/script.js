@@ -78,6 +78,8 @@ function onWsMessage(event) {
         document.getElementById("drip_rate_value").innerHTML = text;
         document.getElementById("infused_volume_value").innerHTML = text;
         document.getElementById("infused_time_value").innerHTML = text;
+        document.getElementById("infusion_state_value").style.color = "black"
+        document.getElementById("infusion_state_value").innerHTML = text;
     }
     //  only update when there are drops
     else if ((infusionState === infusionState_t.STARTED) ||

@@ -254,6 +254,8 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
       firstDropDetected = false;
       timeBtw2Drops = UINT_MAX;
 
+      infusionState = infusionState_t::NOT_STARTED;
+
       // infusion is still in progress but we cannot detect drops for 20s,
       // something must be wrong, sound the alarm
       if (infusionState == infusionState_t::IN_PROGRESS) {
@@ -316,14 +318,14 @@ void IRAM_ATTR autoControl() { // timer1 interrupt, for auto control motor
       motorOff();
     }
   } else {
-    // motorOff();
-
     if ((infusionState == infusionState_t::ALARM_COMPLETED) && !homingCompleted) {
     // homing the roller clamp, i.e. move it down to completely closed position
       homingRollerClamp();
     }
     else {
-      motorOff();
+      if (enableAutoControl) {
+        motorOff();
+      }
     }
   }
 
