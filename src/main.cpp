@@ -2,10 +2,10 @@
   wifi ssid:AutoConnectAP, password:password.
   go to http://<IPAddress>/update for OTA update
   upload firmware.bin for main, spiffs.bin for SPIFFS files
-  GPIO36 -> reading sensor data (Change in L34)
-  timer0 -> read sensor & time measure
-  timer1 -> auto control
-  timer2 -> control the motor
+  GPIO36 -> EXT interrupt for reading sensor data
+  timer0 -> INT interrupt for read sensor & time measure
+  timer1 -> INT interrupt for auto control
+  timer3 -> INT interrupt for control the motor
 */
 
 #include <Arduino.h>
@@ -221,7 +221,6 @@ void writeFile(fs::FS &fs, const char *path, const char *message) {
 // create pointer for timer
 hw_timer_t *Timer0_cfg = NULL; // create a pointer for timer0
 hw_timer_t *Timer1_cfg = NULL; // create a pointer for timer1
-hw_timer_t *Timer2_cfg = NULL; // create a pointer for timer2
 hw_timer_t *Timer3_cfg = NULL; // create a pointer for timer3
 
 // EXT interrupt to pin 36, for sensor detected drops and measure the time
