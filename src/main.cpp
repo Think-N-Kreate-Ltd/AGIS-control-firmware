@@ -12,7 +12,7 @@
 #include <AsyncTCP.h>
 #include <WiFiManager.h> // define before <WiFi.h>
 #include <ESPAsyncWebServer.h>
-#include <SPIFFS.h>
+#include <LittleFS.h>
 #include <WiFi.h>
 #include <ezButton.h>
 #include <limits.h>
@@ -184,6 +184,17 @@ int getLastDigit(int n);
 // goto 404 not found when 404 not found
 void notFound(AsyncWebServerRequest *request) {
   request->send(404, "text/plain", "Not found");
+}
+
+void createDir(fs::FS &fs, const char * path){
+  if (!LittleFS.exists("/index.html")){
+    Serial.printf("Creating Dir: %s\n", path);
+    if(fs.mkdir(path)){
+        Serial.println("Dir created");
+    } else {
+        Serial.println("mkdir failed");
+    }
+  } 
 }
 
 String readFile(fs::FS &fs, const char *path) {
@@ -453,9 +464,9 @@ void setup() {
   timerAlarmWrite(Timer3_cfg, 1000, true); // Time = 40000*1000/80,000,000 = 500ms
   timerAlarmEnable(Timer3_cfg);            // start the interrupt
 
-  // Initialize SPIFFS
-  if (!SPIFFS.begin(true)) {
-    Serial.println("An Error has occurred while mounting SPIFFS");
+  // Initialize LittleFS
+  if (!LittleFS.begin(true)) {
+    Serial.println("An Error has occurred while mounting LittleFS");
     return;
   }
 
@@ -488,21 +499,26 @@ void setup() {
   // Init Websocket
   initWebSocket();
 
+  // Create the file for web page
+  // createDir(LittleFS, "/index.html");
+  // createDir(LittleFS, "/style.css");
+  // createDir(LittleFS, "/script.css");
+
   // Send web page to client
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SPIFFS, "/index.html", String(), false);
+    request->send(LittleFS, "/index.html", String(), false);
   });
 
   server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SPIFFS, "/style.css", "text/css");
+    request->send(LittleFS, "/style.css", "text/css");
   });
 
   server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SPIFFS, "/script.js", "text/javascript");
+    request->send(LittleFS, "/script.js", "text/javascript");
   });
 
   server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SPIFFS, logFilePath, "text/plain", true);  // force download the file
+    request->send(LittleFS, logFilePath, "text/plain", true);  // force download the file
   });
 
   // TODO: should we use websocket for below requests?
@@ -514,7 +530,7 @@ void setup() {
     if (request->hasParam(PARAM_INPUT_1)) {
       inputMessage = request->getParam(PARAM_INPUT_1)->value();
       // inputParam = PARAM_INPUT_1;
-      writeFile(SPIFFS, "/input1.txt", inputMessage.c_str());
+      writeFile(LittleFS, "/input1.txt", inputMessage.c_str());
       web_but_state = check_state(); // convert the input from AGIS1 to integer,
                                      // and store in web_but_state
     }
@@ -522,7 +538,7 @@ void setup() {
     else if (request->hasParam(PARAM_INPUT_2)) {
       inputMessage = request->getParam(PARAM_INPUT_2)->value();
       // inputParam = PARAM_INPUT_2;
-      writeFile(SPIFFS, "/input2.txt", inputMessage.c_str());
+      writeFile(LittleFS, "/input2.txt", inputMessage.c_str());
       web_but_state = check_state(); // convert the input from AGIS2 to integer,
                                      // and store in web_but_state
     }
@@ -530,14 +546,14 @@ void setup() {
     else if (request->hasParam(PARAM_INPUT_3)) {
       inputMessage = request->getParam(PARAM_INPUT_3)->value();
       // inputParam = PARAM_INPUT_3;
-      writeFile(SPIFFS, "/input3.txt", inputMessage.c_str());
+      writeFile(LittleFS, "/input3.txt", inputMessage.c_str());
       web_but_state = check_state(); // convert the input from AGIS3 to integer,
                                      // and store in web_but_state
     }
     // GET auto1 value on <ESP_IP>/get?auto1=t
     // else if (request->hasParam(PARAM_AUTO_1)) {
     //   inputMessage = request->getParam(PARAM_AUTO_1)->value();
-    //   writeFile(SPIFFS, "/auto1.txt", inputMessage.c_str());
+    //   writeFile(LittleFS, "/auto1.txt", inputMessage.c_str());
     //   targetDripRate = inputMessage.toInt(); // convert the input from
     //   AGIS1 to integer,
     //                                  // and store in web_but_state
@@ -809,9 +825,9 @@ void sendInfusionMonitoringDataWs() {
 //    false when logging is still in progress
 bool logInfusionMonitoringData(char* logFilePath) {
   // write csv header
-  if (!SPIFFS.exists(logFilePath)) {
+  if (!LittleFS.exists(logFilePath)) {
     Serial.printf("Logging started...\n");
-    File file = SPIFFS.open(logFilePath, FILE_WRITE);
+    File file = LittleFS.open(logFilePath, FILE_WRITE);
     if (!file) {
       Serial.println("There was an error opening the file for writing");
       return false;
@@ -827,7 +843,7 @@ bool logInfusionMonitoringData(char* logFilePath) {
   }
 
   // TODO: use folder for all data files
-  File file = SPIFFS.open(logFilePath, FILE_APPEND);
+  File file = LittleFS.open(logFilePath, FILE_APPEND);
   if (!file) {
     Serial.println("There was an error opening the file for writing");
     return false;
