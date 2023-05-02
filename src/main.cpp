@@ -186,16 +186,16 @@ void notFound(AsyncWebServerRequest *request) {
   request->send(404, "text/plain", "Not found");
 }
 
-void createDir(fs::FS &fs, const char * path){
-  if (!LittleFS.exists("/index.html")){
-    Serial.printf("Creating Dir: %s\n", path);
-    if(fs.mkdir(path)){
-        Serial.println("Dir created");
-    } else {
-        Serial.println("mkdir failed");
-    }
-  } 
-}
+// void createDir(fs::FS &fs, const char * path){
+//   if (!LittleFS.exists("/index.html")){
+//     Serial.printf("Creating Dir: %s\n", path);
+//     if(fs.mkdir(path)){
+//         Serial.println("Dir created");
+//     } else {
+//         Serial.println("mkdir failed");
+//     }
+//   } 
+// }
 
 String readFile(fs::FS &fs, const char *path) {
   Serial.printf("Reading file: %s\r\n", path);
@@ -515,6 +515,10 @@ void setup() {
 
   server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(LittleFS, "/script.js", "text/javascript");
+  });
+
+  server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(LittleFS, "/favicon.png", "image/png");
   });
 
   server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {

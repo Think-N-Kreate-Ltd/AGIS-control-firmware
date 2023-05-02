@@ -1,9 +1,9 @@
 # improvement working on
- - change SPIFFS to LittleFs
- - can try SD card (maybe FAT)
+ - ~~change SPIFFS to LittleFs~~
+ - can try SD card (maybe FAT) <- trying mySD.h
  - buzzer test
  - everyone can accese the web page(?)
- - check for first aid kit item(?)
+ - check for first aid kit item(?) <- there is nothing
 
 ======================================
 # the below task is outdated
@@ -93,6 +93,7 @@ AsyncTCP-master & ESPAsyncWebServer-master:
 
 add image by using SPIFFS: 
  - https://randomnerdtutorials.com/display-images-esp32-esp8266-web-server/
+ - https://www.base64-image.de/
 
 minify the html code: 
  - https://www.willpeavy.com/tools/minifier/
