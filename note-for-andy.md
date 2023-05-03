@@ -1,9 +1,14 @@
 # improvement working on
  - ~~change SPIFFS to LittleFs~~
  - can try SD card (maybe FAT) <- trying mySD.h
+ - cannot directly use ESP Web lib to read .html etc
+ - can read and store into a String
+ - maybe only store data is enough
  - buzzer test
  - everyone can accese the web page(?)
  - check for first aid kit item(?) <- there is nothing
+# Keypad and TFT
+ - keypad on timer INT
 
 ======================================
 # the below task is outdated
