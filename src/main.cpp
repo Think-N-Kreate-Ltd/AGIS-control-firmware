@@ -2,17 +2,18 @@
   wifi ssid:AutoConnectAP, password:password.
   go to http://<IPAddress>/update for OTA update
   upload firmware.bin for main, spiffs.bin for SPIFFS files
-  GPIO36 -> reading sensor data (Change in L34)
-  timer0 -> read sensor & time measure
-  timer1 -> auto control
-  timer2 -> control the motor
+  GPIO36 -> EXT interrupt for reading sensor data
+  timer0 -> INT interrupt for read sensor & time measure
+  timer1 -> INT interrupt for auto control
+  timer3 -> INT interrupt for control the motor
 */
 
 #include <Arduino.h>
+#include <Keypad.h>
 #include <AsyncTCP.h>
 #include <WiFiManager.h> // define before <WiFi.h>
 #include <ESPAsyncWebServer.h>
-#include <SPIFFS.h>
+#include <LittleFS.h>
 #include <WiFi.h>
 #include <ezButton.h>
 #include <limits.h>
@@ -22,7 +23,14 @@
 #include <AsyncElegantOTA.h>  // define after <ESPAsyncWebServer.h>
 #include <time.h>
 
+// debug use var
+volatile bool print = false;
+volatile char testing;
+
 // TODO: refactor names, follow standard naming conventions
+
+#define KEYPAD_ROW_NUM     5
+#define KEYPAD_COLUMN_NUM  4
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
@@ -58,6 +66,20 @@ enum class infusionState_t {
 };
 // Initially, infusionState is NOT_STARTED
 infusionState_t infusionState = infusionState_t::NOT_STARTED;
+
+// set up for keypad
+char keys[KEYPAD_ROW_NUM][KEYPAD_COLUMN_NUM] = {
+  {'F', 'G', '#', '*'},
+  {'1', '2', '3', 'W'},
+  {'4', '5', '6', 'S'},
+  {'7', '8', '9', 'B'},
+  {'A', '0', 'D', 'E'}
+};
+
+byte pin_rows[KEYPAD_ROW_NUM] = {8, 18, 17, 16, 15};  // pin for R1, R2, R3, R4, R5
+byte pin_column[KEYPAD_COLUMN_NUM] = {4, 5, 6, 7};    // pin for C1, C2, C3, C4
+
+Keypad keypad = Keypad( makeKeymap(keys), pin_rows, pin_column, KEYPAD_ROW_NUM, KEYPAD_COLUMN_NUM );
 
 // set up for OLED display
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT,
@@ -186,6 +208,17 @@ void notFound(AsyncWebServerRequest *request) {
   request->send(404, "text/plain", "Not found");
 }
 
+// void createDir(fs::FS &fs, const char * path){
+//   if (!LittleFS.exists("/index.html")){
+//     Serial.printf("Creating Dir: %s\n", path);
+//     if(fs.mkdir(path)){
+//         Serial.println("Dir created");
+//     } else {
+//         Serial.println("mkdir failed");
+//     }
+//   } 
+// }
+
 String readFile(fs::FS &fs, const char *path) {
   Serial.printf("Reading file: %s\r\n", path);
   File file = fs.open(path, "r");
@@ -221,7 +254,6 @@ void writeFile(fs::FS &fs, const char *path, const char *message) {
 // create pointer for timer
 hw_timer_t *Timer0_cfg = NULL; // create a pointer for timer0
 hw_timer_t *Timer1_cfg = NULL; // create a pointer for timer1
-hw_timer_t *Timer2_cfg = NULL; // create a pointer for timer2
 hw_timer_t *Timer3_cfg = NULL; // create a pointer for timer3
 
 // EXT interrupt to pin 36, for sensor detected drops and measure the time
@@ -413,6 +445,13 @@ void IRAM_ATTR motorControlISR() {
 
 // timer3 inerrupt, for I2C OLED display
 void IRAM_ATTR OledDisplayISR(){
+  char key = keypad.getKey();
+
+  if (key) {
+    testing = key;
+    print = true;
+  }
+
   if (infusionState == infusionState_t::ALARM_COMPLETED) {
     alertOledDisplay("infusion \ncompleted");
   } else if (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED) {
@@ -448,15 +487,15 @@ void setup() {
   timerAlarmEnable(Timer1_cfg);            // start the interrupt
 
   // setup for timer3
-  Timer3_cfg = timerBegin(3, 40000, true); // Prescaler = 40000
+  Timer3_cfg = timerBegin(3, 4000, true); // Prescaler = 40000
   timerAttachInterrupt(Timer3_cfg, &OledDisplayISR,
                        true);              // call the function OledDisplayISR()
   timerAlarmWrite(Timer3_cfg, 1000, true); // Time = 40000*1000/80,000,000 = 500ms
   timerAlarmEnable(Timer3_cfg);            // start the interrupt
 
-  // Initialize SPIFFS
-  if (!SPIFFS.begin(true)) {
-    Serial.println("An Error has occurred while mounting SPIFFS");
+  // Initialize LittleFS
+  if (!LittleFS.begin(true)) {
+    Serial.println("An Error has occurred while mounting LittleFS");
     return;
   }
 
@@ -489,21 +528,30 @@ void setup() {
   // Init Websocket
   initWebSocket();
 
+  // Create the file for web page
+  // createDir(LittleFS, "/index.html");
+  // createDir(LittleFS, "/style.css");
+  // createDir(LittleFS, "/script.css");
+
   // Send web page to client
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SPIFFS, "/index.html", String(), false);
+    request->send(LittleFS, "/index.html", String(), false);
   });
 
   server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SPIFFS, "/style.css", "text/css");
+    request->send(LittleFS, "/style.css", "text/css");
   });
 
   server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SPIFFS, "/script.js", "text/javascript");
+    request->send(LittleFS, "/script.js", "text/javascript");
+  });
+
+  server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(LittleFS, "/favicon.png", "image/png");
   });
 
   server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SPIFFS, logFilePath, "text/plain", true);  // force download the file
+    request->send(LittleFS, logFilePath, "text/plain", true);  // force download the file
   });
 
   // TODO: should we use websocket for below requests?
@@ -515,7 +563,7 @@ void setup() {
     if (request->hasParam(PARAM_INPUT_1)) {
       inputMessage = request->getParam(PARAM_INPUT_1)->value();
       // inputParam = PARAM_INPUT_1;
-      writeFile(SPIFFS, "/input1.txt", inputMessage.c_str());
+      writeFile(LittleFS, "/input1.txt", inputMessage.c_str());
       web_but_state = check_state(); // convert the input from AGIS1 to integer,
                                      // and store in web_but_state
     }
@@ -523,7 +571,7 @@ void setup() {
     else if (request->hasParam(PARAM_INPUT_2)) {
       inputMessage = request->getParam(PARAM_INPUT_2)->value();
       // inputParam = PARAM_INPUT_2;
-      writeFile(SPIFFS, "/input2.txt", inputMessage.c_str());
+      writeFile(LittleFS, "/input2.txt", inputMessage.c_str());
       web_but_state = check_state(); // convert the input from AGIS2 to integer,
                                      // and store in web_but_state
     }
@@ -531,14 +579,14 @@ void setup() {
     else if (request->hasParam(PARAM_INPUT_3)) {
       inputMessage = request->getParam(PARAM_INPUT_3)->value();
       // inputParam = PARAM_INPUT_3;
-      writeFile(SPIFFS, "/input3.txt", inputMessage.c_str());
+      writeFile(LittleFS, "/input3.txt", inputMessage.c_str());
       web_but_state = check_state(); // convert the input from AGIS3 to integer,
                                      // and store in web_but_state
     }
     // GET auto1 value on <ESP_IP>/get?auto1=t
     // else if (request->hasParam(PARAM_AUTO_1)) {
     //   inputMessage = request->getParam(PARAM_AUTO_1)->value();
-    //   writeFile(SPIFFS, "/auto1.txt", inputMessage.c_str());
+    //   writeFile(LittleFS, "/auto1.txt", inputMessage.c_str());
     //   targetDripRate = inputMessage.toInt(); // convert the input from
     //   AGIS1 to integer,
     //                                  // and store in web_but_state
@@ -568,9 +616,9 @@ void setup() {
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
   // homing the roller clamp
-  while (!homingCompleted) {
-    homingRollerClamp();
-  }
+  // while (!homingCompleted) {
+  //   homingRollerClamp();
+  // }
 }
 
 void loop() {
@@ -580,6 +628,10 @@ void loop() {
   //     dripRate, targetDripRate, getMotorState(motorState));
 
   // Serial.printf("%s\n", getInfusionState(infusionState));
+  if (print) {
+    Serial.println(testing);
+    print = false;
+  }
 }
 
 // check the condition of the switch/input from web page
@@ -810,9 +862,9 @@ void sendInfusionMonitoringDataWs() {
 //    false when logging is still in progress
 bool logInfusionMonitoringData(char* logFilePath) {
   // write csv header
-  if (!SPIFFS.exists(logFilePath)) {
+  if (!LittleFS.exists(logFilePath)) {
     Serial.printf("Logging started...\n");
-    File file = SPIFFS.open(logFilePath, FILE_WRITE);
+    File file = LittleFS.open(logFilePath, FILE_WRITE);
     if (!file) {
       Serial.println("There was an error opening the file for writing");
       return false;
@@ -828,7 +880,7 @@ bool logInfusionMonitoringData(char* logFilePath) {
   }
 
   // TODO: use folder for all data files
-  File file = SPIFFS.open(logFilePath, FILE_APPEND);
+  File file = LittleFS.open(logFilePath, FILE_APPEND);
   if (!file) {
     Serial.println("There was an error opening the file for writing");
     return false;
