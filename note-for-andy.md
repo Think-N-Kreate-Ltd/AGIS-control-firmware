@@ -1,3 +1,19 @@
+# improvement working on
+ - change SPIFFS to LittleFs
+ - can try SD card (maybe FAT)
+ - buzzer test
+ - everyone can accese the web page(?)
+ - check for first aid kit item(?)
+
+======================================
+# the below task is outdated
+ - button can not to change, just use toggle switch as they are not in used
+ - don't need to polt graph
+ - SD card connecting with ESP32-S3 have problem
+ - alarm function is waiting for buzzer and test only
+ - seems no ppl remember "everyone can accese the web page"
+
+======================================
 # task working on
  - WiFi
     - ~~soft wifi AP (use other device to connect WiFi)~~
@@ -21,12 +37,12 @@
     - use SPI & SD card to store the data
  - display on OLED
     - ~~LCD display sensor value~~
-    - use OLED to display sensor value
+    - ~~use OLED to display sensor value~~
     - display two graph: current & drop count(later)
 	  - INA219 (current sensor?)
-	  - the a, b, c of the square wave
+	  - ~~the a, b, c of the square wave~~
  - auto system
-    - calculate target drip rate
+    - ~~calculate target drip rate~~
     - ~~compare the drip rate~~
     - ~~add a field and the user input the drip he want~~
     - ~~auto move the motor~~
@@ -41,20 +57,21 @@
 
 ======================================
 # note for the code
- - wifi ssid:AutoConnectAP, password:password.
- - GPIO36 -> reading sensor data (Change in L40)
- - timer0 -> read sensor & time measure
- - timer1 -> auto control
- - timer2 -> control the motor
- - **don't use delay**
+ - wifi ssid:AutoConnectAP, password:password
+ - go to http://<IPAddress>/update for OTA update
+ - upload firmware.bin for main, spiffs.bin for SPIFFS files
+ - GPIO36 -> EXT interrupt for reading sensor data
+ - timer0 -> INT interrupt for read sensor & time measure
+ - timer1 -> INT interrupt for auto control
+ - timer3 -> INT interrupt for control the motor
 
 ======================================
 # learning/note
 - 4x4 keypad matrix
 - ~~use interrupt more (use phase change)~~
 - any GPIO can do SPI, dont use colored in gray
-- mostly will use 1*SPI, 1*UART, 1*I2C
-- printf()
+- mostly will use 1xSPI, 1xUART, 1xI2C
+- ~~printf()~~
 - soldering
 
 ======================================
@@ -353,6 +370,9 @@ OTA:
 
 ===========================
 # result for test_i2c
+ - the address of I2C can be found by the code provided in the example
+ - if there is no 2 things using the same, better not to change it
+
 ESP-ROM:esp32s3-20210327
 Build:Mar 27 2021
 rst:0x1 (POWERON),boot:0x8 (SPI_FAST_FLASH_BOOT)

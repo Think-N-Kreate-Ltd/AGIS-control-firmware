@@ -6,6 +6,10 @@
   timer0 -> INT interrupt for read sensor & time measure
   timer1 -> INT interrupt for auto control
   timer3 -> INT interrupt for control the motor
+  GPIO36 -> EXT interrupt for reading sensor data
+  timer0 -> INT interrupt for read sensor & time measure
+  timer1 -> INT interrupt for auto control
+  timer3 -> INT interrupt for control the motor
 */
 
 #include <Arduino.h>
@@ -546,9 +550,9 @@ void setup() {
     request->send(LittleFS, "/script.js", "text/javascript");
   });
 
-  server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(LittleFS, "/favicon.png", "image/png");
-  });
+  // server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request) {
+  //   request->send(LittleFS, "/favicon.png", "image/png");
+  // });
 
   server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(LittleFS, logFilePath, "text/plain", true);  // force download the file
