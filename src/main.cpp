@@ -12,7 +12,10 @@
 #include <AsyncTCP.h>
 #include <WiFiManager.h> // define before <WiFi.h>
 #include <ESPAsyncWebServer.h>
-#include <LittleFS.h>
+#include "FS.h"
+#include "SD.h"
+#include "SPI.h"
+// #include <LittleFS.h>
 #include <WiFi.h>
 #include <ezButton.h>
 #include <limits.h>
@@ -23,6 +26,11 @@
 #include <time.h>
 
 // TODO: refactor names, follow standard naming conventions
+
+#define SD_MISO 13
+#define SD_MOSI 11
+#define SD_SCK  12
+#define SD_CS   10
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
@@ -58,6 +66,24 @@ enum class infusionState_t {
 };
 // Initially, infusionState is NOT_STARTED
 infusionState_t infusionState = infusionState_t::NOT_STARTED;
+
+// set up for SPI and SD card
+SPIClass sd_spi = SPIClass(FSPI);
+
+void listDir(fs::FS &fs, const char * dirname, uint8_t levels);
+
+void sdCardSetUp() {
+  sd_spi.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
+
+  // Initialize SD module
+  if(!SD.begin(SD_CS, sd_spi)){
+    Serial.println("Card Mount Failed");
+    return;
+  }
+
+  // list the directory of the sd card (from root)
+  listDir(SD, "/", 0);
+}
 
 // set up for OLED display
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT,
@@ -186,6 +212,37 @@ void notFound(AsyncWebServerRequest *request) {
   request->send(404, "text/plain", "Not found");
 }
 
+void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
+  Serial.printf("Listing directory: %s\n", dirname);
+
+  File root = fs.open(dirname);
+  if(!root){
+    Serial.println("Failed to open directory");
+    return;
+  }
+  if(!root.isDirectory()){
+    Serial.println("Not a directory");
+    return;
+  }
+
+  File file = root.openNextFile();
+  while(file){
+    if(file.isDirectory()){
+      Serial.print("  DIR : ");
+      Serial.println(file.name());
+      if(levels){
+          listDir(fs, file.path(), levels -1);
+      }
+    } else {
+      Serial.print("  FILE: ");
+      Serial.print(file.name());
+      Serial.print("  SIZE: ");
+      Serial.println(file.size());
+    }
+    file = root.openNextFile();
+  }
+}
+
 // void createDir(fs::FS &fs, const char * path){
 //   if (!LittleFS.exists("/index.html")){
 //     Serial.printf("Creating Dir: %s\n", path);
@@ -197,26 +254,26 @@ void notFound(AsyncWebServerRequest *request) {
 //   } 
 // }
 
-String readFile(fs::FS &fs, const char *path) {
-  Serial.printf("Reading file: %s\r\n", path);
-  File file = fs.open(path, "r");
-  if (!file || file.isDirectory()) {
-    Serial.println("- empty file or failed to open file");
-    return String();
-  }
-  Serial.print("- read from file: ");
-  String fileContent;
-  while (file.available()) {
-    fileContent += String((char)file.read());
-  }
-  file.close();
-  Serial.println(fileContent);
-  return fileContent;
-}
+// String readFile(fs::FS &fs, const char *path) {
+//   Serial.printf("Reading file: %s\n", path);
+//   File file = fs.open(path);
+//   if (!file || file.isDirectory()) {
+//     Serial.println("- empty file or failed to open file");
+//     return String();
+//   }
+//   Serial.print("- read from file: ");
+//   String fileContent;
+//   while (file.available()) {
+//     fileContent += String((char)file.read());
+//   }
+//   file.close();
+//   Serial.println(fileContent);
+//   return fileContent;
+// }
 
 void writeFile(fs::FS &fs, const char *path, const char *message) {
-  Serial.printf("Writing file: %s\r\n", path);
-  File file = fs.open(path, "w");
+  Serial.printf("Writing file: %s\n", path);
+  File file = fs.open(path, FILE_WRITE);
   if (!file) {
     Serial.println("- failed to open file for writing");
     return;
@@ -438,6 +495,8 @@ void setup() {
   Serial.begin(9600);
   pinMode(DROP_SENSOR_PIN, INPUT);
   
+  sdCardSetUp();
+  
   oledSetUp();
 
   // setup for sensor interrupt
@@ -465,10 +524,10 @@ void setup() {
   timerAlarmEnable(Timer3_cfg);            // start the interrupt
 
   // Initialize LittleFS
-  if (!LittleFS.begin(true)) {
-    Serial.println("An Error has occurred while mounting LittleFS");
-    return;
-  }
+  // if (!LittleFS.begin(true)) {
+  //   Serial.println("An Error has occurred while mounting LittleFS");
+  //   return;
+  // }
 
   WiFi.mode(WIFI_STA); // wifi station mode
 
@@ -506,23 +565,23 @@ void setup() {
 
   // Send web page to client
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(LittleFS, "/index.html", String(), false);
+    request->send(SD, "/index.html", String(), false);
   });
 
   server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(LittleFS, "/style.css", "text/css");
+    request->send(SD, "/style.css", "text/css");
   });
 
   server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(LittleFS, "/script.js", "text/javascript");
+    request->send(SD, "/script.js", "text/javascript");
   });
 
   server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(LittleFS, "/favicon.png", "image/png");
+    request->send(SD, "/favicon.png", "image/png");
   });
 
   server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(LittleFS, logFilePath, "text/plain", true);  // force download the file
+    request->send(SD, logFilePath, "text/plain", true);  // force download the file
   });
 
   // TODO: should we use websocket for below requests?
@@ -534,7 +593,7 @@ void setup() {
     if (request->hasParam(PARAM_INPUT_1)) {
       inputMessage = request->getParam(PARAM_INPUT_1)->value();
       // inputParam = PARAM_INPUT_1;
-      writeFile(LittleFS, "/input1.txt", inputMessage.c_str());
+      writeFile(SD, "/input1.txt", inputMessage.c_str());
       web_but_state = check_state(); // convert the input from AGIS1 to integer,
                                      // and store in web_but_state
     }
@@ -542,7 +601,7 @@ void setup() {
     else if (request->hasParam(PARAM_INPUT_2)) {
       inputMessage = request->getParam(PARAM_INPUT_2)->value();
       // inputParam = PARAM_INPUT_2;
-      writeFile(LittleFS, "/input2.txt", inputMessage.c_str());
+      writeFile(SD, "/input2.txt", inputMessage.c_str());
       web_but_state = check_state(); // convert the input from AGIS2 to integer,
                                      // and store in web_but_state
     }
@@ -550,14 +609,14 @@ void setup() {
     else if (request->hasParam(PARAM_INPUT_3)) {
       inputMessage = request->getParam(PARAM_INPUT_3)->value();
       // inputParam = PARAM_INPUT_3;
-      writeFile(LittleFS, "/input3.txt", inputMessage.c_str());
+      writeFile(SD, "/input3.txt", inputMessage.c_str());
       web_but_state = check_state(); // convert the input from AGIS3 to integer,
                                      // and store in web_but_state
     }
     // GET auto1 value on <ESP_IP>/get?auto1=t
     // else if (request->hasParam(PARAM_AUTO_1)) {
     //   inputMessage = request->getParam(PARAM_AUTO_1)->value();
-    //   writeFile(LittleFS, "/auto1.txt", inputMessage.c_str());
+    //   writeFile(SD, "/auto1.txt", inputMessage.c_str());
     //   targetDripRate = inputMessage.toInt(); // convert the input from
     //   AGIS1 to integer,
     //                                  // and store in web_but_state
@@ -829,9 +888,9 @@ void sendInfusionMonitoringDataWs() {
 //    false when logging is still in progress
 bool logInfusionMonitoringData(char* logFilePath) {
   // write csv header
-  if (!LittleFS.exists(logFilePath)) {
+  if (!SD.exists(logFilePath)) {
     Serial.printf("Logging started...\n");
-    File file = LittleFS.open(logFilePath, FILE_WRITE);
+    File file = SD.open(logFilePath, FILE_WRITE);
     if (!file) {
       Serial.println("There was an error opening the file for writing");
       return false;
@@ -847,7 +906,7 @@ bool logInfusionMonitoringData(char* logFilePath) {
   }
 
   // TODO: use folder for all data files
-  File file = LittleFS.open(logFilePath, FILE_APPEND);
+  File file = SD.open(logFilePath, FILE_APPEND);
   if (!file) {
     Serial.println("There was an error opening the file for writing");
     return false;
