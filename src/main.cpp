@@ -568,17 +568,19 @@ void setup() {
     request->send(SD, "/index.html", String(), false);
   });
 
-  server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SD, "/style.css", "text/css");
-  });
+  // server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
+  //   request->send(SD, "/style.css", "text/css");
+  // });
 
-  server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SD, "/script.js", "text/javascript");
-  });
+  // server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request) {
+  //   request->send(SD, "/script.js", "text/javascript");
+  // });
 
-  server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SD, "/favicon.png", "image/png");
-  });
+  // server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request) {
+  //   request->send(SD, "/favicon.png", "image/png");
+  // });
+
+  server.serveStatic("/", SD, "/"); // this line do all things in L571-581
 
   server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(SD, logFilePath, "text/plain", true);  // force download the file
