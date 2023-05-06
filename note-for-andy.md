@@ -1,9 +1,13 @@
 # improvement working on
  - ~~change SPIFFS to LittleFs~~
- - can try SD card (maybe FAT) <- trying mySD.h
- - cannot directly use ESP Web lib to read .html etc
- - can read and store into a String
- - maybe only store data is enough
+ - can try SD card (maybe FAT) <- ~~trying mySD.h~~
+    - update:
+    - mySD.h cannot directly use ESP Web lib to read .html etc
+      - but can read and store into a String var
+      - useless, just use additional place
+      - image cannot do that
+    - SdFat can use but is a little difference
+    - **change a SD card, then can use SD.h now**
  - buzzer test
  - everyone can accese the web page(?)
  - check for first aid kit item(?) <- there is nothing
@@ -130,6 +134,9 @@ OLED:
 
 OTA:
  - https://randomnerdtutorials.com/esp32-ota-over-the-air-vs-code/
+
+SD card logo and meaning
+ - https://www.the-digital-picture.com/News/News-Post.aspx?News=30207&Title=What-do-the-Numbers-and-Symbols-on-SD-SDHC-and-SDXC-Memory-Cards-mean
 
 ======================================
 # web page code
