@@ -21,6 +21,8 @@
 #include <Adafruit_SSD1306.h>
 #include <AsyncElegantOTA.h>  // define after <ESPAsyncWebServer.h>
 #include <time.h>
+#include <main.h>
+// #include <AGIS_Display.h>
 
 // TODO: refactor names, follow standard naming conventions
 
@@ -78,14 +80,14 @@ void oledSetUp() {
 // TODO: delete time1Drop, totalTime
 // var for EXT interrupt (sensor)
 volatile unsigned long totalTime = 0; // for calculating the time used within 15s
-volatile unsigned int numDrops = 0;   // for counting the number of drops within 15s
-volatile unsigned int dripRate = 0;       // for calculating the drip rate
+// volatile unsigned int numDrops = 0;   // for counting the number of drops within 15s
+// volatile unsigned int dripRate = 0;       // for calculating the drip rate
 volatile unsigned int time1Drop = 0;      // for storing the time of 1 drop
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
 
 // var for timer1 interrupt
-volatile float infusedVolume = 0;  // unit: mL
-volatile unsigned long infusedTime = 0;     // unit: seconds
+// volatile float infusedVolume = 0;  // unit: mL
+// volatile unsigned long infusedTime = 0;     // unit: seconds
 volatile unsigned long infusionStartTime = 0;
 
 volatile unsigned int dripRateSamplingCount = 0;  // use for drip rate sampling
@@ -582,6 +584,13 @@ void setup() {
   // config time logging with NTP server
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
+  /*Initialize TFT display, LVGL*/
+  // display_init();
+
+  // /*Display the input screen*/
+  // lv_scr_load(input_scr);
+  // input_screen();
+
   // homing the roller clamp
   // while (!homingCompleted) {
   //   homingRollerClamp();
@@ -595,6 +604,8 @@ void loop() {
   //     dripRate, targetDripRate, getMotorState(motorState));
 
   // Serial.printf("%s\n", getInfusionState(infusionState));
+
+  // lv_timer_handler(); /* let the GUI do its work */
 }
 
 // check the condition of the switch/input from web page
