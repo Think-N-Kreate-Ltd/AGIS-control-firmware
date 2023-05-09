@@ -6,6 +6,8 @@
   timer0 -> INT interrupt for read sensor & time measure
   timer1 -> INT interrupt for auto control
   timer3 -> INT interrupt for control the motor
+
+  Problem will occur when homing and click "Set and Run" at the same time
 */
 
 #include <Arduino.h>
@@ -25,6 +27,7 @@
 #include <AsyncElegantOTA.h>  // define after <ESPAsyncWebServer.h>
 #include <time.h>
 
+volatile bool testing = false;
 // TODO: refactor names, follow standard naming conventions
 
 #define SD_MISO 13
@@ -447,34 +450,39 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
 }
 
 void IRAM_ATTR motorControlISR() {
-  // Read buttons and switches state
-  button_UP.loop();        // MUST call the loop() function first
-  button_ENTER.loop();     // MUST call the loop() function first
-  button_DOWN.loop();      // MUST call the loop() function first
+  if (homingCompleted && !enableAutoControl) {
+    // disable the control while doing homing
+    // DO NOT USE while(!homingCompleted){yield();} to replace it
 
-  // Use button_UP to manually move up
-  if (!button_UP.getState()) {  // touched
-    buttonState = buttonState_t::UP;
-    motorOnUp();
-  }
+    // Read buttons and switches state
+    button_UP.loop();        // MUST call the loop() function first
+    button_ENTER.loop();     // MUST call the loop() function first
+    button_DOWN.loop();      // MUST call the loop() function first
 
-  // Use button_DOWN to manually move down
-  if (!button_DOWN.getState()) {  // touched
-    buttonState = buttonState_t::DOWN;
-    motorOnDown();
-  }
+    // Use button_UP to manually move up
+    if (!button_UP.getState()) {  // touched
+      buttonState = buttonState_t::UP;
+      motorOnUp();
+    }
 
-  // Use button_ENTER to toggle autoControlISR()
-  if (button_ENTER.isPressed()) {  // pressed is different from touched
-    buttonState = buttonState_t::ENTER;
-    enableAutoControl = !enableAutoControl;
+    // Use button_DOWN to manually move down
+    if (!button_DOWN.getState()) {  // touched
+      buttonState = buttonState_t::DOWN;
+      motorOnDown();
+    }
 
-    infusionInit();
-  }
+    // Use button_ENTER to toggle autoControlISR()
+    if (button_ENTER.isPressed()) {  // pressed is different from touched
+      buttonState = buttonState_t::ENTER;
+      enableAutoControl = !enableAutoControl;
 
-  if (button_UP.isReleased() || button_DOWN.isReleased() || button_ENTER.isReleased()) {
-    buttonState = buttonState_t::IDLE;
-    motorOff();
+      infusionInit();
+    }
+
+    if (button_UP.isReleased() || button_DOWN.isReleased() || button_ENTER.isReleased()) {
+      buttonState = buttonState_t::IDLE;
+      motorOff();
+    }
   }
 }
 
@@ -649,7 +657,15 @@ void setup() {
 
   // homing the roller clamp
   while (!homingCompleted) {
-    homingRollerClamp();
+    // homingRollerClamp();
+    // problem will occur when homing and click "Set and Run" at the same time
+    // ONLY uncomment while testing, and also comment homingRollerClamp()
+    // delay(2000);
+    // homingCompleted = true;
+    // enableAutoControl = false;
+    // if (homingCompleted) {
+    //   Serial.println("homing completed, can move the motor now");
+    // }
   }
 }
 
