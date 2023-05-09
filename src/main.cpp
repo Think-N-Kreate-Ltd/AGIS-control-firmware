@@ -660,12 +660,12 @@ void setup() {
     // homingRollerClamp();
     // problem will occur when homing and click "Set and Run" at the same time
     // ONLY uncomment while testing, and also comment homingRollerClamp()
-    // delay(2000);
-    // homingCompleted = true;
-    // enableAutoControl = false;
-    // if (homingCompleted) {
-    //   Serial.println("homing completed, can move the motor now");
-    // }
+    delay(2000);
+    homingCompleted = true;
+    enableAutoControl = false;
+    if (homingCompleted) {
+      Serial.println("homing completed, can move the motor now");
+    }
   }
 }
 

@@ -1,6 +1,6 @@
 # improvement working on
  - ~~change SPIFFS to LittleFs~~
- - can try SD card (maybe FAT) <- ~~trying mySD.h~~
+ - ~~can try SD card~~ (maybe FAT) <- ~~trying mySD.h~~
     - update:
     - mySD.h cannot directly use ESP Web lib to read .html etc
       - but can read and store into a String var
@@ -12,7 +12,7 @@
  - everyone can accese the web page(?)
  - check for first aid kit item(?) <- there is nothing
 # Keypad and TFT
- - keypad on timer INT
+ - ~~keypad on timer INT~~
 
 ======================================
 # the below task is outdated
