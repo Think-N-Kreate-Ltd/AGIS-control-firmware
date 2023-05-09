@@ -438,7 +438,7 @@ void setup() {
   Serial.begin(9600);
   pinMode(DROP_SENSOR_PIN, INPUT);
   
-  oledSetUp();
+  // oledSetUp();
 
   // setup for sensor interrupt
   attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
@@ -458,11 +458,11 @@ void setup() {
   timerAlarmEnable(Timer1_cfg);            // start the interrupt
 
   // setup for timer3
-  Timer3_cfg = timerBegin(3, 40000, true); // Prescaler = 40000
-  timerAttachInterrupt(Timer3_cfg, &OledDisplayISR,
-                       true);              // call the function OledDisplayISR()
-  timerAlarmWrite(Timer3_cfg, 1000, true); // Time = 40000*1000/80,000,000 = 500ms
-  timerAlarmEnable(Timer3_cfg);            // start the interrupt
+  // Timer3_cfg = timerBegin(3, 40000, true); // Prescaler = 40000
+  // timerAttachInterrupt(Timer3_cfg, &OledDisplayISR,
+  //                      true);              // call the function OledDisplayISR()
+  // timerAlarmWrite(Timer3_cfg, 1000, true); // Time = 40000*1000/80,000,000 = 500ms
+  // timerAlarmEnable(Timer3_cfg);            // start the interrupt
 
   // Initialize LittleFS
   if (!LittleFS.begin(true)) {
@@ -583,9 +583,9 @@ void setup() {
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
   // homing the roller clamp
-  while (!homingCompleted) {
-    homingRollerClamp();
-  }
+  // while (!homingCompleted) {
+  //   homingRollerClamp();
+  // }
 }
 
 void loop() {
