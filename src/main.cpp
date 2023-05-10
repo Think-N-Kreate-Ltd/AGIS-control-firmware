@@ -514,7 +514,7 @@ void setup() {
 
   // Send web page to client
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(LittleFS, "/index.htm", String(), false);
+    request->send(LittleFS, "/index.html", String(), false);
   });
 
   // server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -529,6 +529,8 @@ void setup() {
   //   request->send(LittleFS, "/favicon.png", "image/png");
   // });
 
+  // Automatically serves other files
+  // IDK why cannot serve favicon
   server.serveStatic("/", LittleFS, "/");
 
   server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
