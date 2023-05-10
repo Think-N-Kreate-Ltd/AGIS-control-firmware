@@ -573,24 +573,24 @@ void setup() {
 
   // Send web page to client
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SD, "/index.html", String(), false);
+    request->send(SD, "/web_server/index.html", String(), false);
   });
 
   // server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
-  //   request->send(SD, "/style.css", "text/css");
+  //   request->send(SD, "/web_server/style.css", "text/css");
   // });
 
   // server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request) {
-  //   request->send(SD, "/script.js", "text/javascript");
+  //   request->send(SD, "/web_server/script.js", "text/javascript");
   // });
 
   // server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request) {
-  //   request->send(SD, "/favicon.png", "image/png");
+  //   request->send(SD, "/web_server/favicon.png", "image/png");
   // });
 
   // Automatically serves other files
   // IDK why cannot serve favicon
-  server.serveStatic("/", SD, "/");
+  server.serveStatic("/", SD, "/web_server/");
 
   server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(SD, logFilePath, "text/plain", true);  // force download the file
