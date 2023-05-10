@@ -1,18 +1,6 @@
 #include <AGIS_Display.h>
-// #include <main.h>
-
-#define LV_VTBI_ID             100
-#define LV_TOTAL_TIME_HOUR_ID  101
-#define LV_TOTAL_TIME_MINUE_ID 102
-#define LV_DROP_FACTOR_10_ID   0
-#define LV_DROP_FACTOR_15_ID   1
-#define LV_DROP_FACTOR_20_ID   2
-#define LV_DROP_FACTOR_60_ID   3
-
-extern volatile unsigned int numDrops;
-extern volatile unsigned int dripRate;
-extern volatile float infusedVolume;
-extern volatile long infusedTime;
+#include <AGIS_Commons.h>
+#include <AGIS_Utilities.h>
 
 /*TFT_eSPI variables*/
 TFT_eSPI tft_display = TFT_eSPI();
@@ -84,6 +72,7 @@ void display_init() {
   infusion_monitoring_data_handle.dripRate_p = &dripRate;
   infusion_monitoring_data_handle.infusedVolume_p = &infusedVolume;
   infusion_monitoring_data_handle.infusedTime_p = &infusedTime;
+  infusion_monitoring_data_handle.infusionState_p = &infusionState;
   // Call every 500ms
   infusion_monitoring_timer = lv_timer_create(infusion_monitoring_cb, 500, NULL);
 }
@@ -442,10 +431,18 @@ bool validate_keypad_inputs() {
         keypad_VTBI, keypad_totalTimeHour * 60 + keypad_totalTimeMinute,
         keypad_dropFactor);
 
+    // Update text on the display
     char buf[20];
     sprintf(buf, "%d", keypad_targetDripRate);
     lv_obj_set_style_text_color(derivedDripRateValue_label, lv_color_hex(0x40ce00), LV_PART_MAIN);
     lv_label_set_text(derivedDripRateValue_label, buf);
+
+    // Submit verified inputs to autoControl
+    targetVTBI = (unsigned int)keypad_VTBI;
+    targetDripRate = (unsigned int)keypad_targetDripRate; 
+    targetTotalTime = keypad_totalTimeHour * 3600 +
+                      keypad_totalTimeMinute * 60;
+    targetNumDrops = targetVTBI / (1.0f / keypad_dropFactor); // TODO: use rounded function
 
     return true;
   }
@@ -494,6 +491,8 @@ void infusion_monitoring_cb(lv_timer_t * timer) {
     sprintf(infusedTime_buf, "%d", *(infusion_monitoring_data_handle.infusedTime_p));
     lv_table_set_cell_value(infusion_monitoring_table, 3, 1, infusedTime_buf);
 
-    // TODO: update infusionState cell
+    const char *infusionState_buf =
+        getInfusionState(*(infusion_monitoring_data_handle.infusionState_p));
+    lv_table_set_cell_value(infusion_monitoring_table, 4, 1, infusionState_buf);
   }
 }

@@ -17,77 +17,37 @@
 #include <ezButton.h>
 #include <limits.h>
 #include <ArduinoJson.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
 #include <AsyncElegantOTA.h>  // define after <ESPAsyncWebServer.h>
 #include <time.h>
-#include <main.h>
+#include <AGIS_OLED.h>
+#include <AGIS_Types.h>       // user defined data types
+#include <AGIS_Utilities.h>
 #include <AGIS_Display.h>
 
 // TODO: refactor names, follow standard naming conventions
-
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-#define OLED_TEXT_FONT 2
-
-#define OLED_MOSI   17
-#define OLED_CLK    47
-#define OLED_DC     5
-#define OLED_CS     6
-#define OLED_RESET  7
 
 #define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
 #define MOTOR_CTRL_PIN_1 15 // Motorl Control Board PWM 1
 #define MOTOR_CTRL_PIN_2 16 // Motorl Control Board PWM 2
 #define PWM_PIN          4  // input pin for the potentiometer
 
-enum class motorState_t { UP, DOWN, OFF };
 motorState_t motorState = motorState_t::OFF;
-
-
-enum class buttonState_t { UP, DOWN, ENTER, IDLE };
 buttonState_t buttonState = buttonState_t::IDLE;
 
-// NOTE: when infusionState_t type is modified, update the same type in script.js 
-enum class infusionState_t {
-  NOT_STARTED,           // when the board is powered on and no drops detected
-  STARTED,               // as soon as drops are detected
-  IN_PROGRESS,           // when infusion is started by user and not completed yet
-  ALARM_COMPLETED,       // when infusion has completed, i.e. infusedVolume reaches the target volume
-  ALARM_STOPPED,         // when infusion stopped unexpectly, it's likely to have a problem
-  ALARM_VOLUME_EXCEEDED  // when infusion has completed but we still detect drops
-  // add more states here when needed
-};
 // Initially, infusionState is NOT_STARTED
 infusionState_t infusionState = infusionState_t::NOT_STARTED;
-
-// set up for OLED display
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT,
-  OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);
-
-void oledSetUp() {
-  // Initialize OLED
-  if(!display.begin(SSD1306_SWITCHCAPVCC)) {
-    Serial.println(F("SSD1306 allocation failed"));
-    return;
-  } else {
-    // clear the original display on the screen
-    display.clearDisplay();
-    display.display();
-  }
-}
 
 // TODO: delete time1Drop, totalTime
 // var for EXT interrupt (sensor)
 volatile unsigned long totalTime = 0; // for calculating the time used within 15s
-// volatile unsigned int numDrops = 0;   // for counting the number of drops within 15s
-// volatile unsigned int dripRate = 0;       // for calculating the drip rate
+volatile unsigned int numDrops = 0;   // for counting the number of drops within 15s
+volatile unsigned int dripRate = 0;       // for calculating the drip rate
 volatile unsigned int time1Drop = 0;      // for storing the time of 1 drop
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
 
 // var for timer1 interrupt
-// volatile float infusedVolume = 0;  // unit: mL
-// volatile unsigned long infusedTime = 0;     // unit: seconds
+volatile float infusedVolume = 0;  // unit: mL
+volatile unsigned long infusedTime = 0;     // unit: seconds
 volatile unsigned long infusionStartTime = 0;
 
 volatile unsigned int dripRateSamplingCount = 0;  // use for drip rate sampling
@@ -165,9 +125,6 @@ int check_state();
 void motorOnUp();
 void motorOnDown();
 void motorOff();
-const char *getMotorState(motorState_t state);
-const char *getButtonState(buttonState_t state);
-const char *getInfusionState(infusionState_t state);
 void initWebSocket();
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
              AwsEventType type, void *arg, uint8_t *data, size_t len);
@@ -177,9 +134,6 @@ bool logInfusionMonitoringData(char *logFilePath);
 void homingRollerClamp();
 void infusionInit();
 char* logInit();
-void tableOledDisplay(int i, int j, int k);
-void alertOledDisplay(const char* s);
-int getLastDigit(int n);
 
 // HTML web page to handle 3 input fields (input1, input2, input3)
 
@@ -665,54 +619,6 @@ void motorOff() {
   motorState = motorState_t::OFF;
 }
 
-const char *getMotorState(motorState_t state) {
-  switch (state) {
-  case motorState_t::UP:
-    return "UP";
-  case motorState_t::DOWN:
-    return "DOWN";
-  case motorState_t::OFF:
-    return "OFF";
-  default:
-    return "Undefined motor state";
-    break;
-  }
-}
-
-const char *getButtonState(buttonState_t state) {
-  switch (state) {
-  case buttonState_t::UP:
-    return "UP";
-  case buttonState_t::DOWN:
-    return "DOWN";
-  case buttonState_t::ENTER:
-    return "ENTER";
-  case buttonState_t::IDLE:
-    return "IDLE";
-  default:
-    return "Undefined motor state";
-    break;
-  }
-}
-
-const char *getInfusionState(infusionState_t state) {
-  switch (state) {
-  case infusionState_t::NOT_STARTED:
-    return "NOT_STARTED";
-  case infusionState_t::STARTED:
-    return "STARTED";
-  case infusionState_t::IN_PROGRESS:
-    return "IN_PROGRESS";
-  case infusionState_t::ALARM_COMPLETED:
-    return "ALARM_COMPLETED";
-  case infusionState_t::ALARM_STOPPED:
-    return "ALARM_STOPPED";
-  default:
-    return "Undefined infusion state";
-    break;
-  }
-}
-
 void alert(String x) {}
 
 void initWebSocket() {
@@ -935,62 +841,4 @@ void infusionInit() {
   infusedTime = 0;
 
   homingCompleted = false;  // if not set, the infusion cannot be stopped
-}
-
-// display the table on the screen
-// only one display.display() should be used
-void tableOledDisplay(int i, int j, int k) {
-  // initialize setting of display
-  display.clearDisplay();
-  display.setTextSize(OLED_TEXT_FONT);
-  display.setTextColor(SSD1306_WHITE);  // draw 'on' pixels
-
-  // display.setCursor(1,16);  // set the position of the first letter
-  // display.printf("Drip rate: %d\n", dripRate);
-
-  // display.setCursor(1,24);  // set the position of the first letter
-  // display.printf("Infused volume: %d.%d%d\n", i, j, k);
-
-  // display.setCursor(1,32);  // set the position of the first letter
-  // // if less than 1hour / 1minute, then not to display them
-  // if((infusedTime/3600) >= 1){
-  //   display.printf("Infused time: \n%dh %dmin %ds\n", infusedTime/3600, (infusedTime%3600)/60, infusedTime%60);
-  // } else if((infusedTime/60) >= 1){
-  //   display.printf("Infused time: \n%dmin %ds\n", infusedTime/60, infusedTime%60);
-  // } else {
-  //   display.printf("Infused time: \n%ds\n", infusedTime%60);
-  // }
-
-  display.setCursor(1,16);  // set the position of the first letter
-  display.printf("%d.%d%dmL\n", i, j, k);
-  if((infusedTime/3600) >= 1){
-    display.printf("%dh%dm%ds\n", infusedTime/3600, (infusedTime%3600)/60, infusedTime%60);
-  } else if((infusedTime/60) >= 1){
-    display.printf("%dm%ds\n", infusedTime/60, infusedTime%60);
-  } else {
-    display.printf("%ds\n", infusedTime%60);
-  }
-  
-  display.display();  
-}
-
-// display the warning message on the screen
-void alertOledDisplay(const char* s) {
-  display.clearDisplay();
-  display.setTextSize(OLED_TEXT_FONT);
-  display.setTextColor(SSD1306_WHITE);
-
-  display.setCursor(1,16);
-  display.println(F("ALARM: "));
-  display.println(F(s));
-  display.display();
-}
-
-// get the last digit of a number
-int getLastDigit(int n) {
-  static int j;
-  static int k;
-  j = (n / 10) * 10;
-  k = n - j;
-  return k;
 }

@@ -6,19 +6,15 @@
 #include <lvgl.h>
 #include <lv_conf.h>
 #include <AGIS_Keypad.h>
+#include <AGIS_Types.h>
 
-/**
- * Handler to the infusion monitoring data.
- * Data elements are packed as a struct s.t. it can be called from the timer callback.
- * Struct elements are pointers to actual data.
- */
-typedef struct _infusion_monitoring_data_handle_t {
-  volatile unsigned int * numDrops_p;
-  volatile unsigned int * dripRate_p;
-  volatile float * infusedVolume_p;
-  volatile long * infusedTime_p;
-  // TODO: add infusionState
-} infusion_monitoring_data_handle_t;
+#define LV_VTBI_ID             100
+#define LV_TOTAL_TIME_HOUR_ID  101
+#define LV_TOTAL_TIME_MINUE_ID 102
+#define LV_DROP_FACTOR_10_ID   0
+#define LV_DROP_FACTOR_15_ID   1
+#define LV_DROP_FACTOR_20_ID   2
+#define LV_DROP_FACTOR_60_ID   3
 
 // extern lv_disp_draw_buf_t draw_buf;
 // extern lv_color_t color_buf[ TFT_WIDTH * TFT_HEIGHT / 5 ];

@@ -1,8 +1,5 @@
 #include <AGIS_Keypad.h>
 
-#define KEYPAD_ROW_NUM     5
-#define KEYPAD_COLUMN_NUM  4
-
 /*Keypad variables*/
 // U: Up, D: Down, L: Left, R: Right, C: Cancel, E: Enter
 char keys[KEYPAD_ROW_NUM][KEYPAD_COLUMN_NUM] = {
