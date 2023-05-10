@@ -22,7 +22,7 @@
 #include <AsyncElegantOTA.h>  // define after <ESPAsyncWebServer.h>
 #include <time.h>
 #include <main.h>
-// #include <AGIS_Display.h>
+#include <AGIS_Display.h>
 
 // TODO: refactor names, follow standard naming conventions
 
@@ -585,11 +585,11 @@ void setup() {
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
   /*Initialize TFT display, LVGL*/
-  // display_init();
+  display_init();
 
   // /*Display the input screen*/
-  // lv_scr_load(input_scr);
-  // input_screen();
+  lv_scr_load(input_scr);
+  input_screen();
 
   // homing the roller clamp
   // while (!homingCompleted) {
@@ -605,7 +605,7 @@ void loop() {
 
   // Serial.printf("%s\n", getInfusionState(infusionState));
 
-  // lv_timer_handler(); /* let the GUI do its work */
+  lv_timer_handler(); /* let the GUI do its work */
 }
 
 // check the condition of the switch/input from web page
