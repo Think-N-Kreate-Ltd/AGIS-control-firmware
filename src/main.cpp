@@ -524,6 +524,10 @@ void setup() {
   server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(LittleFS, "/script.js", "text/javascript");
   });
+  
+  server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(LittleFS, "/favicon.png", "image/png");
+  });
 
   server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(LittleFS, logFilePath, "text/plain", true);  // force download the file
