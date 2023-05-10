@@ -514,20 +514,22 @@ void setup() {
 
   // Send web page to client
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(LittleFS, "/index.html", String(), false);
+    request->send(LittleFS, "/index.htm", String(), false);
   });
 
-  server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(LittleFS, "/style.css", "text/css");
-  });
+  // server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
+  //   request->send(LittleFS, "/style.css", "text/css");
+  // });
 
-  server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(LittleFS, "/script.js", "text/javascript");
-  });
+  // server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request) {
+  //   request->send(LittleFS, "/script.js", "text/javascript");
+  // });
   
-  server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(LittleFS, "/favicon.png", "image/png");
-  });
+  // server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request) {
+  //   request->send(LittleFS, "/favicon.png", "image/png");
+  // });
+
+  server.serveStatic("/", LittleFS, "/");
 
   server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(LittleFS, logFilePath, "text/plain", true);  // force download the file
