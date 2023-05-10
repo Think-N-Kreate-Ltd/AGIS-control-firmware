@@ -546,9 +546,9 @@ void setup() {
   input_screen();
 
   // homing the roller clamp
-  // while (!homingCompleted) {
-  //   homingRollerClamp();
-  // }
+  while (!homingCompleted) {
+    homingRollerClamp();
+  }
 }
 
 void loop() {
