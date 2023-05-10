@@ -588,7 +588,9 @@ void setup() {
   //   request->send(SD, "/favicon.png", "image/png");
   // });
 
-  server.serveStatic("/", SD, "/"); // this line do all things in L571-581
+  // Automatically serves other files
+  // IDK why cannot serve favicon
+  server.serveStatic("/", SD, "/");
 
   server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(SD, logFilePath, "text/plain", true);  // force download the file
