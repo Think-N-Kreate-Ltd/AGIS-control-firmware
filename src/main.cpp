@@ -73,7 +73,61 @@ infusionState_t infusionState = infusionState_t::NOT_STARTED;
 // set up for SPI and SD card
 SPIClass sd_spi = SPIClass(FSPI);
 
-void listDir(fs::FS &fs, const char * dirname, uint8_t levels);
+void rm(File dir, String tempPath) {  // delete all files in the directory
+  while(true) {
+    File entry =  dir.openNextFile();
+    String localPath;
+
+    Serial.println("");
+    if (entry) {
+      if ( entry.isDirectory() )
+      {
+        localPath = tempPath + entry.name() + "/" + '\0';
+        char folderBuf[localPath.length()];
+        localPath.toCharArray(folderBuf, localPath.length() );
+        rm(entry, folderBuf);
+
+
+        if( SD.rmdir( folderBuf ) )
+        {
+          Serial.print("Deleted folder ");
+          Serial.println(folderBuf);
+          // FolderDeleteCount++;
+        } 
+        else
+        {
+          Serial.print("Unable to delete folder ");
+          Serial.println(folderBuf);
+          // FailCount++;
+        }
+      } 
+      else
+      {
+        localPath = tempPath + entry.name() + '\0';
+        char charBuf[localPath.length()];
+        localPath.toCharArray(charBuf, localPath.length() );
+
+        if( SD.remove( charBuf ) )
+        {
+          Serial.print("Deleted ");
+          Serial.println(localPath);
+          // DeletedCount++;
+        } 
+        else
+        {
+          Serial.print("Failed to delete ");
+          Serial.println(localPath);
+          // FailCount++;
+        }
+
+      }
+    } 
+    else {
+      // break out of recursion
+      break;
+    }
+  }
+}
 
 void sdCardSetUp() {
   sd_spi.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
@@ -85,7 +139,66 @@ void sdCardSetUp() {
   }
 
   // list the directory of the sd card (from root)
-  listDir(SD, "/", 0);
+  Serial.printf("Listing directory: %s\n", "/web_server");
+  File root = SD.open("/web_server");
+  if(!root){
+    Serial.println("Failed to open /web_server");
+    return;
+  }
+  File file = root.openNextFile();
+  while(file){
+    if(file.isDirectory()){
+      Serial.print("  DIR : ");
+      Serial.println(file.name());
+    } else {
+      Serial.print("  FILE: ");
+      Serial.print(file.name());
+      Serial.print("  SIZE: ");
+      Serial.println(file.size());
+    }
+    file = root.openNextFile();
+  }
+
+  // remove directory of next weekday and create a new one
+  static const char * path = "/Fri";
+  // File root2 = SD.open(path);
+  // if(!root2){
+  //       Serial.println("Failed to open directory");
+  //       return;
+  //   }
+  //   if(!root2.isDirectory()){
+  //       Serial.println("Not a directory");
+  //       return;
+  //   }
+  // File file2 = root2.openNextFile();
+  // while(file2){
+  //   Serial.println(file.name());
+  //   delay(3000);
+  //   // char * fileName = new char[strlen(file.name()) + 4];
+  //   // strcpy(fileName, path);
+  //   // strcat(fileName, file.name());
+  //   // Serial.println(fileName);
+  //   // SD.remove(fileName);
+  // }
+  // Serial.printf("Removing Dir: %s\n", path);
+
+  File root2 = SD.open(path);
+  char rm_path[99];
+  strcpy(rm_path, path);
+  strcat(rm_path, "/");
+  rm(root2, rm_path);
+
+//   if(SD.rmdir(path)){
+//     Serial.println("Dir removed");
+//   } else {
+//     Serial.println("rmdir failed");
+//   }
+//   Serial.printf("Creating Dir: %s\n", path);
+//   if(SD.mkdir(path)){
+//     Serial.println("Dir created");
+//   } else {
+//     Serial.println("mkdir failed");
+//   }
 }
 
 // set up for OLED display
@@ -215,36 +328,36 @@ void notFound(AsyncWebServerRequest *request) {
   request->send(404, "text/plain", "Not found");
 }
 
-void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
-  Serial.printf("Listing directory: %s\n", dirname);
+// void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
+//   Serial.printf("Listing directory: %s\n", dirname);
 
-  File root = fs.open(dirname);
-  if(!root){
-    Serial.println("Failed to open directory");
-    return;
-  }
-  if(!root.isDirectory()){
-    Serial.println("Not a directory");
-    return;
-  }
+//   File root = fs.open(dirname);
+//   if(!root){
+//     Serial.println("Failed to open directory");
+//     return;
+//   }
+//   if(!root.isDirectory()){
+//     Serial.println("Not a directory");
+//     return;
+//   }
 
-  File file = root.openNextFile();
-  while(file){
-    if(file.isDirectory()){
-      Serial.print("  DIR : ");
-      Serial.println(file.name());
-      if(levels){
-          listDir(fs, file.path(), levels -1);
-      }
-    } else {
-      Serial.print("  FILE: ");
-      Serial.print(file.name());
-      Serial.print("  SIZE: ");
-      Serial.println(file.size());
-    }
-    file = root.openNextFile();
-  }
-}
+//   File file = root.openNextFile();
+//   while(file){
+//     if(file.isDirectory()){
+//       Serial.print("  DIR : ");
+//       Serial.println(file.name());
+//       if(levels){
+//           listDir(fs, file.path(), levels -1);
+//       }
+//     } else {
+//       Serial.print("  FILE: ");
+//       Serial.print(file.name());
+//       Serial.print("  SIZE: ");
+//       Serial.println(file.size());
+//     }
+//     file = root.openNextFile();
+//   }
+// }
 
 // void createDir(fs::FS &fs, const char * path){
 //   if (!LittleFS.exists("/index.html")){
@@ -960,8 +1073,9 @@ char* logInit() {
 
   // NOTE: SPIFFS maximum logFilePath is 32 characters
   // only use H:M:S to save characters
-  char datetime[9];
-  strftime(datetime,9, "%H%M%S", &timeinfo);
+  // add a directory with name weekdays
+  char datetime[13];
+  strftime(datetime,13, "%a/%H%M%S", &timeinfo);
 
   if (asprintf(&logFilePath, "/%s_%u_%u_%u.csv", datetime, targetVTBI,
                targetTotalTime, dropFactor)) {
