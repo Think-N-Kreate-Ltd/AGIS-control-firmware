@@ -27,7 +27,6 @@
 #include <AsyncElegantOTA.h>  // define after <ESPAsyncWebServer.h>
 #include <time.h>
 
-volatile bool testing = false;
 // TODO: refactor names, follow standard naming conventions
 
 #define SD_MISO 13
@@ -73,6 +72,8 @@ infusionState_t infusionState = infusionState_t::NOT_STARTED;
 // set up for SPI and SD card
 SPIClass sd_spi = SPIClass(FSPI);
 
+// from https://gist.github.com/jenschr/5713c927c3fb8663d662
+// TODO: simplify this function
 void rm(File dir, String tempPath) {  // delete all files in the directory
   while(true) {
     File entry =  dir.openNextFile();
@@ -82,7 +83,7 @@ void rm(File dir, String tempPath) {  // delete all files in the directory
     if (entry) {
       if ( entry.isDirectory() )
       {
-        localPath = tempPath + entry.name() + "/" + '\0';
+        localPath = tempPath + entry.name() + "/" + '\0'; // seems the "/" cannot be added
         char folderBuf[localPath.length()];
         localPath.toCharArray(folderBuf, localPath.length() );
         rm(entry, folderBuf);
@@ -165,8 +166,24 @@ void sdCardSetUp() {
   }
 
   // check for weekday
-  char path[5];
-  strftime(path, 5, "/%a", &timeinfo);
+  char today[4];
+  char path[5]; // store the path of the folder of the next weekday
+  char weekday [7][4]= {{"Sun"}, {"Mon"}, {"Tue"}, {"Wed"}, {"Thu"}, {"Fri"}, {"Sat"}};
+  strftime(today, 4, "%a", &timeinfo);
+  for (int x=0; x<7; x++) {
+    delay(100); // wait a short time, otherwise the sd card cannnot mount
+    if (strcmp(weekday[x], today) == 0){
+      if (x<6) {
+        strcpy(path, "/");
+        strcat(path, weekday[x+1]); // get the next day
+      } else {
+        strcpy(path, "/");
+        strcat(path, weekday[0]);   // get Sunday
+      }
+    }
+  }
+  Serial.print("The cleared directory is ");
+  Serial.println(path);
 
   // remove all files in the directory
   File root2 = SD.open(path);
@@ -603,7 +620,6 @@ void setup() {
   // config time logging with NTP server
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
-  delay(2000);  // wait a short time, otherwise the sd card cannnot mount
   sdCardSetUp();
   
   oledSetUp();
