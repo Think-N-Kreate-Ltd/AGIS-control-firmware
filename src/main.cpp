@@ -87,7 +87,6 @@ void rm(File dir, String tempPath) {  // delete all files in the directory
         localPath.toCharArray(folderBuf, localPath.length() );
         rm(entry, folderBuf);
 
-
         if( SD.rmdir( folderBuf ) )
         {
           Serial.print("Deleted folder ");
@@ -119,7 +118,6 @@ void rm(File dir, String tempPath) {  // delete all files in the directory
           Serial.println(localPath);
           // FailCount++;
         }
-
       }
     } 
     else {
@@ -138,7 +136,14 @@ void sdCardSetUp() {
     return;
   }
 
-  // list the directory of the sd card (from root)
+  // use for getting the real time
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Failed to obtain time");
+    // return;
+  }
+
+  // list the directory of the sd card (from web_server)
   Serial.printf("Listing directory: %s\n", "/web_server");
   File root = SD.open("/web_server");
   if(!root){
@@ -159,46 +164,29 @@ void sdCardSetUp() {
     file = root.openNextFile();
   }
 
-  // remove directory of next weekday and create a new one
-  static const char * path = "/Fri";
-  // File root2 = SD.open(path);
-  // if(!root2){
-  //       Serial.println("Failed to open directory");
-  //       return;
-  //   }
-  //   if(!root2.isDirectory()){
-  //       Serial.println("Not a directory");
-  //       return;
-  //   }
-  // File file2 = root2.openNextFile();
-  // while(file2){
-  //   Serial.println(file.name());
-  //   delay(3000);
-  //   // char * fileName = new char[strlen(file.name()) + 4];
-  //   // strcpy(fileName, path);
-  //   // strcat(fileName, file.name());
-  //   // Serial.println(fileName);
-  //   // SD.remove(fileName);
-  // }
-  // Serial.printf("Removing Dir: %s\n", path);
+  // check for weekday
+  char path[5];
+  strftime(path, 5, "/%a", &timeinfo);
 
+  // remove all files in the directory
   File root2 = SD.open(path);
   char rm_path[99];
   strcpy(rm_path, path);
   strcat(rm_path, "/");
   rm(root2, rm_path);
 
-//   if(SD.rmdir(path)){
-//     Serial.println("Dir removed");
-//   } else {
-//     Serial.println("rmdir failed");
-//   }
-//   Serial.printf("Creating Dir: %s\n", path);
-//   if(SD.mkdir(path)){
-//     Serial.println("Dir created");
-//   } else {
-//     Serial.println("mkdir failed");
-//   }
+  // remove and create dir <- remove can only be done when the directory is empty
+  // if(SD.rmdir(path)){
+  //   Serial.println("Dir removed");
+  // } else {
+  //   Serial.println("rmdir failed");
+  // }
+  // Serial.printf("Creating Dir: %s\n", path);
+  // if(SD.mkdir(path)){
+  //   Serial.println("Dir created");
+  // } else {
+  //   Serial.println("mkdir failed");
+  // }
 }
 
 // set up for OLED display
@@ -327,37 +315,6 @@ int getLastDigit(int n);
 void notFound(AsyncWebServerRequest *request) {
   request->send(404, "text/plain", "Not found");
 }
-
-// void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
-//   Serial.printf("Listing directory: %s\n", dirname);
-
-//   File root = fs.open(dirname);
-//   if(!root){
-//     Serial.println("Failed to open directory");
-//     return;
-//   }
-//   if(!root.isDirectory()){
-//     Serial.println("Not a directory");
-//     return;
-//   }
-
-//   File file = root.openNextFile();
-//   while(file){
-//     if(file.isDirectory()){
-//       Serial.print("  DIR : ");
-//       Serial.println(file.name());
-//       if(levels){
-//           listDir(fs, file.path(), levels -1);
-//       }
-//     } else {
-//       Serial.print("  FILE: ");
-//       Serial.print(file.name());
-//       Serial.print("  SIZE: ");
-//       Serial.println(file.size());
-//     }
-//     file = root.openNextFile();
-//   }
-// }
 
 // void createDir(fs::FS &fs, const char * path){
 //   if (!LittleFS.exists("/index.html")){
@@ -615,7 +572,38 @@ void IRAM_ATTR OledDisplayISR(){
 void setup() {
   Serial.begin(9600);
   pinMode(DROP_SENSOR_PIN, INPUT);
-  
+
+  // wifi should be connected before access the time
+  WiFi.mode(WIFI_STA); // wifi station mode
+
+  // reset settings - wipe stored credentials for testing
+  // these are stored by the esp library
+  // wm.resetSettings();
+
+  if (!wm.autoConnect("AutoConnectAP",
+                      "password")) { // set esp32-s3 wifi ssid and pw to
+    // AutoConnectAP & password
+    Serial.println("Failed to connect");
+    ESP.restart();
+  } else {
+    // if you get here you have connected to the WiFi
+    Serial.println("connected...yeah :)");
+  }
+
+  if (WiFi.waitForConnectResult() != WL_CONNECTED) {
+    Serial.println("WiFi Failed!");
+    return;
+  }
+
+  // print the IP address of the web page
+  Serial.println();
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
+
+  // config time logging with NTP server
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+
+  delay(2000);  // wait a short time, otherwise the sd card cannnot mount
   sdCardSetUp();
   
   oledSetUp();
@@ -649,32 +637,6 @@ void setup() {
   //   Serial.println("An Error has occurred while mounting LittleFS");
   //   return;
   // }
-
-  WiFi.mode(WIFI_STA); // wifi station mode
-
-  // reset settings - wipe stored credentials for testing
-  // these are stored by the esp library
-  // wm.resetSettings();
-
-  if (!wm.autoConnect("AutoConnectAP",
-                      "password")) { // set esp32-s3 wifi ssid and pw to
-    // AutoConnectAP & password
-    Serial.println("Failed to connect");
-    ESP.restart();
-  } else {
-    // if you get here you have connected to the WiFi
-    Serial.println("connected...yeah :)");
-  }
-
-  if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    Serial.println("WiFi Failed!");
-    return;
-  }
-
-  // print the IP address of the web page
-  Serial.println();
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
 
   // Init Websocket
   initWebSocket();
@@ -767,12 +729,10 @@ void setup() {
   AsyncElegantOTA.begin(&server); // for OTA update
   server.begin();
 
-  // config time logging with NTP server
-  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-
   // homing the roller clamp
   while (!homingCompleted) {
     // homingRollerClamp();
+
     // problem will occur when homing and click "Set and Run" at the same time
     // ONLY uncomment while testing, and also comment homingRollerClamp()
     delay(2000);
