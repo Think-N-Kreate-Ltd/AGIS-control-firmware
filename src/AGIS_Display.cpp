@@ -27,7 +27,9 @@ int32_t keypad_totalTimeMinute = -1;
 int32_t keypad_targetDripRate = -1;
 int32_t keypad_dropFactor = -1;
 
-bool keypad_check = false;
+// TODO: reset this to false when new infusion process is issued
+bool keypad_inputs_valid = false;
+bool keypad_infusion_confirmed = false;
 
 /*Infusion monitoring variables*/
 lv_timer_t * infusion_monitoring_timer;
@@ -70,7 +72,7 @@ void display_init() {
   /*Register LVGL timers*/
   infusion_monitoring_data_handle.numDrops_p = &numDrops;
   infusion_monitoring_data_handle.dripRate_p = &dripRate;
-  infusion_monitoring_data_handle.infusedVolume_p = &infusedVolume;
+  infusion_monitoring_data_handle.infusedVolume_p = &infusedVolume_x100;
   infusion_monitoring_data_handle.infusedTime_p = &infusedTime;
   infusion_monitoring_data_handle.infusionState_p = &infusionState;
   // Call every 500ms
@@ -256,7 +258,7 @@ static void textarea_event_handler(lv_event_t * event) {
     lv_obj_clear_state(ta, LV_STATE_FOCUSED);
 
     // Call the function to validate keypad inputs
-    keypad_check = validate_keypad_inputs();
+    keypad_inputs_valid = validate_keypad_inputs();
   }
 }
 
@@ -308,7 +310,7 @@ static void radio_event_handler(lv_event_t * event) {
   }
   
   // Call the function to validate keypad inputs
-  keypad_check = validate_keypad_inputs();
+  keypad_inputs_valid = validate_keypad_inputs();
 }
 
 void monitor_screen() {
@@ -393,10 +395,24 @@ static void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
         input_scr = NULL;
       }
     }
-    // else if (key == 'G') {
-    //   // TODO: send the keypad inputs to autoControl
-    //   // and display the monitoring info
-    // }
+    else if (key == 'G') {
+      // and display the monitoring info
+
+      // check for validity of inputs
+      // if valid, set the flag variable to true
+      // the variable will be checked in motorControlISR() timer interrupt
+      if (keypad_inputs_valid) {
+        // Submit verified inputs to autoControl
+        targetVTBI = (unsigned int)keypad_VTBI;
+        targetDripRate = (unsigned int)keypad_targetDripRate; 
+        targetTotalTime = keypad_totalTimeHour * 3600 +
+                          keypad_totalTimeMinute * 60;
+        dropFactor = (unsigned int )keypad_dropFactor; 
+        targetNumDrops = targetVTBI / (1.0f / keypad_dropFactor); // TODO: use rounded function
+
+        keypad_infusion_confirmed = true;
+      }
+    }
     else {
       data->key = key;// possible BUG due to conversion from char to uint32_t
     }
@@ -437,13 +453,6 @@ bool validate_keypad_inputs() {
     lv_obj_set_style_text_color(derivedDripRateValue_label, lv_color_hex(0x40ce00), LV_PART_MAIN);
     lv_label_set_text(derivedDripRateValue_label, buf);
 
-    // Submit verified inputs to autoControl
-    targetVTBI = (unsigned int)keypad_VTBI;
-    targetDripRate = (unsigned int)keypad_targetDripRate; 
-    targetTotalTime = keypad_totalTimeHour * 3600 +
-                      keypad_totalTimeMinute * 60;
-    targetNumDrops = targetVTBI / (1.0f / keypad_dropFactor); // TODO: use rounded function
-
     return true;
   }
   else {
@@ -483,8 +492,10 @@ void infusion_monitoring_cb(lv_timer_t * timer) {
     sprintf(dripRate_buf, "%d", *(infusion_monitoring_data_handle.dripRate_p));
     lv_table_set_cell_value(infusion_monitoring_table, 1, 1, dripRate_buf);
 
+    // since `infusedVolume_x100` is 100 times larger than actual value in mL,
+    // we need to divide by 100 before display
     char infusedVolume_buf[20];
-    sprintf(infusedVolume_buf, "%.2f", *(infusion_monitoring_data_handle.infusedVolume_p));
+    sprintf(infusedVolume_buf, "%.2f", *(infusion_monitoring_data_handle.infusedVolume_p) / 100.0f);
     lv_table_set_cell_value(infusion_monitoring_table, 2, 1, infusedVolume_buf);
 
     char infusedTime_buf[20];

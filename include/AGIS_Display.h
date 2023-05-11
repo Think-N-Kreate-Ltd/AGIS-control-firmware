@@ -33,7 +33,8 @@ extern lv_obj_t * input_scr;
 
 // /*Keypad variables*/
 extern Keypad keypad;
-// extern bool keypad_check;
+// extern bool keypad_inputs_valid;
+extern bool keypad_infusion_confirmed;
 
 void display_init();
 void my_disp_flush( lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p );

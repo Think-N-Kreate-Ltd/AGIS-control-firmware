@@ -46,7 +46,7 @@ volatile unsigned int time1Drop = 0;      // for storing the time of 1 drop
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
 
 // var for timer1 interrupt
-volatile float infusedVolume = 0;  // unit: mL
+volatile unsigned int infusedVolume_x100 = 0;  // 100 times larger than actual value, unit: mL
 volatile unsigned long infusedTime = 0;     // unit: seconds
 volatile unsigned long infusionStartTime = 0;
 
@@ -227,6 +227,14 @@ void IRAM_ATTR dropSensorISR() {
       lastDropTime = millis();
       numDrops++;
 
+      // NOTE: Since we cannot do floating point calculation in interrupt,
+      // we multiply the actual infused volume by 100 times to perform the integer calculation
+      // Later when we need to display, divide it by 100 to get actual value.
+      if (dropFactor != UINT_MAX) {
+        // BUG: with some dropFactor, the division will return less accurate result
+        infusedVolume_x100 += (100 / dropFactor);
+      }
+
       // if infusion has completed but we still detect drop,
       // something must be wrong. Need to sound the alarm.
       if (infusionState == infusionState_t::ALARM_COMPLETED) {
@@ -374,6 +382,22 @@ void IRAM_ATTR motorControlISR() {
   if (button_UP.isReleased() || button_DOWN.isReleased() || button_ENTER.isReleased()) {
     buttonState = buttonState_t::IDLE;
     motorOff();
+  }
+
+  // Handle keypad
+  if (keypad_infusion_confirmed) {
+    // TODO: refactor below lines into a function call
+    infusionInit();
+
+    // override the ENTER button to enable autoControl()
+    enableAutoControl = true;
+    infusionState = infusionState_t::NOT_STARTED;
+
+    // generating logFilePath for logging
+    // logFilePath = logInit();
+    // Serial.printf("logFilePath: %s\n", logFilePath);
+
+    keypad_infusion_confirmed = false;
   }
 }
 
@@ -721,16 +745,7 @@ void sendInfusionMonitoringDataWs() {
   root["NUM_DROPS"] = numDrops;
   root["TOTAL_TIME"] = totalTime;
   root["DRIP_RATE"] = dripRate;
-
-  // Calculate the infusedVolume here since we cannot do it in interrupt.
-  // Only calculate when dropFactor is provided.
-  // Problem is explained at:
-  // https://esp32.com/viewtopic.php?f=19&t=1292&start=10
-  if (dropFactor != UINT_MAX) {
-    infusedVolume = numDrops * (1.0f / dropFactor);
-  }
-
-  root["INFUSED_VOLUME"] = infusedVolume;
+  root["INFUSED_VOLUME"] = infusedVolume_x100 / 100.0f;
   root["INFUSED_TIME"] = infusedTime;
   char buffer[1024];
   size_t len = serializeJson(root, buffer);
@@ -766,7 +781,7 @@ bool logInfusionMonitoringData(char* logFilePath) {
     return false;
   }
 
-  if(file.printf("%u, %u, %f\n", infusedTime, dripRate, infusedVolume)) {
+  if(file.printf("%u, %u, %f\n", infusedTime, dripRate, infusedVolume_x100 / 100.0f)) {
     // Serial.println("File was written");
   }else {
       Serial.println("File write failed");
@@ -778,6 +793,9 @@ bool logInfusionMonitoringData(char* logFilePath) {
   else return false;
 }
 
+// NOTE: do not call this function inside interrupt,
+// since it contains print statements
+// Later we can use logging instead of print
 char* logInit() {
   // logFilePath format: datetime_volume_time_dropfactor
   // e.g. 2023April21084024_100_3600_20.csv
@@ -833,11 +851,11 @@ void infusionInit() {
   // Reset infusion parameters the first time button_ENTER is pressed.
   // Parameters need to be reset:
   //    (1) numDrops
-  //    (2) infusedVolume
+  //    (2) infusedVolume_x100
   //    (3) infusedTime
   //    Add more if necessary
   numDrops = 0;
-  infusedVolume = 0.0f;
+  infusedVolume_x100 = 0;
   infusedTime = 0;
 
   homingCompleted = false;  // if not set, the infusion cannot be stopped
