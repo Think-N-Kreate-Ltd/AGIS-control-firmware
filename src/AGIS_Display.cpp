@@ -381,27 +381,28 @@ static void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
       data->key = LV_KEY_DEL;
     }
     else if (key == 'F') {
-      // Test: display another screen
-      if (monitor_scr == NULL) {
-        monitor_scr = lv_obj_create(NULL);
-        lv_scr_load(monitor_scr);
-        monitor_screen();
-      }
-
-      // TODO: check how to properly delete unused screen?
-      if (input_scr != NULL) {
-        lv_obj_del(input_scr);
-        input_scr = NULL;
-      }
+      // TODO: toggle between input screen and monitoring screen
     }
     else if (key == 'G') {
-      // and display the monitoring info
-
       // check for validity of inputs
       // if valid, set the flag variable to true
       // the variable will be checked in motorControlISR() timer interrupt
       if (keypad_inputs_valid) {
-        // Submit verified inputs to autoControl
+
+        /*Switch to the monitoring screen*/
+        if (monitor_scr == NULL) {
+          monitor_scr = lv_obj_create(NULL);
+          lv_scr_load(monitor_scr);
+          monitor_screen();
+        }
+
+        // TODO: check how to properly delete unused screen?
+        if (input_scr != NULL) {
+          lv_obj_del(input_scr);
+          input_scr = NULL;
+        }
+
+        /*Submit verified inputs to autoControl*/
         targetVTBI = (unsigned int)keypad_VTBI;
         targetDripRate = (unsigned int)keypad_targetDripRate; 
         targetTotalTime = keypad_totalTimeHour * 3600 +
@@ -409,8 +410,12 @@ static void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
         dropFactor = (unsigned int )keypad_dropFactor; 
         targetNumDrops = targetVTBI / (1.0f / keypad_dropFactor); // TODO: use rounded function
 
+        /*Finally, send the signal to start autoControl*/
         keypadInfusionConfirmed = true;
       }
+    }
+    else if (key == 'C') {  // when ESC is pressed
+      // TODO: depending on context, e.g. pause infusion
     }
     else {
       data->key = key;// possible BUG due to conversion from char to uint32_t

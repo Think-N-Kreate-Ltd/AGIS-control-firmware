@@ -347,7 +347,7 @@ void IRAM_ATTR DisplayISR(){
 }
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   pinMode(DROP_SENSOR_PIN, INPUT);
   
   // oledSetUp();
