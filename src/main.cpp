@@ -18,11 +18,12 @@
 #include <limits.h>
 #include <ArduinoJson.h>
 #include <AsyncElegantOTA.h>  // define after <ESPAsyncWebServer.h>
-#include <time.h>
 #include <AGIS_OLED.h>
 #include <AGIS_Types.h>       // user defined data types
 #include <AGIS_Utilities.h>
 #include <AGIS_Display.h>
+#include <AGIS_Logging.h>
+#include <esp_log.h>
 
 // TODO: refactor names, follow standard naming conventions
 
@@ -84,13 +85,6 @@ volatile bool firstDropDetected = false; // to check when we receive the 1st dro
 volatile bool autoControlOnPeriod = false;
 bool homingCompleted = false;   // true when lower limit switch is activated
 
-// for data logging
-char *logFilePath;
-const char* ntpServer = "pool.ntp.org";
-const long gmtOffset_sec = 28800;  // for Hong Kong
-const int daylightOffset_sec = 0;
-bool loggingCompleted = false;
-
 // To reduce the sensitive of autoControlISR()
 // i.e. (targetDripRate +/-3) is good enough
 #define AUTO_CONTROL_ALLOW_RANGE 3
@@ -130,10 +124,9 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
              AwsEventType type, void *arg, uint8_t *data, size_t len);
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
 void sendInfusionMonitoringDataWs();
-bool logInfusionMonitoringData(char *logFilePath);
 void homingRollerClamp();
 void infusionInit();
-char* logInit();
+void loggingInitTask(void * parameter);
 
 // HTML web page to handle 3 input fields (input1, input2, input3)
 
@@ -387,16 +380,18 @@ void IRAM_ATTR motorControlISR() {
   // Handle keypad
   if (keypad_infusion_confirmed) {
     // TODO: refactor below lines into a function call
+
+    ESP_LOGI(KEYPAD_TAG, "Keypad inputs confirmed");
     infusionInit();
 
     // override the ENTER button to enable autoControl()
     enableAutoControl = true;
     infusionState = infusionState_t::NOT_STARTED;
 
-    // generating logFilePath for logging
-    // logFilePath = logInit();
-    // Serial.printf("logFilePath: %s\n", logFilePath);
+    // enable logging task
+    enableLogging = true;
 
+    // make sure this if statement runs only once
     keypad_infusion_confirmed = false;
   }
 }
@@ -565,9 +560,17 @@ void setup() {
   /*Initialize TFT display, LVGL*/
   display_init();
 
-  // /*Display the input screen*/
+  /*Display the input screen*/
   lv_scr_load(input_scr);
   input_screen();
+
+  /*Create a task for data logging*/
+  xTaskCreate(loggingInitTask,   /* Task function. */
+              "loggingInitTask", /* String with name of task. */
+              4096,              /* Stack size in bytes. */
+              NULL,              /* Parameter passed as input of the task */
+              1,                 /* Priority of the task. */
+              NULL);             /* Task handle. */
 
   // homing the roller clamp
   while (!homingCompleted) {
@@ -713,9 +716,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
           enableAutoControl = true;
           infusionState = infusionState_t::NOT_STARTED;
 
-          // generating logFilePath for logging
-          logFilePath = logInit();
-          // Serial.printf("logFilePath: %s\n", logFilePath);
+          enableLogging = true;
         }
         else if (doc["COMMAND"] == "GET_INFUSION_MONITORING_DATA_WS") {
           sendInfusionMonitoringDataWs();
@@ -752,79 +753,6 @@ void sendInfusionMonitoringDataWs() {
   ws.textAll(buffer);
 }
 
-// Return value:
-//    true when logging is completed
-//    false when logging is still in progress
-bool logInfusionMonitoringData(char* logFilePath) {
-  // write csv header
-  if (!LittleFS.exists(logFilePath)) {
-    Serial.printf("Logging started...\n");
-    File file = LittleFS.open(logFilePath, FILE_WRITE);
-    if (!file) {
-      Serial.println("There was an error opening the file for writing");
-      return false;
-    }
-
-    if (file.printf("%s, %s, %s\n", "Time", "Drip Rate", "Infused Volume")) {
-      // Serial.println("Header write OK");
-    }
-    else {
-      Serial.println("Header write failed");
-    }
-    file.close();
-  }
-
-  // TODO: use folder for all data files
-  File file = LittleFS.open(logFilePath, FILE_APPEND);
-  if (!file) {
-    Serial.println("There was an error opening the file for writing");
-    return false;
-  }
-
-  if(file.printf("%u, %u, %f\n", infusedTime, dripRate, infusedVolume_x100 / 100.0f)) {
-    // Serial.println("File was written");
-  }else {
-      Serial.println("File write failed");
-  }
-  file.close();
-
-  // check if we can end logging
-  if (infusionState == infusionState_t::ALARM_COMPLETED) return true;
-  else return false;
-}
-
-// NOTE: do not call this function inside interrupt,
-// since it contains print statements
-// Later we can use logging instead of print
-char* logInit() {
-  // logFilePath format: datetime_volume_time_dropfactor
-  // e.g. 2023April21084024_100_3600_20.csv
-
-  // get date and time from NTP server
-  struct tm timeinfo;
-  if(!getLocalTime(&timeinfo)){
-    Serial.println("Failed to obtain time");
-    return NULL;
-  }
-
-  // char datetime[30];
-  // strftime(datetime,30, "%Y%B%d%H%M%S", &timeinfo);
-
-  // NOTE: SPIFFS maximum logFilePath is 32 characters
-  // only use H:M:S to save characters
-  char datetime[9];
-  strftime(datetime,9, "%H%M%S", &timeinfo);
-
-  if (asprintf(&logFilePath, "/%s_%u_%u_%u.csv", datetime, targetVTBI,
-               targetTotalTime, dropFactor)) {
-    loggingCompleted = false;
-    return logFilePath;
-  } else {
-    Serial.printf("Error when creating logFilePath\n");
-    return NULL;
-  }
-}
-
 // TODO: refactor: create a function to send json object as websocket message
 
 // Move down the roller clamp to completely closed position
@@ -859,4 +787,22 @@ void infusionInit() {
   infusedTime = 0;
 
   homingCompleted = false;  // if not set, the infusion cannot be stopped
+}
+
+void loggingInitTask(void * parameter) {
+  while (1) {
+    if (enableLogging) {
+      // generating `logFilePath` for logging
+      logInit();
+      ESP_LOGI(DATA_LOGGING_TAG, "Logging initialized");
+      vTaskDelete(NULL);
+    }
+
+    // Don't know why, but the tasks needs at least 1 line of code
+    // so that it logInit() can be triggered
+    // Hence, below line if left uncommented.
+    uint32_t x = uxTaskGetStackHighWaterMark(NULL);
+    // Uncomment below to get the free stack size
+    // Serial.println(x);
+  }
 }
