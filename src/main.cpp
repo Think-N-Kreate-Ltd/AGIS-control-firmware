@@ -97,9 +97,6 @@ bool homingCompleted = false;   // true when lower limit switch is activated
 // to keep it around
 WiFiManager wm;
 
-// var for web page
-String inputMessage; // store the input from web page
-
 // create AsyncWebServer object on port 80
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
@@ -109,13 +106,7 @@ AsyncWebSocket ws("/ws");
 // const char* ssid = "REPLACE_WITH_YOUR_SSID";
 // const char* password = "REPLACE_WITH_YOUR_PASSWORD";
 
-const char *PARAM_INPUT_1 = "input1";
-const char *PARAM_INPUT_2 = "input2";
-const char *PARAM_INPUT_3 = "input3";
-const char *PARAM_AUTO_1 = "auto1";
-
 // Function prototypes
-int check_state();
 void motorOnUp();
 void motorOnDown();
 void motorOff();
@@ -128,54 +119,9 @@ void homingRollerClamp();
 void infusionInit();
 void loggingInitTask(void * parameter);
 
-// HTML web page to handle 3 input fields (input1, input2, input3)
-
 // goto 404 not found when 404 not found
 void notFound(AsyncWebServerRequest *request) {
   request->send(404, "text/plain", "Not found");
-}
-
-void createDir(fs::FS &fs, const char * path){
-  if (!LittleFS.exists("/index.html")){
-    Serial.printf("Creating Dir: %s\n", path);
-    if(fs.mkdir(path)){
-        Serial.println("Dir created");
-    } else {
-        Serial.println("mkdir failed");
-    }
-  } 
-}
-
-String readFile(fs::FS &fs, const char *path) {
-  Serial.printf("Reading file: %s\r\n", path);
-  File file = fs.open(path, "r");
-  if (!file || file.isDirectory()) {
-    Serial.println("- empty file or failed to open file");
-    return String();
-  }
-  Serial.print("- read from file: ");
-  String fileContent;
-  while (file.available()) {
-    fileContent += String((char)file.read());
-  }
-  file.close();
-  Serial.println(fileContent);
-  return fileContent;
-}
-
-void writeFile(fs::FS &fs, const char *path, const char *message) {
-  Serial.printf("Writing file: %s\r\n", path);
-  File file = fs.open(path, "w");
-  if (!file) {
-    Serial.println("- failed to open file for writing");
-    return;
-  }
-  if (file.print(message)) {
-    Serial.println("- file written");
-  } else {
-    Serial.println("- write failed");
-  }
-  file.close();
 }
 
 // create pointer for timer
@@ -378,7 +324,7 @@ void IRAM_ATTR motorControlISR() {
   }
 
   // Handle keypad
-  if (keypad_infusion_confirmed) {
+  if (keypadInfusionConfirmed) {
     // TODO: refactor below lines into a function call
 
     ESP_LOGI(KEYPAD_TAG, "Keypad inputs confirmed");
@@ -392,21 +338,12 @@ void IRAM_ATTR motorControlISR() {
     enableLogging = true;
 
     // make sure this if statement runs only once
-    keypad_infusion_confirmed = false;
+    keypadInfusionConfirmed = false;
   }
 }
 
-// timer3 inerrupt, for I2C OLED display
-void IRAM_ATTR OledDisplayISR(){
-  if (infusionState == infusionState_t::ALARM_COMPLETED) {
-    alertOledDisplay("infusion \ncompleted");
-  } else if (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED) {
-    alertOledDisplay("volume \nexceeded");
-  } else if (infusionState == infusionState_t::ALARM_STOPPED) {
-    alertOledDisplay("no recent \ndrop");
-  } else {
-    tableOledDisplay(numDrops/dropFactor, getLastDigit(numDrops*10/dropFactor), getLastDigit(numDrops*100/dropFactor));
-  }
+// timer3 interrupt, for display ISR (TFT or OLED)
+void IRAM_ATTR DisplayISR(){
 }
 
 void setup() {
@@ -433,11 +370,11 @@ void setup() {
   timerAlarmEnable(Timer1_cfg);            // start the interrupt
 
   // setup for timer3
-  // Timer3_cfg = timerBegin(3, 40000, true); // Prescaler = 40000
-  // timerAttachInterrupt(Timer3_cfg, &OledDisplayISR,
-  //                      true);              // call the function OledDisplayISR()
-  // timerAlarmWrite(Timer3_cfg, 1000, true); // Time = 40000*1000/80,000,000 = 500ms
-  // timerAlarmEnable(Timer3_cfg);            // start the interrupt
+  Timer3_cfg = timerBegin(3, 40000, true); // Prescaler = 40000
+  timerAttachInterrupt(Timer3_cfg, &DisplayISR,
+                       true);              // call the function DisplayISR()
+  timerAlarmWrite(Timer3_cfg, 1000, true); // Time = 40000*1000/80,000,000 = 500ms
+  timerAlarmEnable(Timer3_cfg);            // start the interrupt
 
   // Initialize LittleFS
   if (!LittleFS.begin(true)) {
@@ -496,60 +433,6 @@ void setup() {
     request->send(LittleFS, logFilePath, "text/plain", true);  // force download the file
   });
 
-  // TODO: should we use websocket for below requests?
-  // probably depending on file size
-  // Send a GET request to <ESP_IP>/get?input1=<inputMessage>
-  server.on("/get", HTTP_GET, [](AsyncWebServerRequest *request) {
-    // only 1 motor is controlled now, all inputs will change the same motor
-    // GET input1 value on <ESP_IP>/get?input1=<inputMessage>
-    if (request->hasParam(PARAM_INPUT_1)) {
-      inputMessage = request->getParam(PARAM_INPUT_1)->value();
-      // inputParam = PARAM_INPUT_1;
-      writeFile(LittleFS, "/input1.txt", inputMessage.c_str());
-      web_but_state = check_state(); // convert the input from AGIS1 to integer,
-                                     // and store in web_but_state
-    }
-    // GET input2 value on <ESP_IP>/get?input2=<inputMessage>
-    else if (request->hasParam(PARAM_INPUT_2)) {
-      inputMessage = request->getParam(PARAM_INPUT_2)->value();
-      // inputParam = PARAM_INPUT_2;
-      writeFile(LittleFS, "/input2.txt", inputMessage.c_str());
-      web_but_state = check_state(); // convert the input from AGIS2 to integer,
-                                     // and store in web_but_state
-    }
-    // GET input3 value on <ESP_IP>/get?input3=<inputMessage>
-    else if (request->hasParam(PARAM_INPUT_3)) {
-      inputMessage = request->getParam(PARAM_INPUT_3)->value();
-      // inputParam = PARAM_INPUT_3;
-      writeFile(LittleFS, "/input3.txt", inputMessage.c_str());
-      web_but_state = check_state(); // convert the input from AGIS3 to integer,
-                                     // and store in web_but_state
-    }
-    // GET auto1 value on <ESP_IP>/get?auto1=t
-    // else if (request->hasParam(PARAM_AUTO_1)) {
-    //   inputMessage = request->getParam(PARAM_AUTO_1)->value();
-    //   writeFile(LittleFS, "/auto1.txt", inputMessage.c_str());
-    //   targetDripRate = inputMessage.toInt(); // convert the input from
-    //   AGIS1 to integer,
-    //                                  // and store in web_but_state
-    // }
-    else {
-      inputMessage = "No message sent";
-      // inputParam = "none";
-    }
-    Serial.println(inputMessage);
-
-    // this page will br created after sending input, but I set that this page
-    // will never enter Therefore, can comment it, but chrome will give
-    // "net::ERR_EMPTY_RESPONSE" if don't add this page
-    request->send(200, "text/html", "<a href=\"/\">Return to Home Page</a>");
-    // request->send(200, "text/html", "Request Sent! <br>"
-    //                                 + inputParam + " with value: " +
-    //                                 inputMessage +
-    //                                 "<br><a href=\"/get?" + inputParam +
-    //                                 "=off\">Stop it</a><br>" +
-    //                                 "<a href=\"/\">Return to Home Page</a>");
-  });
   server.onNotFound(notFound); // if 404 not found, go to 404 not found
   AsyncElegantOTA.begin(&server); // for OTA update
   server.begin();
@@ -587,22 +470,6 @@ void loop() {
   // Serial.printf("%s\n", getInfusionState(infusionState));
 
   lv_timer_handler(); /* let the GUI do its work */
-}
-
-// check the condition of the switch/input from web page
-// convert inputMessage(String) to integer
-int check_state() {
-  static int state;
-  if (inputMessage == "Up") {
-    state = 1;
-  } else if (inputMessage == "Up_and_Down") {
-    state = 2;
-  } else if (inputMessage == "Down") {
-    state = 3;
-  } else if (inputMessage == "STOP") {
-    state = 0;
-  }
-  return state;
 }
 
 void motorOnUp() {

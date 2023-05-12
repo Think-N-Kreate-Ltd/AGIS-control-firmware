@@ -29,7 +29,6 @@ int32_t keypad_dropFactor = -1;
 
 // TODO: reset this to false when new infusion process is issued
 bool keypad_inputs_valid = false;
-bool keypad_infusion_confirmed = false;
 
 /*Infusion monitoring variables*/
 lv_timer_t * infusion_monitoring_timer;
@@ -410,7 +409,7 @@ static void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
         dropFactor = (unsigned int )keypad_dropFactor; 
         targetNumDrops = targetVTBI / (1.0f / keypad_dropFactor); // TODO: use rounded function
 
-        keypad_infusion_confirmed = true;
+        keypadInfusionConfirmed = true;
       }
     }
     else {

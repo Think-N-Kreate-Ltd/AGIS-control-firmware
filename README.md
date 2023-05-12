@@ -44,6 +44,17 @@ This is the firmware for AGIS control board.
 + Automatic control can be issued from the website multiple times
 + Can download the log file after infusion has completed
 + Analyze the data from the log file to maintain drip rate accuracy
++ Can use keypad to fill in inputs and start automatic control
++ Display can show monitoring information during infusion
+
+## Best practices when writing software:
++ Use `log` instead of `Serial.printf()`. Logging makes debugging a lot easier.
+
+  Different level of verbosity can be set from this line in `platformio.ini` file:
+  ```
+  -D CORE_DEBUG_LEVEL=5  ; 5 here means print everything
+  ```
++ Group functions and variables related to a feature into the same source/header file
 
 ## Troubleshooting
 Q: example issue

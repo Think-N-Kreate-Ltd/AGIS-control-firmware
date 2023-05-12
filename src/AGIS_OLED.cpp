@@ -1,6 +1,7 @@
 #include <AGIS_OLED.h>
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_GFX.h>
+#include <AGIS_Commons.h>
 
 // TODO: add ifdef guard to use OLED or not
 // set up for OLED display
@@ -75,4 +76,16 @@ int getLastDigit(int n) {
   j = (n / 10) * 10;
   k = n - j;
   return k;
+}
+
+void OLED_ISR() {
+  if (infusionState == infusionState_t::ALARM_COMPLETED) {
+    alertOledDisplay("infusion \ncompleted");
+  } else if (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED) {
+    alertOledDisplay("volume \nexceeded");
+  } else if (infusionState == infusionState_t::ALARM_STOPPED) {
+    alertOledDisplay("no recent \ndrop");
+  } else {
+    tableOledDisplay(numDrops/dropFactor, getLastDigit(numDrops*10/dropFactor), getLastDigit(numDrops*100/dropFactor));
+  }
 }

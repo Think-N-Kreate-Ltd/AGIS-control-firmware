@@ -17,5 +17,6 @@ void oledSetUp();
 void tableOledDisplay(int i, int j, int k);
 void alertOledDisplay(const char* s);
 int getLastDigit(int n);
+void OLED_ISR();
 
 #endif /* DFF98014_4C3A_4E76_B495_11BC3D78A92F */
