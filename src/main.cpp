@@ -5,7 +5,6 @@
   GPIO36 -> EXT interrupt for reading sensor data
   timer0 -> INT interrupt for read sensor & time measure
   timer1 -> INT interrupt for auto control
-  timer3 -> INT interrupt for control the motor
 */
 
 #include <Arduino.h>
@@ -127,7 +126,6 @@ void notFound(AsyncWebServerRequest *request) {
 // create pointer for timer
 hw_timer_t *Timer0_cfg = NULL; // create a pointer for timer0
 hw_timer_t *Timer1_cfg = NULL; // create a pointer for timer1
-hw_timer_t *Timer3_cfg = NULL; // create a pointer for timer3
 
 // EXT interrupt to pin 36, for sensor detected drops and measure the time
 void IRAM_ATTR dropSensorISR() {
@@ -342,10 +340,6 @@ void IRAM_ATTR motorControlISR() {
   }
 }
 
-// timer3 interrupt, for display ISR (TFT or OLED)
-void IRAM_ATTR DisplayISR(){
-}
-
 void setup() {
   Serial.begin(115200);
   pinMode(DROP_SENSOR_PIN, INPUT);
@@ -368,13 +362,6 @@ void setup() {
                        true);              // call the function autoControlISR()
   timerAlarmWrite(Timer1_cfg, 1000, true); // Time = 80*1000/80,000,000 = 1ms
   timerAlarmEnable(Timer1_cfg);            // start the interrupt
-
-  // setup for timer3
-  Timer3_cfg = timerBegin(3, 40000, true); // Prescaler = 40000
-  timerAttachInterrupt(Timer3_cfg, &DisplayISR,
-                       true);              // call the function DisplayISR()
-  timerAlarmWrite(Timer3_cfg, 1000, true); // Time = 40000*1000/80,000,000 = 500ms
-  timerAlarmEnable(Timer3_cfg);            // start the interrupt
 
   // Initialize LittleFS
   if (!LittleFS.begin(true)) {
@@ -411,23 +398,12 @@ void setup() {
   // Init Websocket
   initWebSocket();
 
-  // Create the file for web page
-  // createDir(LittleFS, "/index.html");
-  // createDir(LittleFS, "/style.css");
-  // createDir(LittleFS, "/script.css");
-
   // Send web page to client
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(LittleFS, "/index.html", String(), false);
   });
 
-  server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(LittleFS, "/style.css", "text/css");
-  });
-
-  server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(LittleFS, "/script.js", "text/javascript");
-  });
+  server.serveStatic("/", LittleFS, "/");
 
   server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(LittleFS, logFilePath, "text/plain", true);  // force download the file
@@ -457,7 +433,16 @@ void setup() {
 
   // homing the roller clamp
   while (!homingCompleted) {
-    homingRollerClamp();
+    // homingRollerClamp();
+
+    // problem will occur when homing and click "Set and Run" at the same time
+    // ONLY uncomment while testing, and also comment homingRollerClamp()
+    delay(2000);
+    homingCompleted = true;
+    enableAutoControl = false;
+    if (homingCompleted) {
+      Serial.println("homing completed, can move the motor now");
+    }
   }
 }
 
