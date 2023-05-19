@@ -15,6 +15,7 @@
 #include <LittleFS.h>
 #include <Wire.h>
 #include <Adafruit_INA219.h>
+#include <LiquidCrystal_I2C.h>
 #include <WiFi.h>
 #include <ezButton.h>
 #include <limits.h>
@@ -157,6 +158,29 @@ void ina219SetUp() {
   }
 
   Serial.println("INA219 connected");
+}
+
+volatile float current_mA;
+LiquidCrystal_I2C lcd(0x27,16,2);  // set the LCD address to 0x3F for a 16 chars and 2 line display
+
+void lcdSetUp() {
+  lcd.init();
+  lcd.clear();         
+  lcd.backlight();      // Make sure backlight is on
+  
+  // Print a message on first line
+  // as this msg not change here, it is place in the setup currently
+  lcd.setCursor(2,0);   //Set cursor to character 2 on line 0
+  lcd.print("Current:");
+}
+
+void lcdDisplay(void * arg){  // call this function at task
+  for(;;) {                   // infinite loop
+    vTaskDelay(20);           // wait for I2C response
+    current_mA = ina219.getCurrent_mA();
+    lcd.setCursor(2,1);       //Move cursor to character 2 on line 1
+    lcd.print(current_mA);
+  }
 }
 
 // WiFiManager, Local intialization. Once its business is done, there is no need
@@ -462,6 +486,7 @@ void setup() {
   
   oledSetUp();
   ina219SetUp();
+  lcdSetUp();
 
   // setup for sensor interrupt
   attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
@@ -486,6 +511,16 @@ void setup() {
                        true);              // call the function OledDisplayISR()
   timerAlarmWrite(Timer3_cfg, 1000, true); // Time = 40000*1000/80,000,000 = 500ms
   timerAlarmEnable(Timer3_cfg);            // start the interrupt
+
+  // I2C is too slow that cannot use interrupt
+  xTaskCreate(
+    lcdDisplay,     // function that should be called
+    "LCD Display",  // name of the task (debug use)
+    4096,           // stack size
+    NULL,           // parameter to pass
+    1,              // task priority, 0-24, 24 highest priority
+    NULL            // task handle
+  );
 
   // Initialize LittleFS
   if (!LittleFS.begin(true)) {
@@ -620,15 +655,7 @@ void setup() {
 }
 
 void loop() {
-  // IDK where will use them, just place here first
-  Serial.print("Bus Voltage:   "); Serial.print(ina219.getBusVoltage_V()); Serial.println(" V");
-  Serial.print("Shunt Voltage: "); Serial.print(ina219.getShuntVoltage_mV()); Serial.println(" mV");
-  Serial.print("Load Voltage:  "); Serial.print(ina219.getBusVoltage_V() + (ina219.getShuntVoltage_mV()/1000)); Serial.println(" V");
-  Serial.print("Current:       "); Serial.print(ina219.getCurrent_mA()); Serial.println(" mA");
-  Serial.print("Power:         "); Serial.print(ina219.getPower_mW()); Serial.println(" mW");
-  Serial.println("");
-
-  delay(3000);
+  
 }
 
 // check the condition of the switch/input from web page

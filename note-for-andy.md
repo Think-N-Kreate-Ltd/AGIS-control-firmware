@@ -1,9 +1,12 @@
 # improvement working on
- - change SPIFFS to LittleFs
- - can try SD card (maybe FAT)
+ - ~~change SPIFFS to LittleFs~~
+ - ~~can try SD card~~
  - buzzer test
  - everyone can accese the web page(?)
- - check for first aid kit item(?)
+ - ~~check for first aid kit item~~
+ - work for current sensor (INA219)
+    - I2C cannot use interrupt
+    - use task instead
 
 ======================================
 # the below task is outdated
@@ -124,6 +127,9 @@ OLED:
 
 OTA:
  - https://randomnerdtutorials.com/esp32-ota-over-the-air-vs-code/
+
+Task
+ - https://savjee.be/blog/multitasking-esp32-arduino-freertos/
 
 ======================================
 # web page code
