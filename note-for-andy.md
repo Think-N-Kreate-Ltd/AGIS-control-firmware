@@ -4,9 +4,10 @@
  - buzzer test
  - everyone can accese the web page(?)
  - ~~check for first aid kit item~~
- - work for current sensor (INA219)
+ - ~~work for current sensor (INA219)~~
     - I2C cannot use interrupt
     - use task instead
+ - ~~add a LCD to view the value~~
 
 ======================================
 # the below task is outdated
