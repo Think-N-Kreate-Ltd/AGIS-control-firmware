@@ -503,7 +503,15 @@ void infusion_monitoring_cb(lv_timer_t * timer) {
     lv_table_set_cell_value(infusion_monitoring_table, 2, 1, infusedVolume_buf);
 
     char infusedTime_buf[20];
-    sprintf(infusedTime_buf, "%d", *(infusion_monitoring_data_handle.infusedTime_p));
+    // Convert the infused time from seconds to HH:MM:SS format
+    unsigned long sec;
+    uint16_t h, m, s;
+    sec = *(infusion_monitoring_data_handle.infusedTime_p);
+    h = sec / 3600;
+    m = (sec - (h * 3600)) / 60;
+    s = sec - (h * 3600) - (m * 60);
+
+    sprintf(infusedTime_buf, "%02d:%02d:%02d", h, m, s);
     lv_table_set_cell_value(infusion_monitoring_table, 3, 1, infusedTime_buf);
 
     const char *infusionState_buf =
