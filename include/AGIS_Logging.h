@@ -3,6 +3,10 @@
 
 static const char* DATA_LOGGING_TAG = "DATA_LOGGING";
 static const char* KEYPAD_TAG = "KEYPAD";
+static const char* WEBSOCKET_TAG = "WEBSOCKET";
+static const char* LITTLE_FS_TAG = "LITTLE_FS";
+static const char* WIFI_TAG = "WIFI";
+static const char* OLED_TAG = "OLED";
 
 extern char *logFilePath;
 extern const char* ntpServer;

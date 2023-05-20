@@ -370,7 +370,7 @@ void setup() {
 
   // Initialize LittleFS
   if (!LittleFS.begin(true)) {
-    Serial.println("An Error has occurred while mounting LittleFS");
+    ESP_LOGE(LITTLE_FS_TAG, "An Error has occurred while mounting LittleFS");
     return;
   }
 
@@ -383,22 +383,20 @@ void setup() {
   if (!wm.autoConnect("AutoConnectAP",
                       "password")) { // set esp32-s3 wifi ssid and pw to
     // AutoConnectAP & password
-    Serial.println("Failed to connect");
+    ESP_LOGE(WIFI_TAG, "Failed to connect");
     ESP.restart();
   } else {
     // if you get here you have connected to the WiFi
-    Serial.println("connected...yeah :)");
+    ESP_LOGI(WIFI_TAG, "connected...yeah :)");
   }
 
   if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    Serial.println("WiFi Failed!");
+    ESP_LOGE(WIFI_TAG, "WiFi Failed!");
     return;
   }
 
   // print the IP address of the web page
-  Serial.println();
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
+  ESP_LOGI(WIFI_TAG, "IP Address: %s", WiFi.localIP().toString());
 
   // Init Websocket
   initWebSocket();
@@ -516,11 +514,12 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
              AwsEventType type, void *arg, uint8_t *data, size_t len) {
   switch (type) {
   case WS_EVT_CONNECT:
-    Serial.printf("WebSocket client #%u connected from %s\n", client->id(),
-                  client->remoteIP().toString().c_str());
+    ESP_LOGI(WEBSOCKET_TAG, "WebSocket client #%u connected from %s",
+             client->id(), client->remoteIP().toString().c_str());
     break;
   case WS_EVT_DISCONNECT:
-    Serial.printf("WebSocket client #%u disconnected\n", client->id());
+    ESP_LOGI(WEBSOCKET_TAG, "WebSocket client #%u disconnected",
+             client->id());
     break;
   case WS_EVT_DATA:
     handleWebSocketMessage(arg, data, len);
@@ -538,14 +537,13 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       info->opcode == WS_TEXT) {
     data[len] = 0;
     // DEBUG:
-    // Serial.printf("Received from website: %s\n", (char *)data);
+    // ESP_LOGD(WEBSOCKET_TAG, "Received from website: %s", (char *)data);
 
     // Parse the received WebSocket message as JSON
     DynamicJsonDocument doc(1024);
     DeserializationError error = deserializeJson(doc, (const char *)data);
     if (error) {
-      Serial.printf("deserializeJson() failed: \n");
-      Serial.println(error.c_str());
+      ESP_LOGE(WEBSOCKET_TAG, "deserializeJson() failed: %s", error.c_str());
     } else {
       if (doc.containsKey("SET_TARGET_DRIP_RATE_WS")) {
         targetDripRate = doc["SET_TARGET_DRIP_RATE_WS"];
@@ -559,12 +557,11 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
         targetNumDrops = targetVTBI / (1.0f / dropFactor);  // rounded to integer part
 
         // DEBUG:
-        // Serial.printf("---\n");
-        // Serial.printf("Target VTBI is set to: %u mL\n", targetVTBI);
-        // Serial.printf("Target total time is set to: %u seconds\n", targetTotalTime);
-        // Serial.printf("Drop factor is set as: %u drops/mL\n", dropFactor);
-        // Serial.printf("Target drip rate is set to: %u drops/min\n", targetDripRate);
-        // Serial.printf("Target number of drops is: %d\n", targetNumDrops);
+        ESP_LOGD(WEBSOCKET_TAG, "Target VTBI is set to: %u mL", targetVTBI);
+        ESP_LOGD(WEBSOCKET_TAG, "Target total time is set to: %u seconds", targetTotalTime);
+        ESP_LOGD(WEBSOCKET_TAG, "Drop factor is set as: %u drops/mL", dropFactor);
+        ESP_LOGD(WEBSOCKET_TAG, "Target drip rate is set to: %u drops/min", targetDripRate);
+        ESP_LOGD(WEBSOCKET_TAG, "Target number of drops is: %d", targetNumDrops);
       }
       else if (doc.containsKey("COMMAND")) {
         // parse the command and execute
@@ -589,7 +586,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
           }
         }
         else {
-          Serial.printf("Command undefined\n");
+          ESP_LOGE(WEBSOCKET_TAG, "Command undefined");
         }
       }
     }
