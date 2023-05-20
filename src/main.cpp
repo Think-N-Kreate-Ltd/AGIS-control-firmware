@@ -25,8 +25,6 @@
 #include <AGIS_Logging.h>
 #include <esp_log.h>
 
-// TODO: refactor names, follow standard naming conventions
-
 #define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
 #define MOTOR_CTRL_PIN_1 15 // Motorl Control Board PWM 1
 #define MOTOR_CTRL_PIN_2 16 // Motorl Control Board PWM 2
@@ -38,12 +36,9 @@ buttonState_t buttonState = buttonState_t::IDLE;
 // Initially, infusionState is NOT_STARTED
 infusionState_t infusionState = infusionState_t::NOT_STARTED;
 
-// TODO: delete time1Drop, totalTime
 // var for EXT interrupt (sensor)
-volatile unsigned long totalTime = 0; // for calculating the time used within 15s
 volatile unsigned int numDrops = 0;   // for counting the number of drops within 15s
 volatile unsigned int dripRate = 0;       // for calculating the drip rate
-volatile unsigned int time1Drop = 0;      // for storing the time of 1 drop
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
 
 // var for timer1 interrupt
@@ -51,8 +46,8 @@ volatile unsigned int infusedVolume_x100 = 0;  // 100 times larger than actual v
 volatile unsigned long infusedTime = 0;     // unit: seconds
 volatile unsigned long infusionStartTime = 0;
 
-volatile unsigned int dripRateSamplingCount = 0;  // use for drip rate sampling
-volatile unsigned int numDropsInterval = 0;  // number of drops in 15 seconds
+// volatile unsigned int dripRateSamplingCount = 0;  // use for drip rate sampling
+// volatile unsigned int numDropsInterval = 0;  // number of drops in 15 seconds
 volatile unsigned int autoControlCount = 0;  // use for regulating frequency of motor is on
 volatile unsigned int autoControlOnTime = 0;  // use for regulating frequency of motor is on
 int dripRateDifference = 0; 
@@ -69,9 +64,6 @@ ezButton limitSwitch_Up(37);   // create ezButton object that attach to pin 7;
 ezButton limitSwitch_Down(38); // create ezButton object that attach to pin 7;
 ezButton dropSensor(DROP_SENSOR_PIN);     // create ezButton object that attach to pin 36;
 
-// var for checking the currently condition
-// state that shows the condition of web button
-int web_but_state = 0; 
 // state that shows the condition of auto control
 unsigned int targetDripRate = 0; 
 unsigned int targetVTBI = 0;   // target total volume to be infused
@@ -608,10 +600,8 @@ void sendInfusionMonitoringDataWs() {
   DynamicJsonDocument doc(1024);
   JsonObject root = doc.to<JsonObject>();
   root["INFUSION_STATE"] = getInfusionState(infusionState);
-  root["TIME_1_DROP"] = time1Drop;
   root["TIME_BTW_2_DROPS"] = timeBtw2Drops;
   root["NUM_DROPS"] = numDrops;
-  root["TOTAL_TIME"] = totalTime;
   root["DRIP_RATE"] = dripRate;
   root["INFUSED_VOLUME"] = infusedVolume_x100 / 100.0f;
   root["INFUSED_TIME"] = infusedTime;
