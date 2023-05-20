@@ -52,7 +52,7 @@ This is the firmware for AGIS control board.
 
   Different level of verbosity can be set from this line in `platformio.ini` file:
   ```
-  -D CORE_DEBUG_LEVEL=5  ; 5 here means print everything
+  -D CORE_DEBUG_LEVEL=5  ; 1: Error, 2: Warning, 3: Info, 4: Debug, 5: Verbose
   ```
 + Group functions and variables related to a feature into the same source/header file
 
