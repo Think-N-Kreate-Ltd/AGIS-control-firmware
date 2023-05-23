@@ -74,59 +74,61 @@ SPIClass sd_spi = SPIClass(FSPI);
 
 // from https://gist.github.com/jenschr/5713c927c3fb8663d662
 // TODO: simplify this function
-void rm(File dir, String tempPath) {  // delete all files in the directory
-  while(true) {
-    File entry =  dir.openNextFile();
-    String localPath;
+// void rm(File dir, String tempPath) {  // delete all files in the directory
+//   while(true) {
+//     File entry =  dir.openNextFile();
+//     String localPath;
 
-    Serial.println("");
-    if (entry) {
-      if ( entry.isDirectory() )
-      {
-        localPath = tempPath + entry.name() + "/" + '\0'; // seems the "/" cannot be added
-        char folderBuf[localPath.length()];
-        localPath.toCharArray(folderBuf, localPath.length() );
-        rm(entry, folderBuf);
+//     Serial.println("");
+//     if (entry) {
+//       if ( entry.isDirectory() )
+//       {
+//         localPath = tempPath + entry.name() + "/" + '\0';
+//         char folderBuf[localPath.length()];
+//         localPath.toCharArray(folderBuf, localPath.length() );
+//         rm(entry, folderBuf);
 
-        if( SD.rmdir( folderBuf ) )
-        {
-          Serial.print("Deleted folder ");
-          Serial.println(folderBuf);
-          // FolderDeleteCount++;
-        } 
-        else
-        {
-          Serial.print("Unable to delete folder ");
-          Serial.println(folderBuf);
-          // FailCount++;
-        }
-      } 
-      else
-      {
-        localPath = tempPath + entry.name() + '\0';
-        char charBuf[localPath.length()];
-        localPath.toCharArray(charBuf, localPath.length() );
+//         if( SD.rmdir( folderBuf ) )
+//         {
+//           Serial.print("Deleted folder ");
+//           Serial.println(folderBuf);
+//           // FolderDeleteCount++;
+//         } 
+//         else
+//         {
+//           Serial.print("Unable to delete folder ");
+//           Serial.println(folderBuf);
+//           // FailCount++;
+//         }
+//       } 
+//       else
+//       {
+//         localPath = tempPath + entry.name() + '\0';
+//         char charBuf[localPath.length()];
+//         localPath.toCharArray(charBuf, localPath.length() );
 
-        if( SD.remove( charBuf ) )
-        {
-          Serial.print("Deleted ");
-          Serial.println(localPath);
-          // DeletedCount++;
-        } 
-        else
-        {
-          Serial.print("Failed to delete ");
-          Serial.println(localPath);
-          // FailCount++;
-        }
-      }
-    } 
-    else {
-      // break out of recursion
-      break;
-    }
-  }
-}
+//         if( SD.remove( charBuf ) )
+//         {
+//           Serial.print("Deleted ");
+//           Serial.println(localPath);
+//           // DeletedCount++;
+//         } 
+//         else
+//         {
+//           Serial.print("Failed to delete ");
+//           Serial.println(localPath);
+//           // FailCount++;
+//         }
+//       }
+//     } 
+//     else {
+//       // break out of recursion
+//       break;
+//     }
+//     Serial.println("delete finished");
+//   }
+//   Serial.println("The directory is empty now");
+// }
 
 void sdCardSetUp() {
   sd_spi.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
@@ -182,7 +184,7 @@ void sdCardSetUp() {
       }
     }
   }
-  Serial.print("The cleared directory is ");
+  Serial.print("The directory to be cleared is ");
   Serial.println(path);
 
   // remove all files in the directory
@@ -190,20 +192,40 @@ void sdCardSetUp() {
   char rm_path[99];
   strcpy(rm_path, path);
   strcat(rm_path, "/");
-  rm(root2, rm_path);
+  // rm(root2, rm_path);
+
+  while (true) {  // keep doing until the directory is empty
+    File entry = root2.openNextFile();
+    if (entry) {
+      if (entry.isDirectory()) {
+        Serial.println("Not expected to remove the folder");
+      } else {
+        strcat(rm_path, entry.name());
+        if (SD.remove(rm_path)) {
+          Serial.printf("Deleted %s\n");
+        } else {
+          Serial.printf("Failed to delete %s\n");
+        }
+      }
+    } else {
+      // Enter here when the folder is empty. Stop the loop
+      break;
+    }
+  }
+  
 
   // remove and create dir <- remove can only be done when the directory is empty
-  // if(SD.rmdir(path)){
-  //   Serial.println("Dir removed");
-  // } else {
-  //   Serial.println("rmdir failed");
-  // }
-  // Serial.printf("Creating Dir: %s\n", path);
-  // if(SD.mkdir(path)){
-  //   Serial.println("Dir created");
-  // } else {
-  //   Serial.println("mkdir failed");
-  // }
+  if(SD.rmdir(path)){
+    Serial.println("Dir removed");
+  } else {
+    Serial.println("rmdir failed");
+  }
+  Serial.printf("Creating Dir: %s\n", path);
+  if(SD.mkdir(path)){
+    Serial.println("Dir created");
+  } else {
+    Serial.println("mkdir failed");
+  }
 }
 
 // set up for OLED display
