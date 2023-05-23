@@ -24,8 +24,6 @@
 #include <AGIS_Logging.h>
 #include <esp_log.h>
 
-// TODO: refactor names, follow standard naming conventions
-
 #define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
 #define MOTOR_CTRL_PIN_1 15 // Motorl Control Board PWM 1
 #define MOTOR_CTRL_PIN_2 16 // Motorl Control Board PWM 2
@@ -37,12 +35,9 @@ buttonState_t buttonState = buttonState_t::IDLE;
 // Initially, infusionState is NOT_STARTED
 infusionState_t infusionState = infusionState_t::NOT_STARTED;
 
-// TODO: delete time1Drop, totalTime
 // var for EXT interrupt (sensor)
-volatile unsigned long totalTime = 0; // for calculating the time used within 15s
 volatile unsigned int numDrops = 0;   // for counting the number of drops within 15s
 volatile unsigned int dripRate = 0;       // for calculating the drip rate
-volatile unsigned int time1Drop = 0;      // for storing the time of 1 drop
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
 
 // var for timer1 interrupt
@@ -50,8 +45,8 @@ volatile unsigned int infusedVolume_x100 = 0;  // 100 times larger than actual v
 volatile unsigned long infusedTime = 0;     // unit: seconds
 volatile unsigned long infusionStartTime = 0;
 
-volatile unsigned int dripRateSamplingCount = 0;  // use for drip rate sampling
-volatile unsigned int numDropsInterval = 0;  // number of drops in 15 seconds
+// volatile unsigned int dripRateSamplingCount = 0;  // use for drip rate sampling
+// volatile unsigned int numDropsInterval = 0;  // number of drops in 15 seconds
 volatile unsigned int autoControlCount = 0;  // use for regulating frequency of motor is on
 volatile unsigned int autoControlOnTime = 0;  // use for regulating frequency of motor is on
 int dripRateDifference = 0; 
@@ -68,9 +63,6 @@ ezButton limitSwitch_Up(37);   // create ezButton object that attach to pin 7;
 ezButton limitSwitch_Down(38); // create ezButton object that attach to pin 7;
 ezButton dropSensor(DROP_SENSOR_PIN);     // create ezButton object that attach to pin 36;
 
-// var for checking the currently condition
-// state that shows the condition of web button
-int web_but_state = 0; 
 // state that shows the condition of auto control
 unsigned int targetDripRate = 0; 
 unsigned int targetVTBI = 0;   // target total volume to be infused
@@ -365,7 +357,7 @@ void setup() {
 
   // Initialize LittleFS
   if (!LittleFS.begin(true)) {
-    Serial.println("An Error has occurred while mounting LittleFS");
+    ESP_LOGE(LITTLE_FS_TAG, "An Error has occurred while mounting LittleFS");
     return;
   }
 
@@ -378,22 +370,20 @@ void setup() {
   if (!wm.autoConnect("AutoConnectAP",
                       "password")) { // set esp32-s3 wifi ssid and pw to
     // AutoConnectAP & password
-    Serial.println("Failed to connect");
+    ESP_LOGE(WIFI_TAG, "Failed to connect");
     ESP.restart();
   } else {
     // if you get here you have connected to the WiFi
-    Serial.println("connected...yeah :)");
+    ESP_LOGI(WIFI_TAG, "connected...yeah :)");
   }
 
   if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    Serial.println("WiFi Failed!");
+    ESP_LOGE(WIFI_TAG, "WiFi Failed!");
     return;
   }
 
   // print the IP address of the web page
-  Serial.println();
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
+  ESP_LOGI(WIFI_TAG, "IP Address: %s", WiFi.localIP().toString());
 
   // Init Websocket
   initWebSocket();
@@ -509,11 +499,12 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
              AwsEventType type, void *arg, uint8_t *data, size_t len) {
   switch (type) {
   case WS_EVT_CONNECT:
-    Serial.printf("WebSocket client #%u connected from %s\n", client->id(),
-                  client->remoteIP().toString().c_str());
+    ESP_LOGI(WEBSOCKET_TAG, "WebSocket client #%u connected from %s",
+             client->id(), client->remoteIP().toString().c_str());
     break;
   case WS_EVT_DISCONNECT:
-    Serial.printf("WebSocket client #%u disconnected\n", client->id());
+    ESP_LOGI(WEBSOCKET_TAG, "WebSocket client #%u disconnected",
+             client->id());
     break;
   case WS_EVT_DATA:
     handleWebSocketMessage(arg, data, len);
@@ -531,14 +522,13 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       info->opcode == WS_TEXT) {
     data[len] = 0;
     // DEBUG:
-    // Serial.printf("Received from website: %s\n", (char *)data);
+    // ESP_LOGD(WEBSOCKET_TAG, "Received from website: %s", (char *)data);
 
     // Parse the received WebSocket message as JSON
     DynamicJsonDocument doc(1024);
     DeserializationError error = deserializeJson(doc, (const char *)data);
     if (error) {
-      Serial.printf("deserializeJson() failed: \n");
-      Serial.println(error.c_str());
+      ESP_LOGE(WEBSOCKET_TAG, "deserializeJson() failed: %s", error.c_str());
     } else {
       if (doc.containsKey("SET_TARGET_DRIP_RATE_WS")) {
         targetDripRate = doc["SET_TARGET_DRIP_RATE_WS"];
@@ -552,12 +542,11 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
         targetNumDrops = targetVTBI / (1.0f / dropFactor);  // rounded to integer part
 
         // DEBUG:
-        // Serial.printf("---\n");
-        // Serial.printf("Target VTBI is set to: %u mL\n", targetVTBI);
-        // Serial.printf("Target total time is set to: %u seconds\n", targetTotalTime);
-        // Serial.printf("Drop factor is set as: %u drops/mL\n", dropFactor);
-        // Serial.printf("Target drip rate is set to: %u drops/min\n", targetDripRate);
-        // Serial.printf("Target number of drops is: %d\n", targetNumDrops);
+        ESP_LOGD(WEBSOCKET_TAG, "Target VTBI is set to: %u mL", targetVTBI);
+        ESP_LOGD(WEBSOCKET_TAG, "Target total time is set to: %u seconds", targetTotalTime);
+        ESP_LOGD(WEBSOCKET_TAG, "Drop factor is set as: %u drops/mL", dropFactor);
+        ESP_LOGD(WEBSOCKET_TAG, "Target drip rate is set to: %u drops/min", targetDripRate);
+        ESP_LOGD(WEBSOCKET_TAG, "Target number of drops is: %d", targetNumDrops);
       }
       else if (doc.containsKey("COMMAND")) {
         // parse the command and execute
@@ -582,7 +571,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
           }
         }
         else {
-          Serial.printf("Command undefined\n");
+          ESP_LOGE(WEBSOCKET_TAG, "Command undefined");
         }
       }
     }
@@ -593,10 +582,8 @@ void sendInfusionMonitoringDataWs() {
   DynamicJsonDocument doc(1024);
   JsonObject root = doc.to<JsonObject>();
   root["INFUSION_STATE"] = getInfusionState(infusionState);
-  root["TIME_1_DROP"] = time1Drop;
   root["TIME_BTW_2_DROPS"] = timeBtw2Drops;
   root["NUM_DROPS"] = numDrops;
-  root["TOTAL_TIME"] = totalTime;
   root["DRIP_RATE"] = dripRate;
   root["INFUSED_VOLUME"] = infusedVolume_x100 / 100.0f;
   root["INFUSED_TIME"] = infusedTime;

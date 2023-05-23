@@ -2,6 +2,7 @@
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_GFX.h>
 #include <AGIS_Commons.h>
+#include <AGIS_Logging.h>
 
 // TODO: add ifdef guard to use OLED or not
 // set up for OLED display
@@ -11,7 +12,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT,
 void oledSetUp() {
   // Initialize OLED
   if(!display.begin(SSD1306_SWITCHCAPVCC)) {
-    Serial.println(F("SSD1306 allocation failed"));
+    ESP_LOGE(OLED_TAG, "SSD1306 allocation failed");
     return;
   } else {
     // clear the original display on the screen
