@@ -261,6 +261,7 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
     if ((infusionState == infusionState_t::ALARM_COMPLETED) && !homingCompleted) {
     // homing the roller clamp, i.e. move it down to completely closed position
       homingRollerClamp();
+      enableLogging = false;
     }
     else {
       if (enableAutoControl) {
@@ -628,20 +629,42 @@ void infusionInit() {
   homingCompleted = false;  // if not set, the infusion cannot be stopped
 }
 
+// try not to use the word "Task" in naming
 void loggingInitTask(void * parameter) {
   while (1) {
     if (enableLogging) {
       // generating `logFilePath` for logging
       logInit();
       ESP_LOGI(DATA_LOGGING_TAG, "Logging initialized");
-      vTaskDelete(NULL);
+      
+      // IMPORTANT: do not use vTaskDelete() here, it will delete the task, 
+      // i.e. will not run second time after triggered
+      // If you want to delete sth, pass out(6th parameter) and 
+      // delete outside, e.g. if(xReturned == adPASS) {vTaskDelete(NULL);}
+      // as I see you just delete null, I assume it is not in use and haven't do it
+      // vTaskDelete(NULL);
+
+      // to prevent keep updating the time
+      // which will cause a new file create each second
+      while (infusionState == infusionState_t::IN_PROGRESS) {
+        vTaskDelay(100);
+      }
     }
 
     // Don't know why, but the tasks needs at least 1 line of code
     // so that it logInit() can be triggered
     // Hence, below line if left uncommented.
-    uint32_t x = uxTaskGetStackHighWaterMark(NULL);
+    // uint32_t x = uxTaskGetStackHighWaterMark(NULL);
     // Uncomment below to get the free stack size
     // Serial.println(x);
+
+    // is not because not triggered, but the task perform too long time
+    // it is because different from arduino, ESP32 use RTOS
+    // thus, all repeated task should perform within a tight time boundary
+    // just similar with the same problem in interupt
+    // vTaskDelay is different from Delay, which let CPU does thing to wait
+    // vTaskDelay allow CPU works on other task while waiting
+    vTaskDelay(10);
+    // tasking = true;
   }
 }

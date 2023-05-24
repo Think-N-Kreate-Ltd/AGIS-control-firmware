@@ -65,6 +65,13 @@ bool logInfusionMonitoringData(char* logFilePath) {
       ESP_LOGE(DATA_LOGGING_TAG, "Header write failed");
     }
     file.close();
+  } else {
+    // debug use, can show that task is still working
+    // case1: logging start -> keep show file exists ==> work correctly
+    // case2: kwwp show file exists    ==> there is a file with same name already
+    // case3: keep show logging start  ==> keep creating new file each sec, should stop ASAP
+    // case4: logging start -> nothing ==> task deleted
+    ESP_LOGW(DATA_LOGGING_TAG, "file exists");
   }
 
   // TODO: use folder for all data files
