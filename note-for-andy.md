@@ -125,6 +125,9 @@ OLED:
 OTA:
  - https://randomnerdtutorials.com/esp32-ota-over-the-air-vs-code/
 
+LVGL:
+ - https://pcbartists.com/firmware/notes-using-lvgl-with-esp32/
+
 ======================================
 # web page code
 <!DOCTYPE HTML>
