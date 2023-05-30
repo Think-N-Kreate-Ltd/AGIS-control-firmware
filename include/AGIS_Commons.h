@@ -15,4 +15,10 @@ extern unsigned int targetDripRate;
 extern unsigned int targetNumDrops;
 extern infusionState_t infusionState;
 
+extern volatile float current_mA;
+extern volatile float busvoltage;
+extern volatile float shuntvoltage;
+extern volatile float power_mW;
+extern volatile float avgCurrent_mA;
+
 #endif /* D8C84950_1B28_4594_B461_3D52C4A78A6B */

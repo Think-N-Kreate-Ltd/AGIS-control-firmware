@@ -58,7 +58,9 @@ bool logInfusionMonitoringData(char* logFilePath) {
       return false;
     }
 
-    if (file.printf("%s, %s, %s\n", "Time", "Drip Rate", "Infused Volume")) {
+    if (file.printf("%s, %s, %s, %s, %s, %s, %s, %s\n", "Time", "Drip Rate", 
+                    "Infused Volume", "Current", "Bus Voltage", "Shunt Voltage", 
+                    "Power", "Average Current")) {
       ESP_LOGV(DATA_LOGGING_TAG, "Header write OK");
     }
     else {
@@ -74,7 +76,9 @@ bool logInfusionMonitoringData(char* logFilePath) {
     return false;
   }
 
-  if(file.printf("%u, %u, %f\n", infusedTime, dripRate, infusedVolume_x100 / 100.0f)) {
+  if(file.printf("%u, %u, %f, %f, %f, %f, %f, %.1f\n", infusedTime, dripRate, 
+                  infusedVolume_x100 / 100.0f, current_mA, busvoltage, 
+                  shuntvoltage, power_mW, avgCurrent_mA)) {
     ESP_LOGV(DATA_LOGGING_TAG, "File was written");
   }else {
     ESP_LOGE(DATA_LOGGING_TAG, "File write failed");

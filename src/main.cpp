@@ -109,7 +109,11 @@ void ina219SetUp() {
 }
 
 volatile float current_mA;
-LiquidCrystal_I2C lcd(0x27,16,2);  // set the LCD address to 0x3F for a 16 chars and 2 line display
+volatile float busvoltage;
+volatile float shuntvoltage;
+volatile float power_mW;
+volatile float avgCurrent_mA;
+LiquidCrystal_I2C lcd(0x27,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
 
 void lcdSetUp() {
   lcd.init();
@@ -118,16 +122,35 @@ void lcdSetUp() {
   
   // Print a message on first line
   // as this msg not change here, it is place in the setup currently
-  lcd.setCursor(2,0);   //Set cursor to character 2 on line 0
+  lcd.setCursor(2,0);   // Set cursor to character 2 on line 0
   lcd.print("Current:");
 }
 
 void lcdDisplay(void * arg){  // call this function at task
   for(;;) {                   // infinite loop
     vTaskDelay(20);           // wait for I2C response
+
+    // get the data from INA219
     current_mA = ina219.getCurrent_mA();
-    lcd.setCursor(2,1);       //Move cursor to character 2 on line 1
+    busvoltage = ina219.getBusVoltage_V();
+    shuntvoltage = ina219.getShuntVoltage_mV();
+    power_mW = ina219.getPower_mW();
+
+    // calculate the average current in mA
+    static int count = 0;
+    static float current[5] = {0, 0, 0, 0, 0};
+    static float total_current;
+    total_current -= current[count];  // delete the value 5 times before
+    current[count] = current_mA;
+    total_current += current[count];  // update the total value
+    avgCurrent_mA = total_current/5;  // calculate the average value
+    count++;
+    if (count = 4) {count = 0;}
+
+    // print to ICD (debug use)
+    lcd.setCursor(2,1);   // Move cursor to character 2 on line 1
     lcd.print(current_mA);
+    vTaskDelay(100);      // the number change too fast would make it hard to see
   }
 }
 
@@ -416,16 +439,6 @@ void setup() {
   timerAlarmWrite(Timer3_cfg, 1000, true); // Time = 40000*1000/80,000,000 = 500ms
   timerAlarmEnable(Timer3_cfg);            // start the interrupt
 
-  // I2C is too slow that cannot use interrupt
-  xTaskCreate(
-    lcdDisplay,     // function that should be called
-    "LCD Display",  // name of the task (debug use)
-    4096,           // stack size
-    NULL,           // parameter to pass
-    1,              // task priority, 0-24, 24 highest priority
-    NULL            // task handle
-  );
-
   // Initialize LittleFS
   if (!LittleFS.begin(true)) {
     ESP_LOGE(LITTLE_FS_TAG, "An Error has occurred while mounting LittleFS");
@@ -502,6 +515,14 @@ void setup() {
               NULL,              /* Parameter passed as input of the task */
               1,                 /* Priority of the task. */
               NULL);             /* Task handle. */
+
+  // I2C is too slow that cannot use interrupt
+  xTaskCreate(lcdDisplay,     // function that should be called
+              "LCD Display",  // name of the task (debug use)
+              4096,           // stack size
+              NULL,           // parameter to pass
+              1,              // task priority, 0-24, 24 highest priority
+              NULL);          // task handle
 
   // homing the roller clamp
   while (!homingCompleted) {
