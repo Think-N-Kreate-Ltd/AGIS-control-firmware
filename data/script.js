@@ -71,10 +71,8 @@ function onWsMessage(event) {
 
     if (infusionState === infusionState_t.NOT_STARTED) {
         let text = "Not started";
-        document.getElementById("time_1_drop_value").innerHTML = text;
         document.getElementById("time_btw_2_drops_value").innerHTML = text;
         document.getElementById("num_drops_value").innerHTML = text;
-        document.getElementById("total_time_value").innerHTML = text;
         document.getElementById("drip_rate_value").innerHTML = text;
         document.getElementById("infused_volume_value").innerHTML = text;
         document.getElementById("infused_time_value").innerHTML = text;
@@ -85,19 +83,15 @@ function onWsMessage(event) {
     else if ((infusionState === infusionState_t.STARTED) ||
         (infusionState === infusionState_t.IN_PROGRESS) ||
         (infusionState === infusionState_t.ALARM_COMPLETED)) {
-        var time1Drop = dataObj["TIME_1_DROP"];
         var time_btw_2_drops = dataObj["TIME_BTW_2_DROPS"];
         var numDrops = dataObj["NUM_DROPS"];
-        var totalTime = dataObj["TOTAL_TIME"];
         var dripRate = dataObj["DRIP_RATE"];
         var infusedVolume = dataObj["INFUSED_VOLUME"];
         var infusedVolumeRounded = parseFloat(infusedVolume).toFixed(2);
         var infusedTime = convertSecondsToHHMMSS(dataObj["INFUSED_TIME"]);
 
-        document.getElementById("time_1_drop_value").innerHTML = time1Drop;
         document.getElementById("time_btw_2_drops_value").innerHTML = time_btw_2_drops;
         document.getElementById("num_drops_value").innerHTML = numDrops;
-        document.getElementById("total_time_value").innerHTML = totalTime;
         document.getElementById("drip_rate_value").innerHTML = dripRate;
         document.getElementById("infused_volume_value").innerHTML = infusedVolumeRounded;
         document.getElementById("infused_time_value").innerHTML = infusedTime;
@@ -125,9 +119,7 @@ function onWsMessage(event) {
     }
     else if (infusionState === infusionState_t.ALARM_STOPPED) {
         let text = "No recent drop";
-        document.getElementById("time_1_drop_value").innerHTML = text;
         document.getElementById("time_btw_2_drops_value").innerHTML = text;
-        document.getElementById("total_time_value").innerHTML = text;
         document.getElementById("drip_rate_value").innerHTML = text;
         document.getElementById("infusion_state_value").style.color = "red"
         document.getElementById("infusion_state_value").innerHTML = "ALARM: no recent drop";
@@ -141,10 +133,6 @@ function onWsMessage(event) {
     }
 }
 
-// function initButton() {
-//     document.getElementById('get_data_btn').addEventListener('click', getInfusionMonitoringData);
-// }
-
 function getInfusionMonitoringData() {
     const msg = {
         COMMAND: "GET_INFUSION_MONITORING_DATA_WS",
@@ -154,19 +142,6 @@ function getInfusionMonitoringData() {
 
 
 /* -----------End Websocket------------- */
-
-function getValue() {
-    setTimeout(function () {
-        document.location.reload(false);
-    }, 10);
-}
-
-function sendInput(element) {
-    var xhr = new XMLHttpRequest();
-    if (element.checked) { xhr.open("GET", "/get?input1=" + element.id, true); }
-    else { xhr.open("GET", "/get?input1=STOP", true); }
-    xhr.send();
-}
 
 function setTargetDripRate() {
     if (target_drip_rate != DRIP_RATE_NOT_SET) {
