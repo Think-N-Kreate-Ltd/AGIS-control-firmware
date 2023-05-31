@@ -8,9 +8,9 @@
 #define I2C_SCL 41
 #define I2C_SDA 40
 
-Adafruit_INA219 ina219;
+// Adafruit_INA219 ina219;
 
 void ina219SetUp();
-void lcdDisplay(void * arg);
+void getIna219Data();
 
-#endif
+#endif  // AGIS_INA219_H

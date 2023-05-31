@@ -13,9 +13,6 @@
 #include <WiFiManager.h> // define before <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
-#include <Wire.h>
-#include <Adafruit_INA219.h>
-#include <LiquidCrystal_I2C.h>
 #include <WiFi.h>
 #include <ezButton.h>
 #include <limits.h>
@@ -25,11 +22,9 @@
 #include <AGIS_Types.h>       // user defined data types
 #include <AGIS_Utilities.h>
 #include <AGIS_Display.h>
+#include <AGIS_INA219.h>
 #include <AGIS_Logging.h>
 #include <esp_log.h>
-
-#define I2C_SCL 41
-#define I2C_SDA 40
 
 #define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
 #define MOTOR_CTRL_PIN_1 15 // Motorl Control Board PWM 1
@@ -83,6 +78,12 @@ volatile bool firstDropDetected = false; // to check when we receive the 1st dro
 volatile bool autoControlOnPeriod = false;
 bool homingCompleted = false;   // true when lower limit switch is activated
 
+volatile float current_mA;
+volatile float busvoltage;
+volatile float shuntvoltage;
+volatile float power_mW;
+volatile float avgCurrent_mA;
+
 // To reduce the sensitive of autoControlISR()
 // i.e. (targetDripRate +/-3) is good enough
 #define AUTO_CONTROL_ALLOW_RANGE 3
@@ -90,68 +91,6 @@ bool homingCompleted = false;   // true when lower limit switch is activated
 #define AUTO_CONTROL_ON_TIME_MIN 30   // motor will be enabled for this amount of time at minimum (unit: ms)
 #define AUTO_CONTROL_TOTAL_TIME  1000  // 1000ms
 #define DROP_DEBOUNCE_TIME       10   // if two pulses are generated within 10ms, it must be detected as 1 drop
-
-// INA219 set up
-Adafruit_INA219 ina219;
-void ina219SetUp() {
-  Wire.begin(I2C_SDA, I2C_SCL);
-  while (!Serial) {
-      // will pause Zero, Leonardo, etc until serial console opens
-      delay(1);
-  }
-
-  if (! ina219.begin()) {
-    Serial.println("Failed to find INA219 chip");
-    while (1) { delay(10); }
-  }
-
-  // Serial.println("INA219 connected");
-}
-
-volatile float current_mA;
-volatile float busvoltage;
-volatile float shuntvoltage;
-volatile float power_mW;
-volatile float avgCurrent_mA;
-// LiquidCrystal_I2C lcd(0x27,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
-
-// void lcdSetUp() {
-//   lcd.init();
-//   lcd.clear();         
-//   lcd.backlight();      // Make sure backlight is on
-  
-//   // Print a message on first line
-//   // as this msg not change here, it is place in the setup currently
-//   lcd.setCursor(2,0);   // Set cursor to character 2 on line 0
-//   lcd.print("Current:");
-// }
-
-void lcdDisplay(void * arg){  // call this function at task
-  for(;;) {                   // infinite loop
-    for (int x=0; x<5; x++) { // collect data with 5 times 1 set
-      vTaskDelay(20);         // wait for I2C response
-
-      // get the data from INA219
-      current_mA = ina219.getCurrent_mA();
-      busvoltage = ina219.getBusVoltage_V();
-      shuntvoltage = ina219.getShuntVoltage_mV();
-      power_mW = ina219.getPower_mW();
-
-      // calculate the average current in mA
-      static float current[5] = {0, 0, 0, 0, 0};  // save data with 5 times 1 set
-      static float total_current;
-      total_current -= current[x];  // delete the value 5 times before
-      current[x] = current_mA;
-      total_current += current[x];  // update the total value
-      avgCurrent_mA = total_current/5;  // calculate the average value
-
-      // print to ICD (debug use)
-      // lcd.setCursor(2,1);   // Move cursor to character 2 on line 1
-      // lcd.print(x);
-      // vTaskDelay(100);      // the number change too fast would make it hard to see
-    }
-  }
-}
 
 // WiFiManager, Local intialization. Once its business is done, there is no need
 // to keep it around
@@ -178,6 +117,7 @@ void sendInfusionMonitoringDataWs();
 void homingRollerClamp();
 void infusionInit();
 void loggingInitTask(void * parameter);
+void lcdDisplay(void * arg);
 
 // goto 404 not found when 404 not found
 void notFound(AsyncWebServerRequest *request) {
@@ -744,5 +684,11 @@ void loggingInitTask(void * parameter) {
     uint32_t x = uxTaskGetStackHighWaterMark(NULL);
     // Uncomment below to get the free stack size
     // Serial.println(x);
+  }
+}
+
+void lcdDisplay(void * arg) {
+  for (;;) {
+    getIna219Data();
   }
 }
