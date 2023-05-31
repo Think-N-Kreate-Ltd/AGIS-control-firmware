@@ -83,7 +83,7 @@ bool homingCompleted = false;   // true when lower limit switch is activated
 #define AUTO_CONTROL_ON_TIME_MAX 600  // motor will be enabled for this amount of time at maximum (unit: ms)
 #define AUTO_CONTROL_ON_TIME_MIN 30   // motor will be enabled for this amount of time at minimum (unit: ms)
 #define AUTO_CONTROL_TOTAL_TIME  1000  // 1000ms
-#define DROP_DEBOUNCE_TIME       10   // if two pulses are generated within 10ms, it must be detected as 1 drop
+#define DROP_DEBOUNCE_TIME       20   // if two pulses are generated within 20ms, it must be detected as 1 drop
 
 // WiFiManager, Local intialization. Once its business is done, there is no need
 // to keep it around
@@ -134,7 +134,7 @@ void IRAM_ATTR dropSensorISR() {
   if (lastState != dropSensorState) {
     lastState = dropSensorState;
     // call when drop detected
-    // disable for 10 ms after called
+    // disable for `DROP_DEBOUNCE_TIME` ms after called
     if ((dropSensorState == 1) && 
         ((millis()-lastTime)>=DROP_DEBOUNCE_TIME)) {
       lastTime = millis();
