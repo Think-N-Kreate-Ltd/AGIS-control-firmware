@@ -12,20 +12,6 @@
 </head>
 
 <body>
-    AGIS 1 UP<label class='switch'><input type='checkbox' onchange='sendInput(this)' id='Up'><span
-            class='slider'></span></label>
-    AGIS 1 Down<label class='switch'><input type='checkbox' onchange='sendInput(this)' id='Down'><span
-            class='slider'></span></label>
-    <br>
-    <!-- <form action='/get' target='hidden-form'>
-        AGIS 1 (current value %input1%):
-        <input name="input1" type='submit' value='Up' onchange='getValue()'>
-        <input name="input1" type='submit' value='Up_and_Down' onclick='getValue()'>
-        <input name="input1" type='submit' value='Down' onclick='getValue()'>
-        <input name="input1" type='submit' value='STOP' onclick='getValue()'>
-    </form><br> -->
-
-    <br>
     <form oninput="calculateTargetDripRate()">
         <!-- Total volume to be infused -->
         <div>Total volume to be infused (VTBI):</div>
@@ -69,12 +55,6 @@
 
     <table>
         <tr>
-            <td>Time for 1 drop (ms): </td>
-            <td>
-                <div id='time_1_drop_value'>Not started</div>
-            </td>
-        </tr>
-        <tr>
             <td>Time between 2 drops (ms): </td>
             <td>
                 <div id='time_btw_2_drops_value'>Not started</div>
@@ -86,13 +66,6 @@
                 <div id="num_drops_value">Not started</div>
             </td>
         </tr>
-        <tr>
-            <td>Total time (ms): </td>
-            <td>
-                <div id="total_time_value">Not started</div>
-            </td>
-        </tr>
-
         <tr>
             <td class="highlight-section">Drip rate (drops/min): </td>
             <td>
