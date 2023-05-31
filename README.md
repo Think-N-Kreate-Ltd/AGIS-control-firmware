@@ -18,19 +18,28 @@ This is the firmware for AGIS control board.
 |     GND     |                           GND                          |
 |     VCC     |                           3V3                          |
 
+- OLED display wiring:
+
+| **OLED pin** | **ESP32 devkit pin** |
+|:------------:|:--------------------:|
+|      VCC     |          3V3         |
+|      GND     |          GND         |
+|      SCL     |          41          |
+|      SDA     |          40          |
+
 - Keypad wiring:
 
-| **Keypad pin** | **ESP32 devkit pin** |
-|:--------------:|:--------------------:|
-|        1       |           5          |
-|        2       |           6          |
-|        3       |           7          |
-|        4       |          17          |
-|        5       |          18          |
-|        6       |           1          |
-|        7       |           2          |
-|        8       |          47          |
-|        9       |          48          |
+| **Keypad pin** | **ESP32 devkit pin**                                 |
+|:--------------:|:----------------------------------------------------:|
+|        1       |           5                                          |
+|        2       |           6                                          |
+|        3       |           7                                          |
+|        4       |          17                                          |
+|        5       |          18                                          |
+|        6       |           1                                          |
+|        7       |           2                                          |
+|        8       |          47 (remove 0 Ohm resistor)                  |
+|        9       |          48 (remove 0 Ohm resistor and flash)        |
 
 
 ## IDE setup

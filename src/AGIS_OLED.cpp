@@ -1,7 +1,5 @@
 #include <AGIS_OLED.h>
 #include <Wire.h>
-#include <Adafruit_SSD1306.h>
-#include <Adafruit_GFX.h>
 #include <AGIS_Commons.h>
 #include <AGIS_Logging.h>
 
@@ -25,11 +23,6 @@ void oledSetUp() {
     ESP_LOGI(OLED_TAG, "SSD1306 allocation succeeded");
     // clear the original display on the screen
     display.clearDisplay();
-    // TEST:
-    display.setTextSize(OLED_TEXT_FONT);
-    display.setTextColor(SSD1306_WHITE);
-    display.setCursor(0, 10);
-    display.println("Hello World!");
     display.display();
   }
 #else

@@ -110,6 +110,7 @@ void sendInfusionMonitoringDataWs();
 void homingRollerClamp();
 void infusionInit();
 void loggingInitTask(void * parameter);
+void oledDisplayTask(void *parameter);
 
 // goto 404 not found when 404 not found
 void notFound(AsyncWebServerRequest *request) {
@@ -336,6 +337,8 @@ void IRAM_ATTR motorControlISR() {
 
 // timer3 interrupt, for display ISR (TFT or OLED)
 void IRAM_ATTR DisplayISR(){
+  // Cannot do many things in here,
+  // otherwise WDT will complain
 }
 
 void setup() {
@@ -440,6 +443,14 @@ void setup() {
   /*Create a task for data logging*/
   xTaskCreate(loggingInitTask,   /* Task function. */
               "loggingInitTask", /* String with name of task. */
+              4096,              /* Stack size in bytes. */
+              NULL,              /* Parameter passed as input of the task */
+              1,                 /* Priority of the task. */
+              NULL);             /* Task handle. */
+
+  /*Create a task for OLED display*/
+  xTaskCreate(oledDisplayTask,   /* Task function. */
+              "oledDisplayTask", /* String with name of task. */
               4096,              /* Stack size in bytes. */
               NULL,              /* Parameter passed as input of the task */
               1,                 /* Priority of the task. */
@@ -658,5 +669,25 @@ void loggingInitTask(void * parameter) {
     uint32_t x = uxTaskGetStackHighWaterMark(NULL);
     // Uncomment below to get the free stack size
     // Serial.println(x);
+  }
+}
+
+void oledDisplayTask(void *parameter) {
+  while (1) {
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+
+    display.setTextSize(OLED_TEXT_FONT);
+    display.setCursor(0, 0);
+    display.printf("Rate:\n");
+
+    display.setTextSize(4);
+    display.setCursor(30, 25);
+    display.printf("%d\n", dripRate);
+
+    display.display();
+
+    const TickType_t xDelay = 500 / portTICK_PERIOD_MS;
+    vTaskDelay(xDelay);  // block for 500ms
   }
 }

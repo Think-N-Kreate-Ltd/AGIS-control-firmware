@@ -1,6 +1,9 @@
 #ifndef DFF98014_4C3A_4E76_B495_11BC3D78A92F
 #define DFF98014_4C3A_4E76_B495_11BC3D78A92F
 
+#include <Adafruit_SSD1306.h>
+#include <Adafruit_GFX.h>
+
 /*Choose from below OLED displays*/
 // #define OLED_SPI    1
 #define OLED_I2C 1
@@ -23,6 +26,7 @@
 #define OLED_RESET 7
 #endif
 
+extern Adafruit_SSD1306 display;
 extern volatile unsigned long infusedTime;
 
 void oledSetUp();
