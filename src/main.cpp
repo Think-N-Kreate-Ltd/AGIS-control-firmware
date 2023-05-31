@@ -128,29 +128,28 @@ void lcdSetUp() {
 
 void lcdDisplay(void * arg){  // call this function at task
   for(;;) {                   // infinite loop
-    vTaskDelay(20);           // wait for I2C response
+    for (int x=0; x<5; x++) { // collect data with 5 times 1 set
+      vTaskDelay(20);         // wait for I2C response
 
-    // get the data from INA219
-    current_mA = ina219.getCurrent_mA();
-    busvoltage = ina219.getBusVoltage_V();
-    shuntvoltage = ina219.getShuntVoltage_mV();
-    power_mW = ina219.getPower_mW();
+      // get the data from INA219
+      current_mA = ina219.getCurrent_mA();
+      busvoltage = ina219.getBusVoltage_V();
+      shuntvoltage = ina219.getShuntVoltage_mV();
+      power_mW = ina219.getPower_mW();
 
-    // calculate the average current in mA
-    static int count = 0;
-    static float current[5] = {0, 0, 0, 0, 0};
-    static float total_current;
-    total_current -= current[count];  // delete the value 5 times before
-    current[count] = current_mA;
-    total_current += current[count];  // update the total value
-    avgCurrent_mA = total_current/5;  // calculate the average value
-    count++;
-    if (count = 4) {count = 0;}
+      // calculate the average current in mA
+      static float current[5] = {0, 0, 0, 0, 0};  // save data with 5 times 1 set
+      static float total_current;
+      total_current -= current[x];  // delete the value 5 times before
+      current[x] = current_mA;
+      total_current += current[x];  // update the total value
+      avgCurrent_mA = total_current/5;  // calculate the average value
 
-    // print to ICD (debug use)
-    lcd.setCursor(2,1);   // Move cursor to character 2 on line 1
-    lcd.print(current_mA);
-    vTaskDelay(100);      // the number change too fast would make it hard to see
+      // print to ICD (debug use)
+      lcd.setCursor(2,1);   // Move cursor to character 2 on line 1
+      lcd.print(x);
+      vTaskDelay(100);      // the number change too fast would make it hard to see
+    }
   }
 }
 

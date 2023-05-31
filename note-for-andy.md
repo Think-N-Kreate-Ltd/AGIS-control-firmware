@@ -8,6 +8,12 @@
     - I2C cannot use interrupt
     - use task instead
  - ~~add a LCD to view the value~~
+ - move the refresh of tft to task
+ - INA219
+    - ~~collect all data and write to log file~~
+    - ~~get the average current~~
+    - if average current exceed a level, stop the mechine
+ - connect the sd card module
 
 ======================================
 # the below task is outdated
