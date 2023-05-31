@@ -5,7 +5,6 @@
   GPIO36 -> EXT interrupt for reading sensor data
   timer0 -> INT interrupt for read sensor & time measure
   timer1 -> INT interrupt for auto control
-  timer3 -> INT interrupt for control the motor
 
   Problem will occur when homing and click "Set and Run" at the same time
 */
@@ -29,8 +28,6 @@
 #include <AGIS_Display.h>
 #include <AGIS_Logging.h>
 #include <esp_log.h>
-
-// TODO: refactor names, follow standard naming conventions
 
 #define SD_MISO 13
 #define SD_MOSI 11
@@ -290,7 +287,6 @@ void notFound(AsyncWebServerRequest *request) {
 // create pointer for timer
 hw_timer_t *Timer0_cfg = NULL; // create a pointer for timer0
 hw_timer_t *Timer1_cfg = NULL; // create a pointer for timer1
-hw_timer_t *Timer3_cfg = NULL; // create a pointer for timer3
 
 // EXT interrupt to pin 36, for sensor detected drops and measure the time
 void IRAM_ATTR dropSensorISR() {
@@ -434,6 +430,7 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
     if ((infusionState == infusionState_t::ALARM_COMPLETED) && !homingCompleted) {
     // homing the roller clamp, i.e. move it down to completely closed position
       homingRollerClamp();
+      enableLogging = false;
     }
     else {
       if (enableAutoControl) {
@@ -505,10 +502,6 @@ void IRAM_ATTR motorControlISR() {
   }
 }
 
-// timer3 interrupt, for display ISR (TFT or OLED)
-void IRAM_ATTR DisplayISR(){
-}
-
 void setup() {
   Serial.begin(115200);
   pinMode(DROP_SENSOR_PIN, INPUT);
@@ -561,13 +554,6 @@ void setup() {
   timerAlarmWrite(Timer1_cfg, 1000, true); // Time = 80*1000/80,000,000 = 1ms
   timerAlarmEnable(Timer1_cfg);            // start the interrupt
 
-  // setup for timer3
-  Timer3_cfg = timerBegin(3, 40000, true); // Prescaler = 40000
-  timerAttachInterrupt(Timer3_cfg, &DisplayISR,
-                       true);              // call the function DisplayISR()
-  timerAlarmWrite(Timer3_cfg, 1000, true); // Time = 40000*1000/80,000,000 = 500ms
-  timerAlarmEnable(Timer3_cfg);            // start the interrupt
-
   // Initialize LittleFS
   if (!LittleFS.begin(true)) {
     ESP_LOGE(LITTLE_FS_TAG, "An Error has occurred while mounting LittleFS");
@@ -577,30 +563,13 @@ void setup() {
   // Init Websocket
   initWebSocket();
 
-  // Create the file for web page
-  // createDir(LittleFS, "/index.html");
-  // createDir(LittleFS, "/style.css");
-  // createDir(LittleFS, "/script.css");
-
   // Send web page to client
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(SD, "/web_server/index.html", String(), false);
   });
 
-  // server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
-  //   request->send(SD, "/web_server/style.css", "text/css");
-  // });
+  // server.serveStatic("/", LittleFS, "/");
 
-  // server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request) {
-  //   request->send(SD, "/web_server/script.js", "text/javascript");
-  // });
-
-  // server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request) {
-  //   request->send(SD, "/web_server/favicon.png", "image/png");
-  // });
-
-  // Automatically serves other files
-  // IDK why cannot serve favicon
   server.serveStatic("/", SD, "/web_server/");
 
   server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -836,20 +805,42 @@ void infusionInit() {
   homingCompleted = false;  // if not set, the infusion cannot be stopped
 }
 
+// try not to use the word "Task" in naming
 void loggingInitTask(void * parameter) {
   while (1) {
     if (enableLogging) {
       // generating `logFilePath` for logging
       logInit();
       ESP_LOGI(DATA_LOGGING_TAG, "Logging initialized");
-      vTaskDelete(NULL);
+      
+      // IMPORTANT: do not use vTaskDelete() here, it will delete the task, 
+      // i.e. will not run second time after triggered
+      // If you want to delete sth, pass out(6th parameter) and 
+      // delete outside, e.g. if(xReturned == adPASS) {vTaskDelete(NULL);}
+      // as I see you just delete null, I assume it is not in use and haven't do it
+      // vTaskDelete(NULL);
+
+      // to prevent keep updating the time
+      // which will cause a new file create each second
+      while (infusionState == infusionState_t::IN_PROGRESS) {
+        vTaskDelay(100);
+      }
     }
 
     // Don't know why, but the tasks needs at least 1 line of code
     // so that it logInit() can be triggered
     // Hence, below line if left uncommented.
-    uint32_t x = uxTaskGetStackHighWaterMark(NULL);
+    // uint32_t x = uxTaskGetStackHighWaterMark(NULL);
     // Uncomment below to get the free stack size
     // Serial.println(x);
+
+    // is not because not triggered, but the task perform too long time
+    // it is because different from arduino, ESP32 use RTOS
+    // thus, all repeated task should perform within a tight time boundary
+    // just similar with the same problem in interupt
+    // vTaskDelay is different from Delay, which let CPU does thing to wait
+    // vTaskDelay allow CPU works on other task while waiting
+    vTaskDelay(10);
+    // tasking = true;
   }
 }

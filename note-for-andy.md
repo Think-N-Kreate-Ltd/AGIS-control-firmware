@@ -179,6 +179,9 @@ OLED:
 OTA:
  - https://randomnerdtutorials.com/esp32-ota-over-the-air-vs-code/
 
+LVGL:
+ - https://pcbartists.com/firmware/notes-using-lvgl-with-esp32/
+
 SD card logo and meaning
  - https://www.the-digital-picture.com/News/News-Post.aspx?News=30207&Title=What-do-the-Numbers-and-Symbols-on-SD-SDHC-and-SDXC-Memory-Cards-mean
 
