@@ -105,7 +105,7 @@ void ina219SetUp() {
     while (1) { delay(10); }
   }
 
-  Serial.println("INA219 connected");
+  // Serial.println("INA219 connected");
 }
 
 volatile float current_mA;
@@ -113,18 +113,18 @@ volatile float busvoltage;
 volatile float shuntvoltage;
 volatile float power_mW;
 volatile float avgCurrent_mA;
-LiquidCrystal_I2C lcd(0x27,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
+// LiquidCrystal_I2C lcd(0x27,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
 
-void lcdSetUp() {
-  lcd.init();
-  lcd.clear();         
-  lcd.backlight();      // Make sure backlight is on
+// void lcdSetUp() {
+//   lcd.init();
+//   lcd.clear();         
+//   lcd.backlight();      // Make sure backlight is on
   
-  // Print a message on first line
-  // as this msg not change here, it is place in the setup currently
-  lcd.setCursor(2,0);   // Set cursor to character 2 on line 0
-  lcd.print("Current:");
-}
+//   // Print a message on first line
+//   // as this msg not change here, it is place in the setup currently
+//   lcd.setCursor(2,0);   // Set cursor to character 2 on line 0
+//   lcd.print("Current:");
+// }
 
 void lcdDisplay(void * arg){  // call this function at task
   for(;;) {                   // infinite loop
@@ -146,9 +146,9 @@ void lcdDisplay(void * arg){  // call this function at task
       avgCurrent_mA = total_current/5;  // calculate the average value
 
       // print to ICD (debug use)
-      lcd.setCursor(2,1);   // Move cursor to character 2 on line 1
-      lcd.print(x);
-      vTaskDelay(100);      // the number change too fast would make it hard to see
+      // lcd.setCursor(2,1);   // Move cursor to character 2 on line 1
+      // lcd.print(x);
+      // vTaskDelay(100);      // the number change too fast would make it hard to see
     }
   }
 }
@@ -412,7 +412,7 @@ void setup() {
   
   // oledSetUp();
   ina219SetUp();
-  lcdSetUp();
+  // lcdSetUp();
 
   // setup for sensor interrupt
   attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
