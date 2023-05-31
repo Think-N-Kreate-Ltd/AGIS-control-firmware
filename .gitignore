@@ -7,3 +7,4 @@
 .vscode/extensions.json
 .vscode/settings.json
 .vscode/extensions.json
+lib/TFT_eSPI_Setups/240x320_TFT_setup.h

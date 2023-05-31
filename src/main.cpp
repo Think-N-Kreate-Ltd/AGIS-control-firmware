@@ -342,7 +342,7 @@ void setup() {
   Serial.begin(115200);
   pinMode(DROP_SENSOR_PIN, INPUT);
   
-  // oledSetUp();
+  oledSetUp();
 
   // setup for sensor interrupt
   attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
