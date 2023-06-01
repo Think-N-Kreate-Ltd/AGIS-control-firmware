@@ -674,16 +674,33 @@ void loggingInitTask(void * parameter) {
 
 void oledDisplayTask(void *parameter) {
   while (1) {
+    numIteration++;
+    if (numIteration == 10) {
+      unitChanged = !unitChanged;
+      numIteration = 0;
+    }
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
 
-    display.setTextSize(OLED_TEXT_FONT);
-    display.setCursor(0, 0);
-    display.printf("Rate:\n");
+    if (unitChanged) {
+      display.setTextSize(4);
+      display.setCursor(0, 5);
+      // Convert from drops/min to mL/h:
+      display.printf("%d\n", dripRate * (60 / dropFactor));
 
-    display.setTextSize(4);
-    display.setCursor(30, 25);
-    display.printf("%d\n", dripRate);
+      display.setTextSize(2);
+      display.setCursor(0, 40);
+      display.printf("mL/h\n");
+    }
+    else {
+      display.setTextSize(4);
+      display.setCursor(0, 5);
+      display.printf("%d\n", dripRate);
+
+      display.setTextSize(2);
+      display.setCursor(0, 40);
+      display.printf("drops/min\n");
+    }
 
     display.display();
 

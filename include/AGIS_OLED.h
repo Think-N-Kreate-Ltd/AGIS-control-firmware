@@ -17,6 +17,7 @@
 #define I2C_SCL 41
 #define I2C_SDA 40
 #define OLED_RESET -1
+#define UNIT_SWITCH_PERIOD 15  // change from drops/min to mL/h every 15 seconds
 #else
 /*For OLED SPI*/
 #define OLED_MOSI 17
@@ -25,6 +26,9 @@
 #define OLED_CS 6
 #define OLED_RESET 7
 #endif
+
+extern unsigned int numIteration;
+extern bool unitChanged;
 
 extern Adafruit_SSD1306 display;
 extern volatile unsigned long infusedTime;

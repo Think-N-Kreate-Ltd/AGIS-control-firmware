@@ -3,6 +3,10 @@
 #include <AGIS_Commons.h>
 #include <AGIS_Logging.h>
 
+/*Variables used to toggle display unit*/
+unsigned int numIteration = 0;
+bool unitChanged = false;
+
 #ifdef OLED_I2C
 /*Set up for OLED I2C*/
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
