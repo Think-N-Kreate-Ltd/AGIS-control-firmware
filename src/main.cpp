@@ -32,7 +32,7 @@
 #define SD_MISO 13
 #define SD_MOSI 11
 #define SD_SCK  12
-#define SD_CS   10
+#define SD_CS   9
 
 #define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
 #define MOTOR_CTRL_PIN_1 15 // Motorl Control Board PWM 1
@@ -46,7 +46,7 @@ buttonState_t buttonState = buttonState_t::IDLE;
 infusionState_t infusionState = infusionState_t::NOT_STARTED;
 
 // set up for SPI and SD card
-SPIClass sd_spi = SPIClass(FSPI);
+// SPIClass sd_spi = SPIClass(FSPI);
 
 // from https://gist.github.com/jenschr/5713c927c3fb8663d662
 // TODO: simplify this function
@@ -107,10 +107,10 @@ SPIClass sd_spi = SPIClass(FSPI);
 // }
 
 void sdCardSetUp() {
-  sd_spi.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
+  // sd_spi.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
 
   // Initialize SD module
-  if(!SD.begin(SD_CS, sd_spi)){
+  if(!SD.begin(SD_CS/*, sd_spi*/)){
     Serial.println("Card Mount Failed");
     return;
   }
@@ -565,12 +565,16 @@ void setup() {
 
   // Send web page to client
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SD, "/web_server/index.html", String(), false);
+    request->send(LittleFS, "/index.html", String(), false);
   });
 
-  // server.serveStatic("/", LittleFS, "/");
+  // server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+  //   request->send(SD, "/web_server/index.html", String(), false);
+  // });
 
-  server.serveStatic("/", SD, "/web_server/");
+  server.serveStatic("/", LittleFS, "/");
+
+  // server.serveStatic("/", SD, "/web_server/");
 
   server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(SD, logFilePath, "text/plain", true);  // force download the file
