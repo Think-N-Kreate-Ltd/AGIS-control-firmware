@@ -74,7 +74,7 @@ bool logInfusionMonitoringData(char* logFilePath) {
     // case2: kwwp show file exists    ==> there is a file with same name already
     // case3: keep show logging start  ==> keep creating new file each sec, should stop ASAP
     // case4: logging start -> nothing ==> task deleted
-    ESP_LOGW(DATA_LOGGING_TAG, "file exists");
+    ESP_LOGV(DATA_LOGGING_TAG, "file exists");
   }
 
   // TODO: use folder for all data files

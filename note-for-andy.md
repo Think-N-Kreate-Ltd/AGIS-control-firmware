@@ -264,6 +264,9 @@ LVGL:
 SD card logo and meaning
  - https://www.the-digital-picture.com/News/News-Post.aspx?News=30207&Title=What-do-the-Numbers-and-Symbols-on-SD-SDHC-and-SDXC-Memory-Cards-mean
 
+FS delete files in folder
+ - https://gist.github.com/jenschr/5713c927c3fb8663d662
+
 ======================================
 # web page code
 <!DOCTYPE HTML>
