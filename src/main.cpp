@@ -29,7 +29,7 @@
 #include <AGIS_Logging.h>
 #include <esp_log.h>
 
-#define SD_MISO 35
+#define SD_MISO 21
 #define SD_MOSI 11
 #define SD_SCK  12
 #define SD_CS   9
@@ -538,10 +538,7 @@ void setup() {
   ESP_LOGI(WIFI_TAG, "IP Address: %s", WiFi.localIP().toString());
 
   // config time logging with NTP server
-  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-
-  // changeSpiDevice();
-  
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);  
   
   // oledSetUp();
 
@@ -592,8 +589,6 @@ void setup() {
   AsyncElegantOTA.begin(&server); // for OTA update
   server.begin();
 
-  // changeSpiDevice();
-
   // config time logging with NTP server
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
@@ -604,8 +599,9 @@ void setup() {
   lv_scr_load(input_scr);
   input_screen();
 
-  changeSpiDevice();
-  sdCardSetUp();
+  changeSpiDevice();  // compulsorily change to communicate with SD
+  sdCardSetUp();      // as the MISO pin should change, or may change in .ini file?
+                      // should init tft -> spi set up -> sd card set up
 
   /*Create a task for data logging*/
   xTaskCreate(loggingInitTask,   /* Task function. */
@@ -763,7 +759,6 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
                !loggingCompleted) {
             // changeSpiDevice();
             loggingCompleted = logInfusionMonitoringData(logFilePath);
-            ESP_LOGW(DATA_LOGGING_TAG, "SD, TFT pin is %d, %d. HIGH is %d\n", digitalRead(9), digitalRead(TFT_CS), HIGH);
             // changeSpiDevice();
           }
         }
@@ -867,6 +862,7 @@ void loggingInitTask(void * parameter) {
 
 void changeSpiDevice() {
   // one SPI can only communicate with one device at the same time
+  // in most cases, the CS pin goes to LOW only when using
   static bool state = true;
   if (state) {
     digitalWrite(TFT_CS, HIGH);
@@ -876,6 +872,4 @@ void changeSpiDevice() {
     digitalWrite(SD_CS, HIGH);
   }
   state = !state;
-
-  Serial.printf("SD, TFT pin is %d, %d. HIGH is %d\n", digitalRead(SD_CS), digitalRead(TFT_CS), HIGH);
 }

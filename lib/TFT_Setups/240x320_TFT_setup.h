@@ -13,7 +13,7 @@
 #define TFT_CS   10 //     10 or 34 (FSPI CS0) 
 #define TFT_MOSI 11 //     11 or 35 (FSPI D)
 #define TFT_SCLK 12 //     12 or 36 (FSPI CLK)
-#define TFT_MISO 35 //     13 or 37 (FSPI Q)
+#define TFT_MISO 21 //     13 or 37 (FSPI Q)
 
 // Use pins in range 0-31
 #define TFT_DC    13
