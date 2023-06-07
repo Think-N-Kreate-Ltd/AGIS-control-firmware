@@ -1,6 +1,8 @@
 #include <AGIS_Logging.h>
 #include <time.h>
-#include <SD.h>
+#include "FS.h"
+#include "SD.h"
+#include "SPI.h"
 #include <AGIS_Commons.h>
 
 // for data logging

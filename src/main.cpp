@@ -29,10 +29,11 @@
 #include <AGIS_Logging.h>
 #include <esp_log.h>
 
-#define SD_MISO 13
+#define SD_MISO 35
 #define SD_MOSI 11
 #define SD_SCK  12
 #define SD_CS   9
+#define TFT_CS  10
 
 #define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
 #define MOTOR_CTRL_PIN_1 15 // Motorl Control Board PWM 1
@@ -46,7 +47,7 @@ buttonState_t buttonState = buttonState_t::IDLE;
 infusionState_t infusionState = infusionState_t::NOT_STARTED;
 
 // set up for SPI and SD card
-// SPIClass sd_spi = SPIClass(FSPI);
+SPIClass sd_spi = SPIClass(FSPI);
 
 // from https://gist.github.com/jenschr/5713c927c3fb8663d662
 // TODO: simplify this function
@@ -107,13 +108,16 @@ infusionState_t infusionState = infusionState_t::NOT_STARTED;
 // }
 
 void sdCardSetUp() {
-  // sd_spi.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
+  sd_spi.begin(SD_SCK, SD_MISO, SD_MOSI, TFT_CS);
 
   // Initialize SD module
-  if(!SD.begin(SD_CS/*, sd_spi*/)){
+  if(!SD.begin(SD_CS, sd_spi)){
     Serial.println("Card Mount Failed");
     return;
   }
+
+  // pinMode(SD_SCK, OUTPUT);
+  // pinMode(SD_MOSI, OUTPUT);
 
   // use for getting the real time
   struct tm timeinfo;
@@ -278,6 +282,7 @@ void sendInfusionMonitoringDataWs();
 void homingRollerClamp();
 void infusionInit();
 void loggingInitTask(void * parameter);
+void changeSpiDevice();
 
 // goto 404 not found when 404 not found
 void notFound(AsyncWebServerRequest *request) {
@@ -505,6 +510,8 @@ void IRAM_ATTR motorControlISR() {
 void setup() {
   Serial.begin(115200);
   pinMode(DROP_SENSOR_PIN, INPUT);
+  pinMode(SD_CS, OUTPUT);
+  pinMode(TFT_CS, OUTPUT);
 
   WiFi.mode(WIFI_STA); // wifi station mode
 
@@ -533,7 +540,8 @@ void setup() {
   // config time logging with NTP server
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
-  sdCardSetUp();
+  // changeSpiDevice();
+  
   
   // oledSetUp();
 
@@ -584,6 +592,8 @@ void setup() {
   AsyncElegantOTA.begin(&server); // for OTA update
   server.begin();
 
+  // changeSpiDevice();
+
   // config time logging with NTP server
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
@@ -593,6 +603,9 @@ void setup() {
   /*Display the input screen*/
   lv_scr_load(input_scr);
   input_screen();
+
+  changeSpiDevice();
+  sdCardSetUp();
 
   /*Create a task for data logging*/
   xTaskCreate(loggingInitTask,   /* Task function. */
@@ -748,7 +761,10 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
           if ((infusionState == infusionState_t::IN_PROGRESS ||
                infusionState == infusionState_t::ALARM_COMPLETED) &&
                !loggingCompleted) {
+            // changeSpiDevice();
             loggingCompleted = logInfusionMonitoringData(logFilePath);
+            ESP_LOGW(DATA_LOGGING_TAG, "SD, TFT pin is %d, %d. HIGH is %d\n", digitalRead(9), digitalRead(TFT_CS), HIGH);
+            // changeSpiDevice();
           }
         }
         else {
@@ -847,4 +863,19 @@ void loggingInitTask(void * parameter) {
     vTaskDelay(10);
     // tasking = true;
   }
+}
+
+void changeSpiDevice() {
+  // one SPI can only communicate with one device at the same time
+  static bool state = true;
+  if (state) {
+    digitalWrite(TFT_CS, HIGH);
+    digitalWrite(SD_CS, LOW);
+  } else {
+    digitalWrite(TFT_CS, LOW);
+    digitalWrite(SD_CS, HIGH);
+  }
+  state = !state;
+
+  Serial.printf("SD, TFT pin is %d, %d. HIGH is %d\n", digitalRead(SD_CS), digitalRead(TFT_CS), HIGH);
 }
