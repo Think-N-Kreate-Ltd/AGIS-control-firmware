@@ -34,6 +34,7 @@ This is the firmware for AGIS control board.
 
 - Update SPI wiring:
   - SCK, MOSI, GND use the same pin, can make use of the jumper on SD module
+  - TODO: try 3V3
   - SD use 5V for VCC, or desolder the voltage regulator and wire input & output
   - GPIO 35 should not be used as it will affect the result of drop sensor
 

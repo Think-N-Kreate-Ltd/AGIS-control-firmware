@@ -1,7 +1,8 @@
 #include <AGIS_SD.h>
+#include <AGIS_Commons.h>
 
 // Log file base name.  Must be six characters or less.
-#define FILE_BASE_NAME "Data"
+#define FILE_BASE_NAME "Sat/"
 
 // File system object.
 SdFat sd;
@@ -12,31 +13,29 @@ SdFile file;
 // Error messages stored in flash.
 #define error(msg) sd.errorHalt(F(msg))
 
-const uint8_t ANALOG_COUNT = 4;
+const uint8_t ANALOG_COUNT = 3;
 
 void writeHeader() {
-  file.print(F("micros"));
-  for (uint8_t i = 0; i < ANALOG_COUNT; i++) {
-    file.print(F(",adc"));
-    file.print(i, DEC);
-  }
+  file.print(F("Time, Drip Rate, Infused Volume"));
   file.println();
 }
 
 void logData() {
-  uint16_t data[ANALOG_COUNT];
+  // to avoid SD write latency between readings
+  uint16_t data[3] = {infusedTime, dripRate, infusedVolume_x100};
 
-  // Read all channels to avoid SD write latency between readings.
-  for (uint8_t i = 0; i < ANALOG_COUNT; i++) {
-    data[i] = analogRead(i);
-  }
-  // Write data to file.  Start with log time in micros.
-  file.print(logTime);
+  // Write the first data to CSV record
+  file.print(data[0]);
 
-  // Write ADC data to CSV record.
-  for (uint8_t i = 0; i < ANALOG_COUNT; i++) {
+  // Write data to CSV record
+  for (uint8_t i = 1; i < 3; i++) {
     file.write(',');
-    file.print(data[i]);
+    if (i==2) { // print the third colume with 1 d.p.
+      uint16_t x = infusedVolume_x100 / 100;
+      file.printf("%d.%d", x, infusedVolume_x100 / 10 - (x*10));
+    } else {
+      file.print(data[i]);
+    }
   }
   file.println();
 }
@@ -44,7 +43,7 @@ void logData() {
 void sdCardSetUp() {
   SPI.begin(SD_SCK, SD_MISO, SD_MOSI, TFT_CS);
 
-  const uint8_t BASE_NAME_SIZE = sizeof(FILE_BASE_NAME) - 1;
+  const uint8_t BASE_NAME_SIZE = 4;
   char fileName[13] = FILE_BASE_NAME "00.csv";
 
   delay(1000);  // remove later
@@ -89,7 +88,7 @@ void sdCardSetUp() {
   Serial.println(F("Type any character to stop"));
 
   // Write data header.
-  writeHeader();
+  // writeHeader();
 
   // check for weekday
   // char today[4];
