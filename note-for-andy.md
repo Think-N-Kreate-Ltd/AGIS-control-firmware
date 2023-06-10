@@ -4,6 +4,16 @@ https://github.com/espressif/esp-idf/blob/5cc4bceb2a46b5f29e7b867150bdc7288f77b8
 
 Sharing the SPI bus among SD card and other SPI devices
 =======================================================
+When it comes to use SD cards on MCU SD card slots, my five cents:
+
+ - some SD cards, esp. newer, want to run in lower voltage mode: The SD card driver will query the card and figure out its type, e.g. SDHC vs. SDXC. If your FW cannot adjust the power voltage for SD card - you might be limited to which card is working
+ - I have seen also issues, when my SD Card driver and FatFS cannot see the card: often, this happens on cards with large capacities, e.g. 512 GB or even 1 TB. Try to use a smaller capacity, e.g. 4 or 8 GB. I think, due to 32bit limitation, e.g. in FAT32, an SD card larger as 32 GB will never work. It would need a different file system (NTFS, eFAT) which might not be supported by your driver.
+ - I have seen also issues where one type of card was working but not another one: lowering the SD Card clock helped here to make it working. Check with which speed you run the SD Card peripheral.
+ - the other mentioned topic as "power consumption" can be true: if the power supply for your board is weak and almost all power is needed just to run the MCU additional current drawn by a "power hungry" SD Card can generate trouble also for the MCU (e.g. power drops, "brown-outs"). Even I have not realized such a dramatic effect - but a powerful power-supply for entire system makes sense
+
+Most of the time is the SD Card device speed, the capacity of the SD card (too large) or even the type (e.g. a newer one just operating with a lower voltage on adapter).
+
+=======================================================
 
 The SD card has a SPI mode, which allows it to be communicated to as a SPI device. But there are some restrictions that we need to pay attention to.
 
