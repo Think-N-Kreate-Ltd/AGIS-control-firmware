@@ -13,9 +13,8 @@
 #include <AsyncTCP.h>
 #include <WiFiManager.h> // define before <WiFi.h>
 #include <ESPAsyncWebServer.h>
-#include "FS.h"
-#include "SD.h"
-#include "SPI.h"
+#include <SPI.h>
+#include "SdFat.h"
 #include <LittleFS.h>
 #include <WiFi.h>
 #include <ezButton.h>
