@@ -21,7 +21,8 @@
 #include <limits.h>
 #include <ArduinoJson.h>
 #include <AsyncElegantOTA.h>  // define after <ESPAsyncWebServer.h>
-#include <AGIS_OLED.h>
+#include <AGIS_Commons.h>
+// #include <AGIS_OLED.h>
 #include <AGIS_Types.h>       // user defined data types
 #include <AGIS_Utilities.h>
 #include <AGIS_Display.h>
@@ -655,6 +656,7 @@ void infusionInit() {
 void loggingInitTask(void * parameter) {
   // set up, only run once
   rmOldData();
+  static bool finishLogging = false;
 
   for (;;) {
     if (enableLogging) {
@@ -666,11 +668,13 @@ void loggingInitTask(void * parameter) {
         logData();
         vTaskDelay(999); // wait for data logging
       }
+
+      finishLogging = true;
     }
 
-    if (infusionState == infusionState_t::ALARM_COMPLETED){
-      // TODO: add ver or othe thing to check state (make sure can go back to newFileInit())
+    if ((infusionState == infusionState_t::ALARM_COMPLETED) && finishLogging) {
       endLogging();
+      finishLogging = false;
     }
   }
 }

@@ -119,8 +119,7 @@ void logData() {
 void endLogging() {
   // Close file and stop.
   file.close();
-  ESP_LOGI(DATA_LOGGING_TAG, "Data loggong done!");
-  while (true) {}
+  ESP_LOGI(DATA_LOGGING_TAG, "Data logging done!");
 }
 
 void changeSpiDevice() {
