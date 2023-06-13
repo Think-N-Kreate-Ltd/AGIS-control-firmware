@@ -4,7 +4,7 @@
 // Log file base name.  Must be six characters or less.
 #define FILE_BASE_NAME "Sat/"
 
-char datetime[4]; // var for storing the weekdays
+char datetime[13]; // var for storing the date time
 
 // File system object.
 SdFat sd;
@@ -25,11 +25,13 @@ void rmOldData() {
     // return;
   }
 
+  char today[4];
   char path[5];
   char weekday [7][4]= {{"Sun"}, {"Mon"}, {"Tue"}, {"Wed"}, {"Thu"}, {"Fri"}, {"Sat"}};
-  strftime(datetime , 4, "%a", &timeinfo); // get the first base name
+  strftime(today , 4, "%a", &timeinfo); // get the weekday of today
+  strftime(datetime , 13, "%a/%H%M%S", &timeinfo); // get the first base name
   for (int x=0; x<7; x++) {
-    if (strcmp(weekday[x], datetime) == 0){
+    if (strcmp(weekday[x], today) == 0){
       if (x<6) {
         strcpy(path, "/");
         strcat(path, weekday[x+1]); // get the previous day
@@ -67,21 +69,13 @@ void sdCardSetUp() {
 
 void newFileInit() {
   const uint8_t BASE_NAME_SIZE = 4; // the base name should not >6
-  char fileName[13];
-  strcpy(fileName, datetime);
-  strcat(fileName, "/");
-  strcat(fileName, "00.csv");
+  char fileName[32];
+  sprintf(fileName, "%s_%u_%u_%u.csv", datetime, targetVTBI, targetTotalTime, dropFactor);
 
-  // get the next number for file name
+  // change the file name if already exists
   while (sd.exists(fileName)) {
-    if (fileName[BASE_NAME_SIZE + 1] != '9') {
-      fileName[BASE_NAME_SIZE + 1]++;
-    } else if (fileName[BASE_NAME_SIZE] != '9') {
-      fileName[BASE_NAME_SIZE + 1] = '0';
-      fileName[BASE_NAME_SIZE]++;
-    } else {
-      error("Can't create file name");
-    }
+    // seems not possible to happened
+    sprintf(fileName, "%s_%u_%u_%u_2.csv", datetime, targetVTBI, targetTotalTime, dropFactor);
   }
   if (!file.open(fileName, O_WRONLY | O_CREAT | O_EXCL)) {
     error("file.open");
