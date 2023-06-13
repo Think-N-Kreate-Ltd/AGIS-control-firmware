@@ -661,8 +661,6 @@ void loggingInitTask(void * parameter) {
       newFileInit();  // create new file and header
       ESP_LOGI(DATA_LOGGING_TAG, "Logging initialized");
       
-      vTaskDelay(10); // just keep first, TODO: test whether can remove it
-
       // after create file, do data logging
       while (infusionState == infusionState_t::IN_PROGRESS) {
         logData();

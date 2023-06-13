@@ -60,7 +60,7 @@ void sdCardSetUp() {
 
   // Initialize at the highest speed supported by the board that is
   // not over 50 MHz. Try a lower speed if SPI errors occur.
-  if (!sd.begin(SD_CS, SD_SCK_MHZ(50))) {
+  if (!sd.begin(SD_CS, SD_SCK_MHZ(40))) {
     sd.initErrorHalt();
   }
 }
