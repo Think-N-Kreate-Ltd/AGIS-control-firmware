@@ -4,6 +4,8 @@
 // Log file base name.  Must be six characters or less.
 #define FILE_BASE_NAME "Sat/"
 
+char datetime[4]; // var for storing the weekdays
+
 // File system object.
 SdFat sd;
 
@@ -15,19 +17,59 @@ SdFile file;
 
 const uint8_t ANALOG_COUNT = 3;
 
-void newFileInit() {
-  // use for getting the real time
+void rmOldData() {
+    // use for getting the real time
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo)){
     ESP_LOGE(DATA_LOGGING_TAG, "Failed to obtain time");
     // return;
   }
-  char datetime[4];
-  strftime(datetime ,13, "%a/", &timeinfo); // get the first base name
 
+  char path[5];
+  char weekday [7][4]= {{"Sun"}, {"Mon"}, {"Tue"}, {"Wed"}, {"Thu"}, {"Fri"}, {"Sat"}};
+  strftime(datetime , 4, "%a", &timeinfo); // get the first base name
+  for (int x=0; x<7; x++) {
+    if (strcmp(weekday[x], datetime) == 0){
+      if (x>0) {
+        strcpy(path, "/");
+        strcat(path, weekday[x-1]); // get the previous day
+      } else {
+        strcpy(path, "/");
+        strcat(path, weekday[6]);   // get Sat
+      }
+    }
+  }
+
+  // Remove old data (a week before)
+  if (!file.open(path)) {
+    error("file.open");
+  }
+  if (!file.rmRfStar()) { // remove all contents of the directory, also itself
+    sd.errorHalt("rmdir failed.");
+  } else {
+    ESP_LOGI(DATA_LOGGING_TAG, "Old directory removed");
+  }
+  if (!sd.mkdir(path)) {
+    error("file.mkdir");
+  }
+  file.close();
+}
+
+void sdCardSetUp() {
+  SPI.begin(SD_SCK, SD_MISO, SD_MOSI, TFT_CS);
+
+  // Initialize at the highest speed supported by the board that is
+  // not over 50 MHz. Try a lower speed if SPI errors occur.
+  if (!sd.begin(SD_CS, SD_SCK_MHZ(50))) {
+    sd.initErrorHalt();
+  }
+}
+
+void newFileInit() {
   const uint8_t BASE_NAME_SIZE = 4; // the base name should not >6
   char fileName[13];
   strcpy(fileName, datetime);
+  strcat(fileName, "/");
   strcat(fileName, "00.csv");
 
   // get the next number for file name
@@ -74,77 +116,11 @@ void logData() {
   }
 }
 
-void sdCardSetUp() {
-  SPI.begin(SD_SCK, SD_MISO, SD_MOSI, TFT_CS);
-
-  // Initialize at the highest speed supported by the board that is
-  // not over 50 MHz. Try a lower speed if SPI errors occur.
-  if (!sd.begin(SD_CS, SD_SCK_MHZ(50))) {
-    sd.initErrorHalt();
-  }
-
-  // TODO: remove old data
-
-  // check for weekday
-  // char today[4];
-  // char path[5]; // store the path of the folder of the next weekday
-  // char weekday [7][4]= {{"Sun"}, {"Mon"}, {"Tue"}, {"Wed"}, {"Thu"}, {"Fri"}, {"Sat"}};
-  // strftime(today, 4, "%a", &timeinfo);
-  // for (int x=0; x<7; x++) {
-  //   delay(100); // wait a short time, otherwise the sd card cannnot mount
-  //   if (strcmp(weekday[x], today) == 0){
-  //     if (x<6) {
-  //       strcpy(path, "/");
-  //       strcat(path, weekday[x+1]); // get the next day
-  //     } else {
-  //       strcpy(path, "/");
-  //       strcat(path, weekday[0]);   // get Sunday
-  //     }
-  //   }
-  // }
-  // Serial.print("The directory to be cleared is ");
-  // Serial.println(path);
-
-  // // remove all files in the directory
-  // File root2 = SD.open(path);
-  // char rm_path[99];
-  // strcpy(rm_path, path);
-  // strcat(rm_path, "/");
-  // // rm(root2, rm_path);
-
-  // while (true) {  // keep doing until the directory is empty
-  //   File entry = root2.openNextFile();
-  //   if (entry) {
-  //     if (entry.isDirectory()) {
-  //       Serial.println("Not expected to remove the folder");
-  //     } else {
-  //       strcat(rm_path, entry.name());
-  //       if (SD.remove(rm_path)) {
-  //         Serial.printf("Deleted %s\n");
-  //       } else {
-  //         Serial.printf("Failed to delete %s\n");
-  //       }
-  //     }
-  //   } else {
-  //     // Enter here when the folder is empty. Stop the loop
-  //     break;
-  //   }
-  // }
-  
-
-  // remove and create dir <- remove can only be done when the directory is empty
-  // prevent unwanted delete
-  // if(SD.rmdir(path)){
-  //   Serial.println("Dir removed");
-  // } else {
-  //   Serial.println("rmdir failed");
-  // }
-  // Serial.printf("Creating Dir: %s\n", path);
-  // if(SD.mkdir(path)){
-  //   Serial.println("Dir created");
-  // } else {
-  //   Serial.println("mkdir failed");
-  // }
+void endLogging() {
+  // Close file and stop.
+  file.close();
+  ESP_LOGI(DATA_LOGGING_TAG, "Data loggong done!");
+  while (true) {}
 }
 
 void changeSpiDevice() {
@@ -159,11 +135,4 @@ void changeSpiDevice() {
     digitalWrite(SD_CS, HIGH);
   }
   state = !state;
-}
-
-void endLogging() {
-  // Close file and stop.
-  file.close();
-  ESP_LOGI(DATA_LOGGING_TAG, "Data loggong done!");
-  while (true) {}
 }

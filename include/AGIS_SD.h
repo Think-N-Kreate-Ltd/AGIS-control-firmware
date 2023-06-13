@@ -25,11 +25,11 @@ extern const int daylightOffset_sec;
 extern bool enableLogging;
 extern bool loggingCompleted;
 
-// TODO: order it, also in .cpp file
+void rmOldData();
+void sdCardSetUp();
 void newFileInit();
 void logData();
-void sdCardSetUp();
-void changeSpiDevice();
 void endLogging();
+void changeSpiDevice();
 
 #endif /* AGIS_SD_H */

@@ -374,8 +374,7 @@ void setup() {
   
   // oledSetUp();
   changeSpiDevice();  // compulsorily change to communicate with SD
-  sdCardSetUp();      // as the MISO pin should change, or may change in .ini file?
-                      // should init tft -> spi set up -> sd card set up
+  sdCardSetUp();      
 
   // setup for sensor interrupt
   attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
@@ -655,9 +654,7 @@ void infusionInit() {
 // try not to use the word "Task" in naming
 void loggingInitTask(void * parameter) {
   // set up, only run once
-  // changeSpiDevice();  // compulsorily change to communicate with SD
-  // sdCardSetUp();      // as the MISO pin should change, or may change in .ini file?
-  //                     // should init tft -> spi set up -> sd card set up
+  rmOldData();
 
   for (;;) {
     if (enableLogging) {
