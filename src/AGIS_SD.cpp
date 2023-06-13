@@ -30,12 +30,12 @@ void rmOldData() {
   strftime(datetime , 4, "%a", &timeinfo); // get the first base name
   for (int x=0; x<7; x++) {
     if (strcmp(weekday[x], datetime) == 0){
-      if (x>0) {
+      if (x<6) {
         strcpy(path, "/");
-        strcat(path, weekday[x-1]); // get the previous day
+        strcat(path, weekday[x+1]); // get the previous day
       } else {
         strcpy(path, "/");
-        strcat(path, weekday[6]);   // get Sat
+        strcat(path, weekday[0]);   // get Sunday
       }
     }
   }
