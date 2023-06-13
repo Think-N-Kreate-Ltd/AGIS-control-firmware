@@ -15,7 +15,36 @@ SdFile file;
 
 const uint8_t ANALOG_COUNT = 3;
 
-void writeHeader() {
+void newFileInit() {
+  // use for getting the real time
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+    ESP_LOGE(DATA_LOGGING_TAG, "Failed to obtain time");
+    // return;
+  }
+  char datetime[4];
+  strftime(datetime ,13, "%a/", &timeinfo); // get the first base name
+
+  const uint8_t BASE_NAME_SIZE = 4; // the base name should not >6
+  char fileName[13];
+  strcpy(fileName, datetime);
+  strcat(fileName, "00.csv");
+
+  // get the next number for file name
+  while (sd.exists(fileName)) {
+    if (fileName[BASE_NAME_SIZE + 1] != '9') {
+      fileName[BASE_NAME_SIZE + 1]++;
+    } else if (fileName[BASE_NAME_SIZE] != '9') {
+      fileName[BASE_NAME_SIZE + 1] = '0';
+      fileName[BASE_NAME_SIZE]++;
+    } else {
+      error("Can't create file name");
+    }
+  }
+  if (!file.open(fileName, O_WRONLY | O_CREAT | O_EXCL)) {
+    error("file.open");
+  }
+
   file.print(F("Time, Drip Rate, Infused Volume"));
   file.println();
 }
@@ -38,15 +67,15 @@ void logData() {
     }
   }
   file.println();
+
+  // Force data to SD and update the directory entry to avoid data loss.
+  if (!file.sync() || file.getWriteError()) {
+    error("write error");
+  }
 }
 
 void sdCardSetUp() {
   SPI.begin(SD_SCK, SD_MISO, SD_MOSI, TFT_CS);
-
-  const uint8_t BASE_NAME_SIZE = 4;
-  char fileName[13] = FILE_BASE_NAME "00.csv";
-
-  delay(1000);  // remove later
 
   // Initialize at the highest speed supported by the board that is
   // not over 50 MHz. Try a lower speed if SPI errors occur.
@@ -54,41 +83,7 @@ void sdCardSetUp() {
     sd.initErrorHalt();
   }
 
-  // use for getting the real time
-  struct tm timeinfo;
-  if(!getLocalTime(&timeinfo)){
-    Serial.println("Failed to obtain time");
-    // return;
-  }
-
-  // Find an unused file name.
-  if (BASE_NAME_SIZE > 6) {
-    error("FILE_BASE_NAME too long");
-  }
-  while (sd.exists(fileName)) {
-    if (fileName[BASE_NAME_SIZE + 1] != '9') {
-      fileName[BASE_NAME_SIZE + 1]++;
-    } else if (fileName[BASE_NAME_SIZE] != '9') {
-      fileName[BASE_NAME_SIZE + 1] = '0';
-      fileName[BASE_NAME_SIZE]++;
-    } else {
-      error("Can't create file name");
-    }
-  }
-  if (!file.open(fileName, O_WRONLY | O_CREAT | O_EXCL)) {
-    error("file.open");
-  }
-  // Read any Serial data.
-  do {
-    delay(10);
-  } while (Serial.available() && Serial.read() >= 0);
-
-  Serial.print(F("Logging to: "));
-  Serial.println(fileName);
-  Serial.println(F("Type any character to stop"));
-
-  // Write data header.
-  // writeHeader();
+  // TODO: remove old data
 
   // check for weekday
   // char today[4];
@@ -139,17 +134,17 @@ void sdCardSetUp() {
 
   // remove and create dir <- remove can only be done when the directory is empty
   // prevent unwanted delete
-  if(SD.rmdir(path)){
-    Serial.println("Dir removed");
-  } else {
-    Serial.println("rmdir failed");
-  }
-  Serial.printf("Creating Dir: %s\n", path);
-  if(SD.mkdir(path)){
-    Serial.println("Dir created");
-  } else {
-    Serial.println("mkdir failed");
-  }
+  // if(SD.rmdir(path)){
+  //   Serial.println("Dir removed");
+  // } else {
+  //   Serial.println("rmdir failed");
+  // }
+  // Serial.printf("Creating Dir: %s\n", path);
+  // if(SD.mkdir(path)){
+  //   Serial.println("Dir created");
+  // } else {
+  //   Serial.println("mkdir failed");
+  // }
 }
 
 void changeSpiDevice() {
@@ -166,19 +161,9 @@ void changeSpiDevice() {
   state = !state;
 }
 
-void looptest() {
-  delay(1000);
-  logData();
-
-  // Force data to SD and update the directory entry to avoid data loss.
-  if (!file.sync() || file.getWriteError()) {
-    error("write error");
-  }
-
-  if (Serial.available()) {
-    // Close file and stop.
-    file.close();
-    Serial.println(F("Done"));
-    while (true) {}
-  }
+void endLogging() {
+  // Close file and stop.
+  file.close();
+  ESP_LOGI(DATA_LOGGING_TAG, "Data loggong done!");
+  while (true) {}
 }

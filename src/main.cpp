@@ -26,7 +26,7 @@
 #include <AGIS_Utilities.h>
 #include <AGIS_Display.h>
 #include <AGIS_SD.h>
-#include <AGIS_Logging.h>
+// #include <AGIS_Logging.h>
 #include <esp_log.h>
 
 #define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
@@ -373,6 +373,9 @@ void setup() {
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);  
   
   // oledSetUp();
+  changeSpiDevice();  // compulsorily change to communicate with SD
+  sdCardSetUp();      // as the MISO pin should change, or may change in .ini file?
+                      // should init tft -> spi set up -> sd card set up
 
   // setup for sensor interrupt
   attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
@@ -413,9 +416,10 @@ void setup() {
 
   // server.serveStatic("/", SD, "/web_server/");
 
-  server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SD, logFilePath, "text/plain", true);  // force download the file
-  });
+  // TODO: add this back
+  // server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
+  //   request->send(SD, logFilePath, "text/plain", true);  // force download the file
+  // });
 
   server.onNotFound(notFound); // if 404 not found, go to 404 not found
   AsyncElegantOTA.begin(&server); // for OTA update
@@ -431,13 +435,9 @@ void setup() {
   lv_scr_load(input_scr);
   input_screen();
 
-  changeSpiDevice();  // compulsorily change to communicate with SD
-  sdCardSetUp();      // as the MISO pin should change, or may change in .ini file?
-                      // should init tft -> spi set up -> sd card set up
-
   /*Create a task for data logging*/
   xTaskCreate(loggingInitTask,   /* Task function. */
-              "loggingInitTask", /* String with name of task. */
+              "Data Logging", /* String with name of task. */
               4096,              /* Stack size in bytes. */
               NULL,              /* Parameter passed as input of the task */
               1,                 /* Priority of the task. */
@@ -586,13 +586,13 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
 
           // we also want to log the infusion data to file
           // frequency of logging is set from script.js file
-          if ((infusionState == infusionState_t::IN_PROGRESS ||
-               infusionState == infusionState_t::ALARM_COMPLETED) &&
-               !loggingCompleted) {
-            // changeSpiDevice();
-            loggingCompleted = logInfusionMonitoringData(logFilePath);
-            // changeSpiDevice();
-          }
+          // if ((infusionState == infusionState_t::IN_PROGRESS ||
+          //      infusionState == infusionState_t::ALARM_COMPLETED) &&
+          //      !loggingCompleted) {
+          //   // changeSpiDevice();
+          //   loggingCompleted = logInfusionMonitoringData(logFilePath);
+          //   // changeSpiDevice();
+          // }
         }
         else {
           ESP_LOGE(WEBSOCKET_TAG, "Command undefined");
@@ -654,40 +654,28 @@ void infusionInit() {
 
 // try not to use the word "Task" in naming
 void loggingInitTask(void * parameter) {
-  while (1) {
+  // set up, only run once
+  // changeSpiDevice();  // compulsorily change to communicate with SD
+  // sdCardSetUp();      // as the MISO pin should change, or may change in .ini file?
+  //                     // should init tft -> spi set up -> sd card set up
+
+  for (;;) {
     if (enableLogging) {
-      // generating `logFilePath` for logging
-      logInit();
+      newFileInit();  // create new file and header
       ESP_LOGI(DATA_LOGGING_TAG, "Logging initialized");
       
-      // IMPORTANT: do not use vTaskDelete() here, it will delete the task, 
-      // i.e. will not run second time after triggered
-      // If you want to delete sth, pass out(6th parameter) and 
-      // delete outside, e.g. if(xReturned == adPASS) {vTaskDelete(NULL);}
-      // as I see you just delete null, I assume it is not in use and haven't do it
-      // vTaskDelete(NULL);
+      vTaskDelay(10); // just keep first, TODO: test whether can remove it
 
-      // to prevent keep updating the time
-      // which will cause a new file create each second
+      // after create file, do data logging
       while (infusionState == infusionState_t::IN_PROGRESS) {
-        vTaskDelay(100);
+        logData();
+        vTaskDelay(999); // wait for data logging
       }
     }
 
-    // Don't know why, but the tasks needs at least 1 line of code
-    // so that it logInit() can be triggered
-    // Hence, below line if left uncommented.
-    // uint32_t x = uxTaskGetStackHighWaterMark(NULL);
-    // Uncomment below to get the free stack size
-    // Serial.println(x);
-
-    // is not because not triggered, but the task perform too long time
-    // it is because different from arduino, ESP32 use RTOS
-    // thus, all repeated task should perform within a tight time boundary
-    // just similar with the same problem in interupt
-    // vTaskDelay is different from Delay, which let CPU does thing to wait
-    // vTaskDelay allow CPU works on other task while waiting
-    vTaskDelay(10);
-    // tasking = true;
+    if (infusionState == infusionState_t::ALARM_COMPLETED){
+      // TODO: add ver or othe thing to check state (make sure can go back to newFileInit())
+      endLogging();
+    }
   }
 }
