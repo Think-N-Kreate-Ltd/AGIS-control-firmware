@@ -277,6 +277,9 @@ SD card logo and meaning
 FS delete files in folder
  - https://gist.github.com/jenschr/5713c927c3fb8663d662
 
+SdFat web server download file
+ - https://github.com/me-no-dev/ESPAsyncWebServer/issues/124
+
 ======================================
 # web page code
 <!DOCTYPE HTML>

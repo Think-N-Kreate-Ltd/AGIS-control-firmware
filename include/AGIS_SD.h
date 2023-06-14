@@ -17,4 +17,14 @@ void logData();
 void endLogging();
 void changeSpiDevice();
 
+// File system object.
+extern SdFat sd;
+
+// Log file.
+extern SdFile file;
+
+extern char datetime[11]; // var for storing the date time
+extern char fileName[32]; // var for storing the path of file
+                          // assume VBTI=5char, time=5char, total should be 30char.
+
 #endif /* AGIS_SD_H */

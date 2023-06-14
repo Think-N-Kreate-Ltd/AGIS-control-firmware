@@ -340,6 +340,38 @@ void IRAM_ATTR motorControlISR() {
   }
 }
 
+// bool loadFromSdCard(AsyncWebServerRequest *request)
+// {
+//   bool SDReadFile = file.open("Data00.csv", O_READ);
+//   if (!SDReadFile){
+//     sd.errorHalt("file.open");
+//   }
+
+//   unsigned int dataAvaliable = file.fileSize() - file.curPosition();
+//   Serial.printf("Total file size: %s", String(dataAvaliable));
+
+//   AsyncWebServerResponse *response = request->beginResponse("text/plain", dataAvaliable,
+//     [](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+//     uint32_t readBytes;
+//     uint32_t bytes = 0;
+//     uint32_t avaliableBytes = file.available();
+
+//     if (avaliableBytes > maxLen) {
+//       bytes = file.read(buffer, maxLen);
+//     }
+//     else {
+//       bytes = file.read(buffer, avaliableBytes);
+//       file.close();
+//     }
+//     return bytes;
+//   });
+
+//   response->addHeader("Cache-Control", "no-cache");
+//   response->addHeader("Content-Disposition", "attachment; filename=" + String("Data00.csv"));
+//   response->addHeader("Access-Control-Allow-Origin", "*");
+//   request->send(response);
+// } 
+
 void setup() {
   Serial.begin(115200);
   pinMode(DROP_SENSOR_PIN, INPUT);
@@ -416,9 +448,25 @@ void setup() {
 
   // server.serveStatic("/", SD, "/web_server/");
 
-  // TODO: add this back
+  // TODO: download file
   // server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
-  //   request->send(SD, logFilePath, "text/plain", true);  // force download the file
+  //   if (!loadFromSdCard(request)) {
+  //     return;
+  //   }
+  // });
+
+  // server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
+  //   AsyncWebServerResponse* res = request->beginChunkedResponse("application/octet-stream", 
+  //   [](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+  //     if(index){ //already sent
+  //       return 0;
+  //     }
+  //     return snprintf((char *)buffer, maxLen, "test");
+  //   });
+  //   res->addHeader("Cache-Control", "no-cache");
+  //   res->addHeader("Content-Disposition", "attachment; filename=" + String("Data00.csv"));
+  //   res->addHeader("Access-Control-Allow-Origin", "*");
+  //   request->send(res);
   // });
 
   server.onNotFound(notFound); // if 404 not found, go to 404 not found
