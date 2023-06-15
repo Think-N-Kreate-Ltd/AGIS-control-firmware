@@ -26,6 +26,7 @@
 #include <AGIS_Types.h>       // user defined data types
 #include <AGIS_Utilities.h>
 #include <AGIS_Display.h>
+#include <AGIS_INA219.h>
 #include <AGIS_SD.h>
 // #include <AGIS_Logging.h>
 #include <esp_log.h>
@@ -115,7 +116,7 @@ void sendInfusionMonitoringDataWs();
 void homingRollerClamp();
 void infusionInit();
 void loggingData(void * parameter);
-void changeSpiDevice();
+void getI2CData(void * arg);
 
 // goto 404 not found when 404 not found
 void notFound(AsyncWebServerRequest *request) {
@@ -371,6 +372,8 @@ void setup() {
   ESP_LOGI(WIFI_TAG, "IP Address: %s", WiFi.localIP().toString());
 
   // oledSetUp();
+  ina219SetUp();
+  
   changeSpiDevice();  // compulsorily change to communicate with SD
   sdCardSetUp();      
 
@@ -436,6 +439,14 @@ void setup() {
               NULL,              /* Parameter passed as input of the task */
               1,                 /* Priority of the task. */
               NULL);             /* Task handle. */
+
+  // I2C is too slow that cannot use interrupt
+  xTaskCreate(getI2CData,     // function that should be called
+              "LCD Display",  // name of the task (debug use)
+              4096,           // stack size
+              NULL,           // parameter to pass
+              1,              // task priority, 0-24, 24 highest priority
+              NULL);          // task handle
 
   // homing the roller clamp
   while (!homingCompleted) {
@@ -669,5 +680,11 @@ void loggingData(void * parameter) {
       endLogging();
       finishLogging = false;
     }
+  }
+}
+
+void getI2CData(void * arg) {
+  for (;;) {
+    getIna219Data();
   }
 }

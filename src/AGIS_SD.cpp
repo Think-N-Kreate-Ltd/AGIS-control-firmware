@@ -1,5 +1,6 @@
 #include <AGIS_SD.h>
 #include <AGIS_Commons.h>
+#include <AGIS_INA219.h>
 
 // File system object.
 SdFat sd;
@@ -95,19 +96,20 @@ void newFileInit() {
     sd.errorHalt("file.open");
   }
 
-  file.print(F("Time, Drip Rate, Infused Volume"));
+  file.print(F("Time, Drip Rate, Infused Volume, Current, Bus Voltage, Shunt Voltage, Power, Average Current"));
   file.println();
 }
 
 void logData() {
   // to avoid SD write latency between readings
-  uint16_t data[3] = {infusedTime, dripRate, infusedVolume_x100}; // unsigned int = uint32_t, here reduce the size
+  uint16_t data[8] = {infusedTime, dripRate, infusedVolume_x100, current_mA, busvoltage, shuntvoltage,
+                      power_mW, avgCurrent_mA}; // unsigned int = uint32_t, here reduce the size
 
   // Write the first data to CSV record
   file.print(data[0]);
 
   // Write data to CSV record
-  for (uint8_t i = 1; i < 3; i++) {
+  for (uint8_t i = 1; i < 8; i++) {
     file.write(',');
     if (i==2) { // print the third colume with 1 d.p.
       uint16_t x = infusedVolume_x100 / 100;
