@@ -1,24 +1,53 @@
 #include <AGIS_SD.h>
 #include <AGIS_Commons.h>
 
-void rmOldData() {
-    // use for getting the real time
+// File system object.
+SdFat sd;
+
+// Log file.
+SdFile file;
+
+char today[4];     // var for storing the weekday of today
+char datetime[11]; // var for storing the date time
+char fileName[32]; // var for storing the path of file
+                   // assume VBTI=5char, time=5char, total should be 30char.
+
+void changeSpiDevice() {
+  // one SPI can only communicate with one device at the same time
+  // in most cases, the CS pin goes to LOW only when using
+  static bool state = true;
+  if (state) {
+    digitalWrite(TFT_CS, HIGH);
+    digitalWrite(SD_CS, LOW);
+  } else {
+    digitalWrite(TFT_CS, LOW);
+    digitalWrite(SD_CS, HIGH);
+  }
+  state = !state;
+}
+
+void getTime() {
+  // use for getting the real time
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo)){
     ESP_LOGE(DATA_LOGGING_TAG, "Failed to obtain time");
     // return;
   }
 
-  char today[4];
-  char path[5];
-  char weekday [7][4]= {{"Sun"}, {"Mon"}, {"Tue"}, {"Wed"}, {"Thu"}, {"Fri"}, {"Sat"}};
   strftime(today , 4, "%a", &timeinfo);            // get the weekday of today
   strftime(datetime , 11, "%a/%H%M%S", &timeinfo); // get the first base name
+}
+
+void rmOldData() {
+  getTime();
+
+  char path[5];
+  char weekday [7][4]= {{"Sun"}, {"Mon"}, {"Tue"}, {"Wed"}, {"Thu"}, {"Fri"}, {"Sat"}};
   for (int x=0; x<7; x++) {
     if (strcmp(weekday[x], today) == 0){
       if (x<6) {
         strcpy(path, "/");
-        strcat(path, weekday[x+1]); // get the next day
+        strcat(path, weekday[x+1]); // get the next weekday
       } else {
         strcpy(path, "/");
         strcat(path, weekday[0]);   // get Sunday
@@ -52,6 +81,7 @@ void sdCardSetUp() {
 }
 
 void newFileInit() {
+  getTime();
   sprintf(fileName, "%s_%u_%u_%u.csv", datetime, targetVTBI, targetTotalTime, dropFactor);
 
   // change the file name if already exists
@@ -96,18 +126,4 @@ void endLogging() {
   // Close file and stop.
   file.close();
   ESP_LOGI(DATA_LOGGING_TAG, "Data logging done!");
-}
-
-void changeSpiDevice() {
-  // one SPI can only communicate with one device at the same time
-  // in most cases, the CS pin goes to LOW only when using
-  static bool state = true;
-  if (state) {
-    digitalWrite(TFT_CS, HIGH);
-    digitalWrite(SD_CS, LOW);
-  } else {
-    digitalWrite(TFT_CS, LOW);
-    digitalWrite(SD_CS, HIGH);
-  }
-  state = !state;
 }
