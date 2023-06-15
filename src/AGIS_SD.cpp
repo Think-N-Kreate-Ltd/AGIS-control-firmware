@@ -127,14 +127,12 @@ void endLogging() {
   ESP_LOGI(DATA_LOGGING_TAG, "Data logging done!");
 }
 
-void loadFromSdCard(AsyncWebServerRequest *request)
-{
-  if (!file.open(fileName, O_READ)){
+void loadFromSdCard(AsyncWebServerRequest *request) {
+  if (!file.open(fileName, O_READ)) {
     sd.errorHalt("file.open");
   }
 
   unsigned int dataAvaliable = file.fileSize() - file.curPosition();
-  Serial.printf("Total file size: %s", String(dataAvaliable));
 
   AsyncWebServerResponse *response = request->beginResponse("text/plain", dataAvaliable,
     [](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {

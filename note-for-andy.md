@@ -86,17 +86,17 @@ When using ab SD card with other SPI devices on the same SPI bus, due to the res
 ======================================
 # improvement working on
  - ~~change SPIFFS to LittleFs~~
- - ~~can try SD card~~ (maybe FAT) <- ~~trying mySD.h~~
+ - ~~can try SD card~~ ~~(maybe FAT)~~ <- ~~trying mySD.h~~
     - update:
-    - mySD.h cannot directly use ESP Web lib to read .html etc
-      - but can read and store into a String var
-      - useless, just use additional place
-      - image cannot do that
-    - SdFat can use but is a little difference
-    - **change a SD card, then can use SD.h now**
+    - SanDisk 32GB cannot use SD.h
+      - 8/16GB would not produce any more
+    - use SdFat, but ESPAsyncWebServer don't support
+    - add function to download file
+    - **FINISHED**
  - buzzer test
  - everyone can accese the web page(?)
- - check for first aid kit item(?) <- there is nothing
+ - ~~check for first aid kit item(?) <- there is nothing~~
+ - ~~INA219~~
 # Keypad and TFT
  - ~~keypad on timer INT~~
 
