@@ -26,8 +26,7 @@ void changeSpiDevice() {
   state = !state;
 }
 
-void getTime() {
-  // use for getting the real time
+void getTime() {  // use for getting the real time
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo)){
     ESP_LOGE(DATA_LOGGING_TAG, "Failed to obtain time");
@@ -38,7 +37,7 @@ void getTime() {
   strftime(datetime , 11, "%a/%H%M%S", &timeinfo); // get the first base name
 }
 
-void rmOldData() {
+void rmOldData() {  // remove data that is a week before
   getTime();
 
   char path[5];
@@ -127,3 +126,34 @@ void endLogging() {
   file.close();
   ESP_LOGI(DATA_LOGGING_TAG, "Data logging done!");
 }
+
+void loadFromSdCard(AsyncWebServerRequest *request)
+{
+  if (!file.open(fileName, O_READ)){
+    sd.errorHalt("file.open");
+  }
+
+  unsigned int dataAvaliable = file.fileSize() - file.curPosition();
+  Serial.printf("Total file size: %s", String(dataAvaliable));
+
+  AsyncWebServerResponse *response = request->beginResponse("text/plain", dataAvaliable,
+    [](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+    uint32_t readBytes;
+    uint32_t bytes = 0;
+    uint32_t avaliableBytes = file.available();
+
+    if (avaliableBytes > maxLen) {
+      bytes = file.read(buffer, maxLen);
+    }
+    else {
+      bytes = file.read(buffer, avaliableBytes);
+      file.close();
+    }
+    return bytes;
+  });
+
+  response->addHeader("Cache-Control", "no-cache");
+  response->addHeader("Content-Disposition", "attachment; filename=" + String(fileName));
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  request->send(response);
+} 

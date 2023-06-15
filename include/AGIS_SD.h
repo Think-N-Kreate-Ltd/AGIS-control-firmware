@@ -3,6 +3,7 @@
 
 #include <SPI.h>
 #include "SdFat.h"
+#include <ESPAsyncWebServer.h>
 
 #define SD_MISO 21
 #define SD_MOSI 11
@@ -11,21 +12,15 @@
 #define TFT_CS  10
 
 void changeSpiDevice();
-void getTime();
-void rmOldData();
+void rmOldData();   // remove data that is a week before
 
 void sdCardSetUp();
 void newFileInit();
 void logData();
 void endLogging();
 
-// File system object.
-extern SdFat sd;
-
-// Log file.
-extern SdFile file;
-
-extern char datetime[11]; // var for storing the date time
-extern char fileName[32]; // var for storing the path of file
+// force download file
+// As SdFat is not supported, here use chunked response
+void loadFromSdCard(AsyncWebServerRequest *request);
 
 #endif /* AGIS_SD_H */
