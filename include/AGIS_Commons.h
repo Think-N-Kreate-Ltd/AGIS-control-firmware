@@ -22,12 +22,11 @@ static const char* LITTLE_FS_TAG = "LITTLE_FS";
 static const char* WIFI_TAG = "WIFI";
 static const char* OLED_TAG = "OLED";
 
-// TODO: check them one by one later
-extern char *logFilePath;
-extern const char* ntpServer;
-extern const long gmtOffset_sec;
-extern const int daylightOffset_sec;
+// extern char *logFilePath;
+// extern const char* ntpServer;
+// extern const long gmtOffset_sec;
+// extern const int daylightOffset_sec;
 extern bool enableLogging;
-extern bool loggingCompleted;
+// extern bool loggingCompleted;
 
 #endif /* D8C84950_1B28_4594_B461_3D52C4A78A6B */

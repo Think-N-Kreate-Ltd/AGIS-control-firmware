@@ -114,7 +114,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
 void sendInfusionMonitoringDataWs();
 void homingRollerClamp();
 void infusionInit();
-void loggingInitTask(void * parameter);
+void loggingData(void * parameter);
 void changeSpiDevice();
 
 // goto 404 not found when 404 not found
@@ -370,9 +370,6 @@ void setup() {
   // print the IP address of the web page
   ESP_LOGI(WIFI_TAG, "IP Address: %s", WiFi.localIP().toString());
 
-  // config time logging with NTP server
-  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);  
-  
   // oledSetUp();
   changeSpiDevice();  // compulsorily change to communicate with SD
   sdCardSetUp();      
@@ -425,9 +422,6 @@ void setup() {
   AsyncElegantOTA.begin(&server); // for OTA update
   server.begin();
 
-  // config time logging with NTP server
-  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-
   /*Initialize TFT display, LVGL*/
   display_init();
 
@@ -436,7 +430,7 @@ void setup() {
   input_screen();
 
   /*Create a task for data logging*/
-  xTaskCreate(loggingInitTask,   /* Task function. */
+  xTaskCreate(loggingData,   /* Task function. */
               "Data Logging", /* String with name of task. */
               4096,              /* Stack size in bytes. */
               NULL,              /* Parameter passed as input of the task */
@@ -652,8 +646,7 @@ void infusionInit() {
   homingCompleted = false;  // if not set, the infusion cannot be stopped
 }
 
-// try not to use the word "Task" in naming
-void loggingInitTask(void * parameter) {
+void loggingData(void * parameter) {
   // set up, only run once
   rmOldData();
   static bool finishLogging = false;

@@ -27,6 +27,9 @@ void changeSpiDevice() {
 }
 
 void getTime() {  // use for getting the real time
+  // config time logging with NTP server
+  configTime(28800, 0, "pool.ntp.org");  // 60x60x8=28800, +8h for Hong Kong
+
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo)){
     ESP_LOGE(DATA_LOGGING_TAG, "Failed to obtain time");
