@@ -11,13 +11,18 @@ volatile float power_mW;
 volatile float avgCurrent_mA;
 
 void ina219SetUp() {
-  Wire.begin(I2C_SDA, I2C_SCL);
+  // ina219.begin will also set up the I2C
+  // thus, use setPins instead of begin and avoid setup twice
+  // don't know why, it also solve the problem of WD triggered
+  Wire.setPins(I2C_SDA, I2C_SCL);
   while (!Serial) {
       // will pause Zero, Leonardo, etc until serial console opens
       delay(1);
   }
 
-  if (! ina219.begin()) {
+  // Wire.beginTransmission(64);
+
+  if (!ina219.begin(&Wire)) {
     Serial.println("Failed to find INA219 chip");
     while (1) { delay(10); }
   }
