@@ -433,16 +433,16 @@ void setup() {
   input_screen();
 
   /*Create a task for data logging*/
-  xTaskCreate(loggingData,   /* Task function. */
-              "Data Logging", /* String with name of task. */
+  xTaskCreate(loggingData,       /* Task function. */
+              "Data Logging",    /* String with name of task. */
               4096,              /* Stack size in bytes. */
               NULL,              /* Parameter passed as input of the task */
-              1,                 /* Priority of the task. */
+              2,                 /* Priority of the task. */
               NULL);             /* Task handle. */
 
   // I2C is too slow that cannot use interrupt
   xTaskCreate(getI2CData,     // function that should be called
-              "LCD Display",  // name of the task (debug use)
+              "Get I2C Data", // name of the task (debug use)
               4096,           // stack size
               NULL,           // parameter to pass
               1,              // task priority, 0-24, 24 highest priority
