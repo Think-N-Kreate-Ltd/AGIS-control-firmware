@@ -11,7 +11,7 @@
 #define SD_CS   9
 #define TFT_CS  10
 
-void changeSpiDevice();
+void useSdCard(bool state = true);
 void rmOldData();   // remove data that is a week before
 
 void sdCardSetUp();

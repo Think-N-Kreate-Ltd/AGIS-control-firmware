@@ -22,7 +22,7 @@ void ina219SetUp() {
 
   // Wire.beginTransmission(64);
 
-  if (!ina219.begin(&Wire)) {
+  if (!ina219.begin()) {
     Serial.println("Failed to find INA219 chip");
     while (1) { delay(10); }
   }

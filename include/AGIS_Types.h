@@ -24,7 +24,7 @@ typedef struct _infusion_monitoring_data_handle_t {
   volatile unsigned int * numDrops_p;
   volatile unsigned int * dripRate_p;
   volatile unsigned int * infusedVolume_p;
-  volatile unsigned long * infusedTime_p;
+  volatile unsigned int * infusedTime_p;
   infusionState_t * infusionState_p;
 } infusion_monitoring_data_handle_t;
 

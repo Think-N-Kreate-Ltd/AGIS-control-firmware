@@ -13,10 +13,9 @@ char datetime[11]; // var for storing the date time
 char fileName[32]; // var for storing the path of file
                    // assume VBTI=5char, time=5char, total should be 30char.
 
-void changeSpiDevice() {
+void useSdCard(bool state) {
   // one SPI can only communicate with one device at the same time
   // in most cases, the CS pin goes to LOW only when using
-  static bool state = true;
   if (state) {
     digitalWrite(TFT_CS, HIGH);
     digitalWrite(SD_CS, LOW);
@@ -24,7 +23,6 @@ void changeSpiDevice() {
     digitalWrite(TFT_CS, LOW);
     digitalWrite(SD_CS, HIGH);
   }
-  state = !state;
 }
 
 void getTime() {  // use for getting the real time
@@ -101,24 +99,28 @@ void newFileInit() {
 }
 
 void logData() {
-  // to avoid SD write latency between readings
-  float data[8] = {infusedTime, dripRate, infusedVolume_x100 / 100.0f, current_mA, busvoltage, shuntvoltage,
-                      power_mW, avgCurrent_mA};
+  // // to avoid SD write latency between readings
+  // float data[8] = {infusedTime, dripRate, infusedVolume_x100 / 100.0f, current_mA, busvoltage, shuntvoltage,
+  //                     power_mW, avgCurrent_mA};
 
-  // Write the first data to CSV record
-  file.print(data[0]);
+  // // Write the first data to CSV record
+  // file.print(data[0]);
 
-  // Write data to CSV record
-  for (uint8_t i = 1; i < 8; i++) {
-    file.write(',');
-    // if (i==2) { // print the third colume with 1 d.p.
-    //   uint16_t x = infusedVolume_x100 / 100;
-    //   file.printf("%d.%d", x, infusedVolume_x100 / 10 - (x*10));
-    // } else {
-      file.print(data[i]);
-    // }
-  }
-  file.println();
+  // // Write data to CSV record
+  // for (uint8_t i = 1; i < 8; i++) {
+  //   file.write(',');
+  //   // if (i==2) { // print the third colume with 1 d.p.
+  //   //   uint16_t x = infusedVolume_x100 / 100;
+  //   //   file.printf("%d.%d", x, infusedVolume_x100 / 10 - (x*10));
+  //   // } else {
+  //     file.print(data[i]);
+  //   // }
+  // }
+  // file.println();
+
+  file.printf("%u, %u, %f, %f, %f, %f, %f, %.1f\n", infusedTime, dripRate, 
+                  infusedVolume_x100 / 100.0f, current_mA, busvoltage, 
+                  shuntvoltage, power_mW, avgCurrent_mA);
 
   // Force data to SD and update the directory entry to avoid data loss.
   if (!file.sync() || file.getWriteError()) {

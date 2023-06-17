@@ -49,7 +49,7 @@ volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
 
 // var for timer1 interrupt
 volatile unsigned int infusedVolume_x100 = 0;  // 100 times larger than actual value, unit: mL
-volatile unsigned long infusedTime = 0;     // unit: seconds
+volatile unsigned int infusedTime = 0;         // unit: seconds
 volatile unsigned long infusionStartTime = 0;
 
 // volatile unsigned int dripRateSamplingCount = 0;  // use for drip rate sampling
@@ -374,23 +374,23 @@ void setup() {
   // oledSetUp();
   ina219SetUp();
   
-  changeSpiDevice();  // compulsorily change to communicate with SD
+  useSdCard();  // compulsorily change to communicate with SD
   sdCardSetUp();      
 
   // setup for sensor interrupt
   attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
 
   // setup for timer0
-  Timer0_cfg = timerBegin(0, 80, true); // prescaler = 80
+  Timer0_cfg = timerBegin(0, 80, true);    // prescaler = 80
   timerAttachInterrupt(Timer0_cfg, &motorControlISR,
-                       true);              // call the function motorcontrol()
+                       false);             // call the function motorcontrol()
   timerAlarmWrite(Timer0_cfg, 1000, true); // time = 80*1000/80,000,000 = 1ms
   timerAlarmEnable(Timer0_cfg);            // start the interrupt
 
   // setup for timer1
-  Timer1_cfg = timerBegin(1, 80, true); // Prescaler = 80
+  Timer1_cfg = timerBegin(1, 80, true);    // Prescaler = 80
   timerAttachInterrupt(Timer1_cfg, &autoControlISR,
-                       true);              // call the function autoControlISR()
+                       false);             // call the function autoControlISR()
   timerAlarmWrite(Timer1_cfg, 1000, true); // Time = 80*1000/80,000,000 = 1ms
   timerAlarmEnable(Timer1_cfg);            // start the interrupt
 
@@ -594,9 +594,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
           // if ((infusionState == infusionState_t::IN_PROGRESS ||
           //      infusionState == infusionState_t::ALARM_COMPLETED) &&
           //      !loggingCompleted) {
-          //   // changeSpiDevice();
           //   loggingCompleted = logInfusionMonitoringData(logFilePath);
-          //   // changeSpiDevice();
           // }
         }
         else {
@@ -679,6 +677,7 @@ void loggingData(void * parameter) {
     if ((infusionState == infusionState_t::ALARM_COMPLETED) && finishLogging) {
       endLogging();
       finishLogging = false;
+      useSdCard(false);
     }
   }
 }
@@ -686,5 +685,6 @@ void loggingData(void * parameter) {
 void getI2CData(void * arg) {
   for (;;) {
     getIna219Data();
+    vTaskDelay(449);
   }
 }
