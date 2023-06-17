@@ -20,7 +20,8 @@ void logData();
 void endLogging();
 
 // force download file
-// As SdFat is not supported, here use chunked response
-void loadFromSdCard(AsyncWebServerRequest *request);
+// as SdFat is not supported, here use chunked response
+// use pass by response to reduce the data copied
+void loadFromSdCard(AsyncWebServerRequest *& request);
 
 #endif /* AGIS_SD_H */
