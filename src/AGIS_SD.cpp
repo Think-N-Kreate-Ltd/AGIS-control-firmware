@@ -135,7 +135,7 @@ void endLogging() {
 }
 
 void loadFromSdCard(AsyncWebServerRequest *& request) {
-  if (!file.open(fileName, O_READ)) {
+  if (!file.open(fileName, O_RDONLY)) { // open for read only
     sd.errorHalt("file.open");
   }
 
