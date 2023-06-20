@@ -32,6 +32,20 @@ This is the firmware for AGIS control board.
 |        8       |          47          |
 |        9       |          48          |
 
+- Update SPI wiring:
+  - SCK, MOSI, GND, 3V3 use the same pin, can make use of the jumper on SD module
+  - GPIO 35 should not be used as it will affect the result of drop sensor
+
+| **SPI pin** |                  **ESP32 devkit pin**                  |
+|:-----------:|:------------------------------------------------------:|
+|     MISO    |                           21                           |
+|     SCK     |                           12                           |
+|     MOSI    |                           11                           |
+|    TFT CS   |                           10                           |
+|    SD CS    |                            9                           |
+|      DC     |                           13                           |
+|    RESET    |                           14                           |
+|     LED     | 3V3 (can change to GPIO pin to allow toggle backlight) |
 
 ## IDE setup
 + [Visual Studio Code](https://code.visualstudio.com/)

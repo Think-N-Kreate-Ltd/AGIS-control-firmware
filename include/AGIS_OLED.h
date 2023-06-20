@@ -11,7 +11,7 @@
 #define OLED_CS     6
 #define OLED_RESET  7
 
-extern volatile unsigned long infusedTime;
+extern volatile unsigned int infusedTime;
 
 void oledSetUp();
 void tableOledDisplay(int i, int j, int k);

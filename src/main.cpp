@@ -5,24 +5,30 @@
   GPIO36 -> EXT interrupt for reading sensor data
   timer0 -> INT interrupt for read sensor & time measure
   timer1 -> INT interrupt for auto control
-  timer3 -> INT interrupt for control the motor
+
+  Problem will occur when homing and click "Set and Run" at the same time
 */
 
 #include <Arduino.h>
 #include <AsyncTCP.h>
 #include <WiFiManager.h> // define before <WiFi.h>
 #include <ESPAsyncWebServer.h>
+#include <SPI.h>
+#include "SdFat.h"
 #include <LittleFS.h>
 #include <WiFi.h>
 #include <ezButton.h>
 #include <limits.h>
 #include <ArduinoJson.h>
 #include <AsyncElegantOTA.h>  // define after <ESPAsyncWebServer.h>
-#include <AGIS_OLED.h>
+#include <AGIS_Commons.h>
+// #include <AGIS_OLED.h>
 #include <AGIS_Types.h>       // user defined data types
 #include <AGIS_Utilities.h>
 #include <AGIS_Display.h>
-#include <AGIS_Logging.h>
+#include <AGIS_INA219.h>
+#include <AGIS_SD.h>
+// #include <AGIS_Logging.h>
 #include <esp_log.h>
 
 #define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
@@ -43,7 +49,7 @@ volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
 
 // var for timer1 interrupt
 volatile unsigned int infusedVolume_x100 = 0;  // 100 times larger than actual value, unit: mL
-volatile unsigned long infusedTime = 0;     // unit: seconds
+volatile unsigned int infusedTime = 0;         // unit: seconds
 volatile unsigned long infusionStartTime = 0;
 
 // volatile unsigned int dripRateSamplingCount = 0;  // use for drip rate sampling
@@ -109,7 +115,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
 void sendInfusionMonitoringDataWs();
 void homingRollerClamp();
 void infusionInit();
-void loggingInitTask(void * parameter);
+void loggingData(void * parameter);
+void getI2CData(void * arg);
 
 // goto 404 not found when 404 not found
 void notFound(AsyncWebServerRequest *request) {
@@ -119,7 +126,6 @@ void notFound(AsyncWebServerRequest *request) {
 // create pointer for timer
 hw_timer_t *Timer0_cfg = NULL; // create a pointer for timer0
 hw_timer_t *Timer1_cfg = NULL; // create a pointer for timer1
-hw_timer_t *Timer3_cfg = NULL; // create a pointer for timer3
 
 // EXT interrupt to pin 36, for sensor detected drops and measure the time
 void IRAM_ATTR dropSensorISR() {
@@ -263,6 +269,7 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
     if ((infusionState == infusionState_t::ALARM_COMPLETED) && !homingCompleted) {
     // homing the roller clamp, i.e. move it down to completely closed position
       homingRollerClamp();
+      enableLogging = false;
     }
     else {
       if (enableAutoControl) {
@@ -334,45 +341,11 @@ void IRAM_ATTR motorControlISR() {
   }
 }
 
-// timer3 interrupt, for display ISR (TFT or OLED)
-void IRAM_ATTR DisplayISR(){
-}
-
 void setup() {
   Serial.begin(115200);
   pinMode(DROP_SENSOR_PIN, INPUT);
-  
-  // oledSetUp();
-
-  // setup for sensor interrupt
-  attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
-
-  // setup for timer0
-  Timer0_cfg = timerBegin(0, 80, true); // prescaler = 80
-  timerAttachInterrupt(Timer0_cfg, &motorControlISR,
-                       true);              // call the function motorcontrol()
-  timerAlarmWrite(Timer0_cfg, 1000, true); // time = 80*1000/80,000,000 = 1ms
-  timerAlarmEnable(Timer0_cfg);            // start the interrupt
-
-  // setup for timer1
-  Timer1_cfg = timerBegin(1, 80, true); // Prescaler = 80
-  timerAttachInterrupt(Timer1_cfg, &autoControlISR,
-                       true);              // call the function autoControlISR()
-  timerAlarmWrite(Timer1_cfg, 1000, true); // Time = 80*1000/80,000,000 = 1ms
-  timerAlarmEnable(Timer1_cfg);            // start the interrupt
-
-  // setup for timer3
-  Timer3_cfg = timerBegin(3, 40000, true); // Prescaler = 40000
-  timerAttachInterrupt(Timer3_cfg, &DisplayISR,
-                       true);              // call the function DisplayISR()
-  timerAlarmWrite(Timer3_cfg, 1000, true); // Time = 40000*1000/80,000,000 = 500ms
-  timerAlarmEnable(Timer3_cfg);            // start the interrupt
-
-  // Initialize LittleFS
-  if (!LittleFS.begin(true)) {
-    ESP_LOGE(LITTLE_FS_TAG, "An Error has occurred while mounting LittleFS");
-    return;
-  }
+  pinMode(SD_CS, OUTPUT);
+  pinMode(TFT_CS, OUTPUT);
 
   WiFi.mode(WIFI_STA); // wifi station mode
 
@@ -398,37 +371,59 @@ void setup() {
   // print the IP address of the web page
   ESP_LOGI(WIFI_TAG, "IP Address: %s", WiFi.localIP().toString());
 
+  // oledSetUp();
+  ina219SetUp();
+  
+  useSdCard();  // compulsorily change to communicate with SD
+  sdCardSetUp();      
+
+  // setup for sensor interrupt
+  attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
+
+  // setup for timer0
+  Timer0_cfg = timerBegin(0, 80, true);    // prescaler = 80
+  timerAttachInterrupt(Timer0_cfg, &motorControlISR,
+                       false);             // call the function motorcontrol()
+  timerAlarmWrite(Timer0_cfg, 1000, true); // time = 80*1000/80,000,000 = 1ms
+  timerAlarmEnable(Timer0_cfg);            // start the interrupt
+
+  // setup for timer1
+  Timer1_cfg = timerBegin(1, 80, true);    // Prescaler = 80
+  timerAttachInterrupt(Timer1_cfg, &autoControlISR,
+                       false);             // call the function autoControlISR()
+  timerAlarmWrite(Timer1_cfg, 1000, true); // Time = 80*1000/80,000,000 = 1ms
+  timerAlarmEnable(Timer1_cfg);            // start the interrupt
+
+  // Initialize LittleFS
+  if (!LittleFS.begin(true)) {
+    ESP_LOGE(LITTLE_FS_TAG, "An Error has occurred while mounting LittleFS");
+    return;
+  }
+
   // Init Websocket
   initWebSocket();
-
-  // Create the file for web page
-  // createDir(LittleFS, "/index.html");
-  // createDir(LittleFS, "/style.css");
-  // createDir(LittleFS, "/script.css");
 
   // Send web page to client
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(LittleFS, "/index.html", String(), false);
   });
 
-  server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(LittleFS, "/style.css", "text/css");
-  });
+  // server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+  //   request->send(SD, "/web_server/index.html", String(), false);
+  // });
 
-  server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(LittleFS, "/script.js", "text/javascript");
-  });
+  server.serveStatic("/", LittleFS, "/");
 
+  // server.serveStatic("/", SD, "/web_server/");
+
+  // force download file
   server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(LittleFS, logFilePath, "text/plain", true);  // force download the file
+    loadFromSdCard(request);
   });
 
   server.onNotFound(notFound); // if 404 not found, go to 404 not found
   AsyncElegantOTA.begin(&server); // for OTA update
   server.begin();
-
-  // config time logging with NTP server
-  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
   /*Initialize TFT display, LVGL*/
   display_init();
@@ -438,16 +433,33 @@ void setup() {
   input_screen();
 
   /*Create a task for data logging*/
-  xTaskCreate(loggingInitTask,   /* Task function. */
-              "loggingInitTask", /* String with name of task. */
+  xTaskCreate(loggingData,       /* Task function. */
+              "Data Logging",    /* String with name of task. */
               4096,              /* Stack size in bytes. */
               NULL,              /* Parameter passed as input of the task */
-              1,                 /* Priority of the task. */
+              2,                 /* Priority of the task. */
               NULL);             /* Task handle. */
+
+  // I2C is too slow that cannot use interrupt
+  xTaskCreate(getI2CData,     // function that should be called
+              "Get I2C Data", // name of the task (debug use)
+              4096,           // stack size
+              NULL,           // parameter to pass
+              1,              // task priority, 0-24, 24 highest priority
+              NULL);          // task handle
 
   // homing the roller clamp
   while (!homingCompleted) {
-    homingRollerClamp();
+    // homingRollerClamp();
+
+    // problem will occur when homing and click "Set and Run" at the same time
+    // ONLY uncomment while testing, and also comment homingRollerClamp()
+    delay(2000);
+    homingCompleted = true;
+    enableAutoControl = false;
+    if (homingCompleted) {
+      Serial.println("homing completed, can move the motor now");
+    }
   }
 }
 
@@ -579,11 +591,11 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
 
           // we also want to log the infusion data to file
           // frequency of logging is set from script.js file
-          if ((infusionState == infusionState_t::IN_PROGRESS ||
-               infusionState == infusionState_t::ALARM_COMPLETED) &&
-               !loggingCompleted) {
-            loggingCompleted = logInfusionMonitoringData(logFilePath);
-          }
+          // if ((infusionState == infusionState_t::IN_PROGRESS ||
+          //      infusionState == infusionState_t::ALARM_COMPLETED) &&
+          //      !loggingCompleted) {
+          //   loggingCompleted = logInfusionMonitoringData(logFilePath);
+          // }
         }
         else {
           ESP_LOGE(WEBSOCKET_TAG, "Command undefined");
@@ -643,20 +655,42 @@ void infusionInit() {
   homingCompleted = false;  // if not set, the infusion cannot be stopped
 }
 
-void loggingInitTask(void * parameter) {
-  while (1) {
+void loggingData(void * parameter) {
+  // set up, only run once
+  rmOldData();
+  static bool finishLogging = false;
+
+  for (;;) {
     if (enableLogging) {
-      // generating `logFilePath` for logging
-      logInit();
+      newFileInit();  // create new file and header
       ESP_LOGI(DATA_LOGGING_TAG, "Logging initialized");
-      vTaskDelete(NULL);
+      
+      // after create file, do data logging
+      while (infusionState == infusionState_t::IN_PROGRESS) {
+        logData();
+        vTaskDelay(999); // wait for data logging
+      }
+
+      finishLogging = true;
     }
 
-    // Don't know why, but the tasks needs at least 1 line of code
-    // so that it logInit() can be triggered
-    // Hence, below line if left uncommented.
-    uint32_t x = uxTaskGetStackHighWaterMark(NULL);
-    // Uncomment below to get the free stack size
-    // Serial.println(x);
+    // only run once when finish
+    if ((infusionState == infusionState_t::ALARM_COMPLETED) && finishLogging) {
+      endLogging();
+      finishLogging = false;
+      useSdCard(false);
+    }
+
+    while ((infusionState == infusionState_t::ALARM_COMPLETED) && !finishLogging) {
+      // free the CPU when finish infusion
+      vTaskDelay(500);
+    }
+  }
+}
+
+void getI2CData(void * arg) {
+  for (;;) {
+    getIna219Data();
+    vTaskDelay(449);
   }
 }
