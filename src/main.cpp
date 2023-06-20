@@ -674,10 +674,16 @@ void loggingData(void * parameter) {
       finishLogging = true;
     }
 
+    // only run once when finish
     if ((infusionState == infusionState_t::ALARM_COMPLETED) && finishLogging) {
       endLogging();
       finishLogging = false;
       useSdCard(false);
+    }
+
+    while ((infusionState == infusionState_t::ALARM_COMPLETED) && !finishLogging) {
+      // free the CPU when finish infusion
+      vTaskDelay(500);
     }
   }
 }
