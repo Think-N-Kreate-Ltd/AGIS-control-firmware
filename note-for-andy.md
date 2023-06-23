@@ -97,8 +97,8 @@ When using ab SD card with other SPI devices on the same SPI bus, due to the res
  - everyone can accese the web page(?)
  - ~~check for first aid kit item(?) <- there is nothing~~
  - ~~INA219~~
- - add INA219 and SdFat together
-    - sometimes WD triggered after download file
+ - ~~add INA219 and SdFat together~~
+    - ~~sometimes WD triggered after download file~~
 # Keypad and TFT
  - ~~keypad on timer INT~~
 
