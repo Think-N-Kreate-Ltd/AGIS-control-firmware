@@ -1,3 +1,19 @@
+# Interrupts
+
+Try to avoid calling LVGL functions from interrupt handlers (except lv_tick_inc() and lv_disp_flush_ready()). But if you need to do this you have to disable the interrupt which uses LVGL functions while lv_timer_handler() is running.
+
+It's a better approach to simply set a flag or some value in the interrupt, and periodically check it in an LVGL timer (which is run by lv_timer_handler()).
+
+https://docs.lvgl.io/master/porting/os.html#tasks-and-threads
+https://docs.lvgl.io/master/overview/event.html#events
+
+set up drivers
+https://docs.lvgl.io/master/get-started/platforms/arduino.html
+
+start up
+https://daumemo.com/how-to-use-lvgl-library-on-arduino-with-an-esp-32-and-spi-lcd/
+
+=======================================================
 # Sharing the SPI bus among SD card and other SPI devices
 
 https://github.com/espressif/esp-idf/blob/5cc4bceb2a46b5f29e7b867150bdc7288f77b8bf/docs/en/api-reference/peripherals/sdspi_share.rst
