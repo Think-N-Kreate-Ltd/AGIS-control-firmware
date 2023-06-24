@@ -11,7 +11,10 @@ set up drivers
 https://docs.lvgl.io/master/get-started/platforms/arduino.html
 
 start up
+this is a outdated version but provide better information
 https://daumemo.com/how-to-use-lvgl-library-on-arduino-with-an-esp-32-and-spi-lcd/
+this is the new version(v8.3) example
+https://github.com/lvgl/lvgl/blob/release/v8.3/examples/arduino/LVGL_Arduino/LVGL_Arduino.ino
 
 =======================================================
 # Sharing the SPI bus among SD card and other SPI devices
