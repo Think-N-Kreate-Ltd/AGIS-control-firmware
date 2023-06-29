@@ -353,21 +353,21 @@ void setup() {
   // setup for timer0
   Timer0_cfg = timerBegin(0, 80, true); // prescaler = 80
   timerAttachInterrupt(Timer0_cfg, &motorControlISR,
-                       true);              // call the function motorcontrol()
+                       false);              // call the function motorcontrol()
   timerAlarmWrite(Timer0_cfg, 1000, true); // time = 80*1000/80,000,000 = 1ms
   timerAlarmEnable(Timer0_cfg);            // start the interrupt
 
   // setup for timer1
   Timer1_cfg = timerBegin(1, 80, true); // Prescaler = 80
   timerAttachInterrupt(Timer1_cfg, &autoControlISR,
-                       true);              // call the function autoControlISR()
+                       false);              // call the function autoControlISR()
   timerAlarmWrite(Timer1_cfg, 1000, true); // Time = 80*1000/80,000,000 = 1ms
   timerAlarmEnable(Timer1_cfg);            // start the interrupt
 
   // setup for timer3
   Timer3_cfg = timerBegin(3, 40000, true); // Prescaler = 40000
   timerAttachInterrupt(Timer3_cfg, &DisplayISR,
-                       true);              // call the function DisplayISR()
+                       false);              // call the function DisplayISR()
   timerAlarmWrite(Timer3_cfg, 1000, true); // Time = 40000*1000/80,000,000 = 500ms
   timerAlarmEnable(Timer3_cfg);            // start the interrupt
 

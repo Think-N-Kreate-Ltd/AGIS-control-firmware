@@ -19,7 +19,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT,
 void oledSetUp() {
   // Initialize OLED
 #ifdef OLED_I2C
-  Wire.begin(I2C_SDA, I2C_SCL);
+  Wire.setPins(I2C_SDA, I2C_SCL);
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     ESP_LOGE(OLED_TAG, "SSD1306 allocation failed");
     return;
