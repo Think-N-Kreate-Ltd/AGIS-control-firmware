@@ -46,6 +46,8 @@ volatile unsigned int infusedVolume_x100 = 0;  // 100 times larger than actual v
 volatile unsigned long infusedTime = 0;     // unit: seconds
 volatile unsigned long infusionStartTime = 0;
 
+volatile bool lockInfusionStartTime = false;
+
 // volatile unsigned int dripRateSamplingCount = 0;  // use for drip rate sampling
 // volatile unsigned int numDropsInterval = 0;  // number of drops in 15 seconds
 volatile unsigned int autoControlCount = 0;  // use for regulating frequency of motor is on
@@ -144,8 +146,10 @@ void IRAM_ATTR dropSensorISR() {
         firstDropDetected = true;
         lastDropTime = -9999; // prevent timeBtw2Drops become inf
 
-        // mark this as starting time of infusion
-        infusionStartTime = millis();
+        if (!lockInfusionStartTime) {
+          // mark this as starting time of infusion
+          infusionStartTime = millis();
+        }
       }
       if (infusionState != infusionState_t::IN_PROGRESS) {
         // TODO: when click "Set and Run" button on the website again to
@@ -193,6 +197,9 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
       timeBtw2Drops = UINT_MAX;
 
       infusionState = infusionState_t::NOT_STARTED;
+
+      // prevent infusion time goto 0
+      lockInfusionStartTime = true;
 
       // infusion is still in progress but we cannot detect drops for 20s,
       // something must be wrong, sound the alarm
@@ -339,6 +346,9 @@ void IRAM_ATTR motorControlISR() {
 void IRAM_ATTR DisplayISR(){
   // Cannot do many things in here,
   // otherwise WDT will complain
+
+  // is because I2C communication too slow
+  // WD will be triggered while waiting for I2C response
 }
 
 void setup() {
@@ -440,6 +450,7 @@ void setup() {
   lv_scr_load(input_scr);
   input_screen();
 
+  // TODO: set different prioity for different task
   /*Create a task for data logging*/
   xTaskCreate(loggingInitTask,   /* Task function. */
               "loggingInitTask", /* String with name of task. */
@@ -660,13 +671,15 @@ void loggingInitTask(void * parameter) {
       // generating `logFilePath` for logging
       logInit();
       ESP_LOGI(DATA_LOGGING_TAG, "Logging initialized");
-      vTaskDelete(NULL);
+      // vTaskDelete(NULL);
+      vTaskDelay(499);  // let data logging do twice in 1s atmost
     }
 
     // Don't know why, but the tasks needs at least 1 line of code
     // so that it logInit() can be triggered
     // Hence, below line if left uncommented.
-    uint32_t x = uxTaskGetStackHighWaterMark(NULL);
+    // uint32_t x = uxTaskGetStackHighWaterMark(NULL);
+    vTaskDelay(10);
     // Uncomment below to get the free stack size
     // Serial.println(x);
   }
