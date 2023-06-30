@@ -46,7 +46,10 @@ volatile unsigned int infusedVolume_x100 = 0;  // 100 times larger than actual v
 volatile unsigned long infusedTime = 0;     // unit: seconds
 volatile unsigned long infusionStartTime = 0;
 
+// var for quick fix the problem for doing demo only
 volatile bool lockInfusionStartTime = false;
+volatile bool logging500msPassed = false;
+
 
 // volatile unsigned int dripRateSamplingCount = 0;  // use for drip rate sampling
 // volatile unsigned int numDropsInterval = 0;  // number of drops in 15 seconds
@@ -196,15 +199,18 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
       firstDropDetected = false;
       timeBtw2Drops = UINT_MAX;
 
-      infusionState = infusionState_t::NOT_STARTED;
-
-      // prevent infusion time goto 0
-      lockInfusionStartTime = true;
+      if ((infusionState == infusionState_t::ALARM_COMPLETED) || 
+          (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED)) {
+            infusionState = infusionState_t::NOT_STARTED;
+          }
 
       // infusion is still in progress but we cannot detect drops for 20s,
       // something must be wrong, sound the alarm
       if (infusionState == infusionState_t::IN_PROGRESS) {
         infusionState = infusionState_t::ALARM_STOPPED;
+
+      // prevent infusion time goto 0
+      lockInfusionStartTime = true;
       }
     }
   } else {
@@ -219,7 +225,11 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
   // get infusion time so far:
   if ((infusionState != infusionState_t::ALARM_COMPLETED) && firstDropDetected) {
     infusedTime = (millis() - infusionStartTime) / 1000;  // in seconds
-  }
+  } 
+  // else if ((infusionState != infusionState_t::IN_PROGRESS) && !firstDropDetected) {
+  //   // reset the infused time before the second infusion
+  //   infusionStartTime = millis();
+  // }
 
   // Only run autoControlISR() when the following conditions satisfy:
   //   1. button_ENTER is pressed, or command is sent from website
@@ -470,6 +480,15 @@ void setup() {
   // homing the roller clamp
   while (!homingCompleted) {
     homingRollerClamp();
+
+    // problem will occur when homing and click "Set and Run" at the same time
+    // ONLY uncomment while testing, and also comment homingRollerClamp()
+    // delay(2000);
+    // homingCompleted = true;
+    // enableAutoControl = false;
+    // if (homingCompleted) {
+    //   Serial.println("homing completed, can move the motor now");
+    // }
   }
 }
 
@@ -604,7 +623,10 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
           if ((infusionState == infusionState_t::IN_PROGRESS ||
                infusionState == infusionState_t::ALARM_COMPLETED) &&
                !loggingCompleted) {
-            loggingCompleted = logInfusionMonitoringData(logFilePath);
+            if (logging500msPassed) { // quick fix for demo only
+              loggingCompleted = logInfusionMonitoringData(logFilePath);
+              logging500msPassed = false;
+            }
           }
         }
         else {
@@ -660,7 +682,8 @@ void infusionInit() {
   //    Add more if necessary
   numDrops = 0;
   infusedVolume_x100 = 0;
-  infusedTime = 0;
+  infusedTime = 0; // useless
+  infusionStartTime = millis();
 
   homingCompleted = false;  // if not set, the infusion cannot be stopped
 }
@@ -671,17 +694,42 @@ void loggingInitTask(void * parameter) {
       // generating `logFilePath` for logging
       logInit();
       ESP_LOGI(DATA_LOGGING_TAG, "Logging initialized");
+      
+      // IMPORTANT: do not use vTaskDelete() here, it will delete the task, 
+      // i.e. will not run second time after triggered
+      // If you want to delete sth, pass out(6th parameter) and 
+      // delete outside, e.g. if(xReturned == adPASS) {vTaskDelete(NULL);}
+      // as I see you just delete null, I assume it is not in use and haven't do it
       // vTaskDelete(NULL);
-      vTaskDelay(499);  // let data logging do twice in 1s atmost
+
+      // to prevent keep updating the time
+      // which will cause a new file create each second
+      // also to prevent logging more then twice in a second
+      while (infusionState == infusionState_t::IN_PROGRESS) {
+        vTaskDelay(500);
+        logging500msPassed = true;
+      }
+    }
+
+    while (infusionState == infusionState_t::ALARM_COMPLETED) {
+      vTaskDelay(100);
     }
 
     // Don't know why, but the tasks needs at least 1 line of code
     // so that it logInit() can be triggered
     // Hence, below line if left uncommented.
     // uint32_t x = uxTaskGetStackHighWaterMark(NULL);
-    vTaskDelay(10);
     // Uncomment below to get the free stack size
     // Serial.println(x);
+
+    // is not because not triggered, but the task perform too long time
+    // it is because different from arduino, ESP32 use RTOS
+    // thus, all repeated task should perform within a tight time boundary
+    // just similar with the same problem in interupt
+    // vTaskDelay is different from Delay, which let CPU does thing to wait
+    // vTaskDelay allow CPU works on other task while waiting
+    vTaskDelay(10);
+    // tasking = true;
   }
 }
 
