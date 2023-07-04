@@ -299,6 +299,10 @@ volatile
  - https://hackaday.com/2015/08/18/embed-with-elliot-the-volatile-keyword/
  - Memory-mapped Hardware Registers don't knot what it says
 
+struct
+ - https://stackoverflow.com/questions/330793/how-to-initialize-a-struct-in-accordance-with-c-programming-language-standards
+ - use for conveniently change value for many vars at the same time
+
 may use for button
  - https://www.w3schools.com/howto/howto_css_animate_buttons.asp
  - https://www.w3schools.com/howto/howto_css_switch.asp
