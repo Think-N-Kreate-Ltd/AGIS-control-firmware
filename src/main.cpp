@@ -26,6 +26,7 @@
 #include <esp_log.h>
 
 #define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
+#define DROP_SENSOR_LED_PIN  35 // output pin to sensor for turning on LED
 #define MOTOR_CTRL_PIN_1 15 // Motorl Control Board PWM 1
 #define MOTOR_CTRL_PIN_2 16 // Motorl Control Board PWM 2
 #define PWM_PIN          4  // input pin for the potentiometer
@@ -40,6 +41,7 @@ infusionState_t infusionState = infusionState_t::NOT_STARTED;
 volatile unsigned int numDrops = 0;   // for counting the number of drops within 15s
 volatile unsigned int dripRate = 0;       // for calculating the drip rate
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
+volatile bool turnOnLed = false;      // use for demo, to turn on the LED for a short time
 
 // var for timer1 interrupt
 volatile unsigned int infusedVolume_x100 = 0;  // 100 times larger than actual value, unit: mL
@@ -116,6 +118,7 @@ void homingRollerClamp();
 void infusionInit();
 void loggingInitTask(void * parameter);
 void oledDisplayTask(void *parameter);
+void otherLittleWorks(void * arg);
 
 // goto 404 not found when 404 not found
 void notFound(AsyncWebServerRequest *request) {
@@ -142,6 +145,8 @@ void IRAM_ATTR dropSensorISR() {
     // disable for `DROP_DEBOUNCE_TIME` ms after called
     if ((dropSensorState == 1) && 
         ((millis()-lastTime)>=DROP_DEBOUNCE_TIME)) {
+      turnOnLed = true; // demo use, turn on LED for a short
+
       lastTime = millis();
 
       // FIRST DROP DETECTION
@@ -364,6 +369,8 @@ void IRAM_ATTR DisplayISR(){
 void setup() {
   Serial.begin(115200);
   pinMode(DROP_SENSOR_PIN, INPUT);
+  pinMode(DROP_SENSOR_LED_PIN, OUTPUT);
+  digitalWrite(DROP_SENSOR_LED_PIN, HIGH); // prevent it initially turn on
   
   oledSetUp();
 
@@ -475,6 +482,14 @@ void setup() {
               4096,              /* Stack size in bytes. */
               NULL,              /* Parameter passed as input of the task */
               1,                 /* Priority of the task. */
+              NULL);             /* Task handle. */
+
+  /*Create a task for different kinds of little things*/
+  xTaskCreate(otherLittleWorks,   /* Task function. */
+              "Different kinds of little things", /* String with name of task. */
+              4096,              /* Stack size in bytes. */
+              NULL,              /* Parameter passed as input of the task */
+              0,                 /* Priority of the task. */
               NULL);             /* Task handle. */
 
   // homing the roller clamp
@@ -759,5 +774,22 @@ void oledDisplayTask(void *parameter) {
 
     const TickType_t xDelay = 500 / portTICK_PERIOD_MS;
     vTaskDelay(xDelay);  // block for 500ms
+  }
+}
+
+void otherLittleWorks(void * arg) {
+  for(;;) {
+    // toggle LED
+    if (turnOnLed) {
+      digitalWrite(DROP_SENSOR_LED_PIN, LOW);   // reversed because the LED is pull up
+      vTaskDelay(50);
+      digitalWrite(DROP_SENSOR_LED_PIN, HIGH);  // reversed because the LED is pull up
+      turnOnLed = false;
+    }
+
+    while (!turnOnLed) {
+      // free the CPU
+      vTaskDelay(50);
+    }
   }
 }
