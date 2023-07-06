@@ -32,6 +32,7 @@
 #include <esp_log.h>
 
 #define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
+#define SENSOR_LED_PIN   35 // output pin to sensor for toggling LED
 #define MOTOR_CTRL_PIN_1 15 // Motorl Control Board PWM 1
 #define MOTOR_CTRL_PIN_2 16 // Motorl Control Board PWM 2
 #define PWM_PIN          4  // input pin for the potentiometer
@@ -44,8 +45,9 @@ infusionState_t infusionState = infusionState_t::NOT_STARTED;
 
 // var for EXT interrupt (sensor)
 volatile unsigned int numDrops = 0;   // for counting the number of drops within 15s
-volatile unsigned int dripRate = 0;       // for calculating the drip rate
+volatile unsigned int dripRate = 0;   // for calculating the drip rate
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
+volatile bool turnOnLed = false;      // state for LED, true when need to turn on
 
 // var for timer1 interrupt
 volatile unsigned int infusedVolume_x100 = 0;  // 100 times larger than actual value, unit: mL
@@ -117,6 +119,7 @@ void homingRollerClamp();
 void infusionInit();
 void loggingData(void * parameter);
 void getI2CData(void * arg);
+void otherLittleWorks(void * arg);
 
 // goto 404 not found when 404 not found
 void notFound(AsyncWebServerRequest *request) {
@@ -142,6 +145,8 @@ void IRAM_ATTR dropSensorISR() {
     // disable for 10 ms after called
     if ((dropSensorState == 1) && 
         ((millis()-lastTime)>=DROP_DEBOUNCE_TIME)) {
+      turnOnLed = true; // turn on LED on drop sensor on task
+
       lastTime = millis();
 
       // FIRST DROP DETECTION
@@ -344,6 +349,8 @@ void IRAM_ATTR motorControlISR() {
 void setup() {
   Serial.begin(115200);
   pinMode(DROP_SENSOR_PIN, INPUT);
+  pinMode(SENSOR_LED_PIN, OUTPUT);
+  digitalWrite(SENSOR_LED_PIN, HIGH); // prevent the LED is turned on initially
   pinMode(SD_CS, OUTPUT);
   pinMode(TFT_CS, OUTPUT);
 
@@ -446,6 +453,14 @@ void setup() {
               4096,           // stack size
               NULL,           // parameter to pass
               1,              // task priority, 0-24, 24 highest priority
+              NULL);          // task handle
+
+   // *Create a task for different kinds of little things
+  xTaskCreate(otherLittleWorks,                   // function that should be called
+              "Different kinds of little things", // name of the task (debug use)
+              4096,           // stack size
+              NULL,           // parameter to pass
+              0,              // task priority, 0-24, 24 highest priority
               NULL);          // task handle
 
   // homing the roller clamp
@@ -692,5 +707,22 @@ void getI2CData(void * arg) {
   for (;;) {
     getIna219Data();
     vTaskDelay(449);
+  }
+}
+
+void otherLittleWorks(void * arg) {
+  for(;;) {
+    // toggle LED
+    if (turnOnLed) {
+      digitalWrite(SENSOR_LED_PIN, LOW);   // reversed because the LED is pull up
+      vTaskDelay(50);
+      digitalWrite(SENSOR_LED_PIN, HIGH);  // reversed because the LED is pull up
+      turnOnLed = false;
+    }
+
+    while (!turnOnLed) {
+      // free the CPU
+      vTaskDelay(50);
+    }
   }
 }
