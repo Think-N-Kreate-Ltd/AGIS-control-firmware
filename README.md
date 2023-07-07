@@ -3,6 +3,13 @@
 ## Description
 This is the firmware for AGIS control board.
 
+## Keypad key functions:
++ number keys 0->9: numbers for input fields
++ `Ent`: confirm each input field
++ arrows UP and DOWN: navigate between input fields
++ `F2`: start infusion after all input fields are confirmed
++ `Esc`: reset program, equivalent to reset button
+
 ## Wiring
 
 - TFT display wiring:

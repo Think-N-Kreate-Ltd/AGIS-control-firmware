@@ -359,9 +359,6 @@ static void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
     if (key == 'E') {
       data->key = LV_KEY_ENTER;
     }
-    else if (key == 'C') {
-      data->key = LV_KEY_ESC;
-    }
     else if (key == 'L') {
       data->key = LV_KEY_LEFT;
     }
@@ -415,7 +412,10 @@ static void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
       }
     }
     else if (key == 'C') {  // when ESC is pressed
+      data->key = LV_KEY_ESC;
       // TODO: depending on context, e.g. pause infusion
+      // software reset:
+      esp_restart();
     }
     else {
       data->key = key;// possible BUG due to conversion from char to uint32_t
