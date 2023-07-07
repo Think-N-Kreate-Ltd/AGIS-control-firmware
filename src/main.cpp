@@ -87,7 +87,7 @@ bool homingCompleted = false;   // true when lower limit switch is activated
 // To reduce the sensitive of autoControlISR()
 // i.e. (targetDripRate +/-3) is good enough
 #define AUTO_CONTROL_ALLOW_RANGE 3
-#define AUTO_CONTROL_ON_TIME_MAX 600  // motor will be enabled for this amount of time at maximum (unit: ms)
+#define AUTO_CONTROL_ON_TIME_MAX 100  // motor will be enabled for this amount of time at maximum (unit: ms)
 #define AUTO_CONTROL_ON_TIME_MIN 30   // motor will be enabled for this amount of time at minimum (unit: ms)
 #define AUTO_CONTROL_TOTAL_TIME  1000  // 1000ms
 #define DROP_DEBOUNCE_TIME       20   // if two pulses are generated within 20ms, it must be detected as 1 drop
