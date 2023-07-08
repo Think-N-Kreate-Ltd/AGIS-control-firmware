@@ -1,3 +1,5 @@
+#Note book point 6,7,10...etc
+
 # LVGI note
 
 To handle the tasks of LVGL you need to call lv_timer_handler() periodically in one of the following:
