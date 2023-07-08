@@ -9,20 +9,25 @@
 #include <AGIS_Types.h>
 
 #define LV_VTBI_ID             100
-#define LV_TOTAL_TIME_HOUR_ID  101
-#define LV_TOTAL_TIME_MINUE_ID 102
-#define LV_DROP_FACTOR_10_ID   0
-#define LV_DROP_FACTOR_15_ID   1
-#define LV_DROP_FACTOR_20_ID   2
-#define LV_DROP_FACTOR_60_ID   3
+// #define LV_TOTAL_TIME_HOUR_ID  101
+// #define LV_TOTAL_TIME_MINUE_ID 102
+// #define LV_DROP_FACTOR_10_ID   0
+// #define LV_DROP_FACTOR_15_ID   1
+// #define LV_DROP_FACTOR_20_ID   2
+// #define LV_DROP_FACTOR_60_ID   3
+
+extern volatile int wifiStart;  // 0=waiting, 1=start, 2=not start
 
 void display_init();
 void test_screen();
 void input_screen();
+void ask_for_wifi_enable_msgbox();
 void confirm_msgbox();
 void monitor_screen();
 // static void radiobutton_create(lv_obj_t * parent, const char * txt, uint32_t i);
 // static void radio_event_handler(lv_event_t * event);
+
+void closeWifiBox();
 
 // for testing
 extern volatile int testing;
@@ -31,7 +36,7 @@ extern volatile int testing;
 // int32_t calculate_drip_rate(int32_t volume, int32_t time, int32_t dropFactor);
 // void infusion_monitoring_cb(lv_timer_t * timer);
 
-// function prototype only use in AGIS_Display.h (private)
+/*----------function prototype only use in AGIS_Display.h (private)----------*/
 void my_disp_flush( lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p );
 // bool validate_keypad_inputs();
 // int32_t calculate_drip_rate(int32_t volume, int32_t time, int32_t dropFactor);

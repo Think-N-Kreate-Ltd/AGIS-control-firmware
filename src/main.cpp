@@ -33,6 +33,7 @@
 
 // debug use var
 volatile int testing;
+TaskHandle_t xHandle = NULL;
 
 #define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
 #define SENSOR_LED_PIN   35 // output pin to sensor for toggling LED
@@ -123,7 +124,9 @@ void infusionInit();
 void loggingData(void * parameter);
 void getI2CData(void * arg);
 void tftDisplay(void * arg);
+void enableWifi(void * arg);
 void otherLittleWorks(void * arg);
+// void taskWifiDelete();
 
 // goto 404 not found when 404 not found
 void notFound(AsyncWebServerRequest *request) {
@@ -358,30 +361,6 @@ void setup() {
   pinMode(SD_CS, OUTPUT);
   pinMode(TFT_CS, OUTPUT);
 
-  WiFi.mode(WIFI_STA); // wifi station mode
-
-  // reset settings - wipe stored credentials for testing
-  // these are stored by the esp library
-  // wm.resetSettings();
-
-  if (!wm.autoConnect("AutoConnectAP",
-                      "password")) { // set esp32-s3 wifi ssid and pw to
-    // AutoConnectAP & password
-    ESP_LOGE(WIFI_TAG, "Failed to connect");
-    ESP.restart();
-  } else {
-    // if you get here you have connected to the WiFi
-    ESP_LOGI(WIFI_TAG, "connected...yeah :)");
-  }
-
-  if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    ESP_LOGE(WIFI_TAG, "WiFi Failed!");
-    return;
-  }
-
-  // print the IP address of the web page
-  ESP_LOGI(WIFI_TAG, "IP Address: %s", WiFi.localIP().toString());
-
   // NOTE: commented for testing TFT
   // ina219SetUp();
   
@@ -411,31 +390,6 @@ void setup() {
     return;
   }
 
-  // Init Websocket
-  initWebSocket();
-
-  // Send web page to client
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(LittleFS, "/index.html", String(), false);
-  });
-
-  // server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-  //   request->send(SD, "/web_server/index.html", String(), false);
-  // });
-
-  server.serveStatic("/", LittleFS, "/");
-
-  // server.serveStatic("/", SD, "/web_server/");
-
-  // force download file NOTE: commented for testing TFT
-  // server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
-  //   loadFromSdCard(request);
-  // });
-
-  server.onNotFound(notFound); // if 404 not found, go to 404 not found
-  AsyncElegantOTA.begin(&server); // for OTA update
-  server.begin();
-
   /*Initialize TFT display, LVGL*/
   display_init();
 
@@ -463,6 +417,13 @@ void setup() {
               NULL,             // parameter to pass
               3,                // task priority, 0-24, 24 highest priority
               NULL);            // task handle
+
+  xTaskCreate(enableWifi,     // function that should be called
+              "Enable WiFi",  // name of the task (debug use)
+              4096,           // stack size
+              NULL,           // parameter to pass
+              24,             // task priority, 0-24, 24 highest priority
+              &xHandle);      // task handle
 
    // *Create a task for different kinds of little things
   xTaskCreate(otherLittleWorks,                   // function that should be called
@@ -495,7 +456,7 @@ void loop() {
 
   // Serial.printf("%s\n", getInfusionState(infusionState));
 
-  lv_timer_handler(); /* let the GUI do its work */
+  // lv_timer_handler(); /* let the GUI do its work */
 }
 
 void motorOnUp() {
@@ -723,6 +684,8 @@ void tftDisplay(void * arg) {
   // get the screen object
   // test_screen();
   input_screen();
+  vTaskDelay(100);  // avoid CPU crashing
+  ask_for_wifi_enable_msgbox();
   // confirm_msgbox();
   monitor_screen();
 
@@ -730,6 +693,80 @@ void tftDisplay(void * arg) {
     lv_timer_handler(); // Should be call periodically
     vTaskDelay(5);      // The timing is not critical but it should be about 5 milliseconds to keep the system responsive
   }
+}
+
+void enableWifi(void * arg) {
+  static int count = 10;        // for time count
+  while ((wifiStart == 0) && (count > 0)) {
+    // waiting for response, mostly wait for 20s
+    vTaskDelay(2000);
+    count--;
+    ESP_LOGI(WIFI_TAG, "counting: %d", count);
+  }
+  
+  if (wifiStart == 2) {  // not connect wifi
+    ESP_LOGI(WIFI_TAG, "Not connect to WiFi");
+  } else if (wifiStart == 0) {  // wait time out
+    ESP_LOGI(WIFI_TAG, "Not connect to WiFi");
+    closeWifiBox();
+  } else if (wifiStart == 1) {         // connect wifi
+  WiFi.mode(WIFI_STA); // wifi station mode
+
+  // reset settings - wipe stored credentials for testing
+  // these are stored by the esp library
+  // wm.resetSettings();
+
+  if (!wm.autoConnect("AutoConnectAP",
+                      "password")) { // set esp32-s3 wifi ssid and pw to
+    // AutoConnectAP & password
+    ESP_LOGE(WIFI_TAG, "Failed to connect");
+    ESP.restart();
+  } else {
+    // if you get here you have connected to the WiFi
+    ESP_LOGI(WIFI_TAG, "connected...yeah :)");
+  }
+
+  if (WiFi.waitForConnectResult() != WL_CONNECTED) {
+    ESP_LOGE(WIFI_TAG, "WiFi Failed!");
+    return;
+  }
+
+  // print the IP address of the web page
+  ESP_LOGI(WIFI_TAG, "IP Address: %s", WiFi.localIP().toString());
+
+    // Init Websocket
+  initWebSocket();
+
+  // Send web page to client
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(LittleFS, "/index.html", String(), false);
+  });
+
+  // server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+  //   request->send(SD, "/web_server/index.html", String(), false);
+  // });
+
+  server.serveStatic("/", LittleFS, "/");
+
+  // server.serveStatic("/", SD, "/web_server/");
+
+  // force download file NOTE: commented for testing TFT
+  // server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
+  //   loadFromSdCard(request);
+  // });
+
+  server.onNotFound(notFound); // if 404 not found, go to 404 not found
+  AsyncElegantOTA.begin(&server); // for OTA update
+  server.begin();
+  }
+
+  /*NOTE: The idle task is responsible for freeing the RTOS kernel allocated memory from tasks that have been deleted.
+    It is therefore important that the idle task is not starved of microcontroller processing time if your application makes any calls to vTaskDelete ().
+    Memory allocated by the task code is not automatically freed, and should be freed before the task is deleted.
+    TODO: check for how to free the memory <- `taskWifiDelete()`
+    UPDATE: seems it may have problem for web page, just keep it may be better*/
+
+  vTaskDelete(NULL);  // delete itself
 }
 
 void otherLittleWorks(void * arg) {
@@ -748,3 +785,19 @@ void otherLittleWorks(void * arg) {
     }
   }
 }
+
+// void taskWifiDelete() {
+//   TaskHandle_t xTask = xHandle;
+//   vTaskSuspendAll();
+
+//   if( xHandle != NULL )
+//   {
+//       /* The task is going to be deleted.Set the handle to NULL. */
+//       xHandle = NULL;
+
+//       /* Delete using the copy of the handle. */
+//       vTaskDelete( xTask );
+//       Serial.println("deleted");
+//   }
+//   xTaskResumeAll();
+// }

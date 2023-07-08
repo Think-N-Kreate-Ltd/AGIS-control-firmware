@@ -1,5 +1,7 @@
 #include <AGIS_Display.h>
 
+volatile int wifiStart;
+
 static lv_disp_draw_buf_t disp_buf; // lv_disp_buf_t cannot use, use this one instead
 static lv_color_t buf[TFT_WIDTH * TFT_HEIGHT / 10];
 
@@ -65,8 +67,6 @@ void display_init() {
 
   // Call every 500ms
   lv_timer_t * infusion_monitoring_timer = lv_timer_create(infusion_monitoring_cb, 500, NULL);
-
-  Serial.println( "Setup done" );
 }
 
 /*writes color information from the “color_p” pointer to the needed “area”*/
@@ -82,6 +82,30 @@ void my_disp_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *c
   tft.endWrite();
 
   lv_disp_flush_ready(disp_drv);
+}
+
+void ask_for_wifi_enable_msgbox() {
+  static const char * btns[] = {"Yes", "No", ""};
+  lv_obj_t * wifi_box = lv_msgbox_create(screenMain, "Enable WiFi?", NULL, btns, false);
+  lv_obj_add_event_cb(wifi_box, confirmbox_event_cb, LV_EVENT_ALL, NULL);
+  lv_group_focus_obj(lv_msgbox_get_btns(wifi_box));
+  lv_obj_add_state(lv_msgbox_get_btns(wifi_box), LV_STATE_FOCUS_KEY);
+  lv_group_focus_freeze(grp, true);
+
+  /*set the position*/
+  lv_obj_align(wifi_box, LV_ALIGN_TOP_LEFT, 3, 3);
+  lv_obj_set_width(wifi_box, 125);
+
+  /*make the background a little bit grey*/
+  /*TODO: only grey when box pop up*/
+  lv_obj_t * bg = screenMain;
+  lv_obj_set_style_bg_opa(bg, LV_OPA_70, 0);
+  lv_obj_set_style_bg_color(bg, lv_palette_main(LV_PALETTE_GREY), 0);
+
+  /*there is no auto close in master version(8) of lvgl
+  should close in other function, 
+  thus, need to get the object `wifi_box` outside this function*/
+  lv_obj_move_to_index(wifi_box, 1);  // should less then the total no. of child
 }
 
 void input_screen() {
@@ -250,7 +274,7 @@ static void confirmbox_event_cb(lv_event_t * event) {
         lv_disp_load_scr(screenMonitor);
       } else if (txt == "Yes") {
         /*start wifi & web page enable*/
-        lv_disp_load_scr(screenMonitor);
+        wifiStart = 1;
       } else {/*I don't know how to go to this condition*/Serial.println("error: not button found");}
 
       /*now the last event is remembered
@@ -354,4 +378,8 @@ void infusion_monitoring_cb(lv_timer_t * timer) {
   //       getInfusionState(*(infusion_monitoring_data_handle.infusionState_p));
   //   lv_table_set_cell_value(infusion_monitoring_table, 4, 1, infusionState_buf);
   // }
+}
+
+void closeWifiBox() {
+  lv_msgbox_close(lv_obj_get_child(screenMain, 1)); /*close wifi box*/
 }
