@@ -57,6 +57,7 @@ volatile bool logging500msPassed = false;
 // volatile unsigned int numDropsInterval = 0;  // number of drops in 15 seconds
 volatile unsigned int autoControlCount = 0;  // use for regulating frequency of motor is on
 volatile unsigned int autoControlOnTime = 0;  // use for regulating frequency of motor is on
+volatile unsigned int autoControlTotalTime = 0;  // to change `autoControlTotalTime` based on `dripRateDifference`
 int dripRateDifference = 0; 
 volatile unsigned int dripRatePeak = 1;   // drip rate at the position when 1st drop is detected,
                                           // set to 1 to avoid zero division
@@ -87,10 +88,11 @@ bool homingCompleted = false;   // true when lower limit switch is activated
 // To reduce the sensitive of autoControlISR()
 // i.e. (targetDripRate +/-3) is good enough
 #define AUTO_CONTROL_ALLOW_RANGE 3
-#define AUTO_CONTROL_ON_TIME_MAX 100  // motor will be enabled for this amount of time at maximum (unit: ms)
+#define AUTO_CONTROL_ON_TIME_MAX 200  // motor will be enabled for this amount of time at maximum (unit: ms)
 #define AUTO_CONTROL_ON_TIME_MIN 30   // motor will be enabled for this amount of time at minimum (unit: ms)
-#define AUTO_CONTROL_TOTAL_TIME  1000  // 1000ms
-#define DROP_DEBOUNCE_TIME       20   // if two pulses are generated within 20ms, it must be detected as 1 drop
+#define AUTO_CONTROL_TOTAL_TIME_FAST    500  // 500ms
+#define AUTO_CONTROL_TOTAL_TIME_NORMAL  1000  // 1000ms
+#define DROP_DEBOUNCE_TIME       30   // if two pulses are generated within debounce time, it must be detected as 1 drop
 
 // WiFiManager, Local intialization. Once its business is done, there is no need
 // to keep it around
@@ -295,12 +297,19 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
   }
 
   // reset this for the next autoControlISR()
-  if (autoControlCount == AUTO_CONTROL_TOTAL_TIME) {   // reset count every 1s
+  dripRateDifference = dripRate - targetDripRate;
+  if (abs(dripRateDifference) <= 10) {
+    autoControlTotalTime = AUTO_CONTROL_TOTAL_TIME_NORMAL;
+  }
+  else {
+    autoControlTotalTime = AUTO_CONTROL_TOTAL_TIME_FAST;
+  }
+
+  if (autoControlCount >= autoControlTotalTime) {   // reset count every `autoControlTotalTime`
     autoControlCount = 0;
 
     // calculate new autoControlOnTime based on the absolute difference
     // between dripRate and targetDripRate
-    dripRateDifference = dripRate - targetDripRate;
     autoControlOnTime =
         max(abs(dripRateDifference) * AUTO_CONTROL_ON_TIME_MAX / dripRatePeak,
             (unsigned int)AUTO_CONTROL_ON_TIME_MIN);
