@@ -31,6 +31,9 @@
 // #include <AGIS_Logging.h>
 #include <esp_log.h>
 
+// debug use var
+volatile int testing;
+
 #define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
 #define SENSOR_LED_PIN   35 // output pin to sensor for toggling LED
 #define MOTOR_CTRL_PIN_1 15 // Motorl Control Board PWM 1
@@ -119,6 +122,7 @@ void homingRollerClamp();
 void infusionInit();
 void loggingData(void * parameter);
 void getI2CData(void * arg);
+void tftDisplay(void * arg);
 void otherLittleWorks(void * arg);
 
 // goto 404 not found when 404 not found
@@ -378,11 +382,11 @@ void setup() {
   // print the IP address of the web page
   ESP_LOGI(WIFI_TAG, "IP Address: %s", WiFi.localIP().toString());
 
-  // oledSetUp();
-  ina219SetUp();
+  // NOTE: commented for testing TFT
+  // ina219SetUp();
   
-  useSdCard();  // compulsorily change to communicate with SD
-  sdCardSetUp();      
+  // useSdCard();  // compulsorily change to communicate with SD
+  // sdCardSetUp();      
 
   // setup for sensor interrupt
   attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
@@ -423,10 +427,10 @@ void setup() {
 
   // server.serveStatic("/", SD, "/web_server/");
 
-  // force download file
-  server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
-    loadFromSdCard(request);
-  });
+  // force download file NOTE: commented for testing TFT
+  // server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
+  //   loadFromSdCard(request);
+  // });
 
   server.onNotFound(notFound); // if 404 not found, go to 404 not found
   AsyncElegantOTA.begin(&server); // for OTA update
@@ -435,25 +439,30 @@ void setup() {
   /*Initialize TFT display, LVGL*/
   display_init();
 
-  /*Display the input screen*/
-  lv_scr_load(input_scr);
-  input_screen();
+  // NOTE: commented for testing TFT
+  // /*Create a task for data logging*/
+  // xTaskCreate(loggingData,       /* Task function. */
+  //             "Data Logging",    /* String with name of task. */
+  //             4096,              /* Stack size in bytes. */
+  //             NULL,              /* Parameter passed as input of the task */
+  //             2,                 /* Priority of the task. */
+  //             NULL);             /* Task handle. */
 
-  /*Create a task for data logging*/
-  xTaskCreate(loggingData,       /* Task function. */
-              "Data Logging",    /* String with name of task. */
-              4096,              /* Stack size in bytes. */
-              NULL,              /* Parameter passed as input of the task */
-              2,                 /* Priority of the task. */
-              NULL);             /* Task handle. */
-
-  // I2C is too slow that cannot use interrupt
-  xTaskCreate(getI2CData,     // function that should be called
-              "Get I2C Data", // name of the task (debug use)
-              4096,           // stack size
-              NULL,           // parameter to pass
-              1,              // task priority, 0-24, 24 highest priority
-              NULL);          // task handle
+  // // I2C is too slow that cannot use interrupt
+  // xTaskCreate(getI2CData,     // function that should be called
+  //             "Get I2C Data", // name of the task (debug use)
+  //             4096,           // stack size
+  //             NULL,           // parameter to pass
+  //             1,              // task priority, 0-24, 24 highest priority
+  //             NULL);          // task handle
+  
+  // Create a task for TFT display
+  xTaskCreate(tftDisplay,       // function that should be called
+              "TFT display",    // name of the task (debug use)
+              4096,             // stack size
+              NULL,             // parameter to pass
+              3,                // task priority, 0-24, 24 highest priority
+              NULL);            // task handle
 
    // *Create a task for different kinds of little things
   xTaskCreate(otherLittleWorks,                   // function that should be called
@@ -707,6 +716,19 @@ void getI2CData(void * arg) {
   for (;;) {
     getIna219Data();
     vTaskDelay(449);
+  }
+}
+
+void tftDisplay(void * arg) {
+  // get the screen object
+  // test_screen();
+  input_screen();
+  // confirm_msgbox();
+  monitor_screen();
+
+  for(;;) {
+    lv_timer_handler(); // Should be call periodically
+    vTaskDelay(5);      // The timing is not critical but it should be about 5 milliseconds to keep the system responsive
   }
 }
 

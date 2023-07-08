@@ -9,8 +9,10 @@ char keys[KEYPAD_ROW_NUM][KEYPAD_COLUMN_NUM] = {
   {'7', '8', '9', 'C'},
   {'L', '0', 'R', 'E'}
 };
-byte pin_rows[KEYPAD_ROW_NUM] = {48, 47, 2, 1, 18};  // pin for R1, R2, R3, R4, R5
-byte pin_column[KEYPAD_COLUMN_NUM] = {5, 6, 7, 17};    // pin for C1, C2, C3, C4
+byte pin_rows[KEYPAD_ROW_NUM] = {8, 18, 17, 16, 15};  // pin for R1, R2, R3, R4, R5
+byte pin_column[KEYPAD_COLUMN_NUM] = {4, 5, 6, 7};    // pin for C1, C2, C3, C4
+// byte pin_rows[KEYPAD_ROW_NUM] = {48, 47, 2, 1, 18};  // pin for R1, R2, R3, R4, R5
+// byte pin_column[KEYPAD_COLUMN_NUM] = {5, 6, 7, 17};    // pin for C1, C2, C3, C4
 Keypad keypad = Keypad( makeKeymap(keys), pin_rows, pin_column, KEYPAD_ROW_NUM, KEYPAD_COLUMN_NUM );
 
 bool keypadInfusionConfirmed = false;
