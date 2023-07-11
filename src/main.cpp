@@ -682,12 +682,11 @@ void getI2CData(void * arg) {
 
 void tftDisplay(void * arg) {
   // get the screen object
-  // test_screen();
   input_screen();
   vTaskDelay(100);  // avoid CPU crashing
   ask_for_wifi_enable_msgbox();
-  // confirm_msgbox();
   monitor_screen();
+  // test_screen();
 
   for(;;) {
     lv_timer_handler(); // Should be call periodically

@@ -11,7 +11,7 @@ static lv_color_t buf[TFT_WIDTH * TFT_HEIGHT / 10];
 TFT_eSPI tft = TFT_eSPI();
 
 lv_group_t * grp;           /*a group to group all keypad evented object*/
-lv_obj_t * screenTest;      /*a screen object which will hold all other objects for tesing*/
+// lv_obj_t * screenTest;      /*a screen object which will hold all other objects for tesing*/
 lv_obj_t * screenMain;      /*a screen object which will hold all other objects for input*/
 lv_obj_t * screenMonitor;   /*a screen object which will hold all other objects for data display*/
 lv_indev_t * keypad_indev;  /*a driver in LVGL and save the created input device object*/
@@ -19,6 +19,11 @@ lv_obj_t * vtbi_label;      // testing use
 
 /*Parsed user input variables*/
 int32_t keypad_VTBI = -1;
+
+/*var for radio button*/
+static lv_style_t style_radio;
+static lv_style_t style_radio_chk;
+static uint32_t active_index_1 = 0;
 
 void display_init() {
   tft.begin();
@@ -95,19 +100,44 @@ void input_screen() {
   /*a screen object which will hold all other objects*/
   screenMain = lv_obj_create(NULL);
 
-  /*Text area for VTBI_target (testing)*/
-  lv_obj_t * VTBI_target = lv_textarea_create(screenMain);
-  static int lv_VTBI_id = LV_VTBI_ID;
-  set_textarea(VTBI_target, lv_VTBI_id, 5, 25);
+  // /*Text area for VTBI_target (testing)*/
+  // lv_obj_t * VTBI_target = lv_textarea_create(screenMain);
+  // static int lv_VTBI_id = LV_VTBI_ID;
+  // set_textarea(VTBI_target, lv_VTBI_id, 5, 25);
 
-  /*label for VTBI_target (testing)*/
-  lv_obj_t * vtbi_label = lv_label_create(screenMain);
-  lv_label_set_text(vtbi_label, "VTBI:");
-  lv_obj_align_to(vtbi_label, VTBI_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);  /*set position*/
+  // /*label for VTBI_target (testing)*/
+  // lv_obj_t * vtbi_label = lv_label_create(screenMain);
+  // lv_label_set_text(vtbi_label, "VTBI:");
+  // lv_obj_align_to(vtbi_label, VTBI_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);  /*set position*/
 
-  lv_obj_t * mL_label = lv_label_create(screenMain);
-  lv_label_set_text(mL_label, "mL");
-  lv_obj_align_to(mL_label, VTBI_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
+  // lv_obj_t * mL_label = lv_label_create(screenMain);
+  // lv_label_set_text(mL_label, "mL");
+  // lv_obj_align_to(mL_label, VTBI_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
+
+  /* The idea is to enable `LV_OBJ_FLAG_EVENT_BUBBLE` on checkboxes and process the
+   * `LV_EVENT_CLICKED` on the container.
+   * A variable is passed as event user data where the index of the active
+   * radiobutton is saved */
+
+  lv_style_init(&style_radio);
+  lv_style_set_radius(&style_radio, LV_RADIUS_CIRCLE);
+
+  lv_style_init(&style_radio_chk);
+  lv_style_set_bg_img_src(&style_radio_chk, NULL);
+
+  uint8_t dripFactor[4] = {10, 15, 20, 60};
+  char buf[16];
+
+  lv_obj_t * cont1 = lv_obj_create(screenMain);
+  lv_obj_set_flex_flow(cont1, LV_FLEX_FLOW_COLUMN);
+  // lv_obj_set_size(cont1, lv_pct(40), lv_pct(80));
+  lv_obj_align(cont1, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_add_event_cb(cont1, radio_event_handler, LV_EVENT_CLICKED, &active_index_1);
+
+  for(int i=0; i<sizeof(dripFactor); i++) {
+    lv_snprintf(buf, 16, "%d drops/mL", dripFactor[i]);
+    radiobutton_create(cont1, buf);
+  }
 
   /*Loads the main screen*/
   lv_disp_load_scr(screenMain);
@@ -172,6 +202,29 @@ void set_textarea(lv_obj_t *& parent, uint16_t id, lv_coord_t x, lv_coord_t y) {
   lv_textarea_set_placeholder_text(parent, "Pls input");
   lv_obj_set_user_data(parent, &id);
   lv_obj_add_event_cb(parent, textarea_event_cb, LV_EVENT_ALL, parent);
+}
+
+static void radio_event_handler(lv_event_t * e) {
+  uint32_t * active_id = (uint32_t *)lv_event_get_user_data(e);
+  lv_obj_t * cont = lv_event_get_current_target(e);
+  lv_obj_t * act_cb = lv_event_get_target(e);
+  lv_obj_t * old_cb = lv_obj_get_child(cont, *active_id);
+
+  /*Do nothing if the container was clicked*/
+  if(act_cb == cont) return;
+
+  lv_obj_clear_state(old_cb, LV_STATE_CHECKED);   /*Uncheck the previous radio button*/
+  lv_obj_add_state(act_cb, LV_STATE_CHECKED);     /*Uncheck the current radio button*/
+
+  *active_id = lv_obj_get_index(act_cb);
+}
+
+static void radiobutton_create(lv_obj_t * parent, const char * txt) {
+  lv_obj_t * obj = lv_checkbox_create(parent);
+  lv_checkbox_set_text(obj, txt);
+  lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE);
+  lv_obj_add_style(obj, &style_radio, LV_PART_INDICATOR);
+  lv_obj_add_style(obj, &style_radio_chk, LV_PART_INDICATOR | LV_STATE_CHECKED);
 }
 
 static void textarea_event_cb(lv_event_t * event) {

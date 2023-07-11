@@ -19,13 +19,11 @@
 extern volatile bool wifiStart;  // 0=waiting, 1=start, 2=not start
 
 void display_init();
-void test_screen();
+// void test_screen();
 void input_screen();
 void ask_for_wifi_enable_msgbox();
 void confirm_msgbox();
 void monitor_screen();
-// static void radiobutton_create(lv_obj_t * parent, const char * txt, uint32_t i);
-// static void radio_event_handler(lv_event_t * event);
 
 void closeWifiBox();
 
@@ -42,7 +40,8 @@ void my_disp_flush( lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *colo
 // int32_t calculate_drip_rate(int32_t volume, int32_t time, int32_t dropFactor);
 /*set the textarea with coordinate x and y*/
 void set_textarea(lv_obj_t *& testarea_object, uint16_t id, lv_coord_t x, lv_coord_t y);
-// static void radiobutton_create(lv_obj_t * parent, const char * txt, uint32_t i);
+static void radio_event_handler(lv_event_t * e);
+static void radiobutton_create(lv_obj_t * parent, const char * txt);
 
 // event handler
 // static void radio_event_cb(lv_event_t * event);
