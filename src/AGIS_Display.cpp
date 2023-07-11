@@ -83,9 +83,8 @@ void ask_for_wifi_enable_msgbox() {
 
   /*make the background a little bit grey*/
   /*TODO: only grey when box pop up*/
-  lv_obj_t * bg = screenMain;
-  lv_obj_set_style_bg_opa(bg, LV_OPA_70, 0);
-  lv_obj_set_style_bg_color(bg, lv_palette_main(LV_PALETTE_GREY), 0);
+  lv_obj_set_style_bg_opa(screenMain, LV_OPA_70, 0);
+  lv_obj_set_style_bg_color(screenMain, lv_palette_main(LV_PALETTE_GREY), 0);
 
   /*there is no auto close in master version(8) of lvgl
   should close in other function, 
@@ -131,9 +130,8 @@ void confirm_msgbox() {
 
   /*make the background a little bit grey*/
   /*TODO: only grey when box pop up*/
-  lv_obj_t * bg = screenMain;
-  lv_obj_set_style_bg_opa(bg, LV_OPA_70, 0);
-  lv_obj_set_style_bg_color(bg, lv_palette_main(LV_PALETTE_GREY), 0);
+  lv_obj_set_style_bg_opa(screenMain, LV_OPA_70, 0);
+  lv_obj_set_style_bg_color(screenMain, lv_palette_main(LV_PALETTE_GREY), 0);
 }
 
 void monitor_screen() {
@@ -227,6 +225,10 @@ static void msgbox_event_cb(lv_event_t * event) {
       /*close the msgbox*/
       lv_msgbox_close(confirm_box); 
       lv_group_focus_freeze(grp, false);
+
+      /*set the background color back, not suggested to do by remove style*/
+      lv_obj_set_style_bg_opa(screenMain, LV_OPA_100, 0);
+      lv_obj_set_style_bg_color(screenMain, lv_color_hex(0xacacac), LV_PART_MAIN);
 
       if(txt == "No") {
         /*go back to input screen*/
