@@ -697,19 +697,17 @@ void tftDisplay(void * arg) {
 
 void enableWifi(void * arg) {
   static int count = 10;        // for time count
-  while ((wifiStart == 0) && (count > 0)) {
+  while (!wifiStart && (count > 0)) {
     // waiting for response, mostly wait for 20s
     vTaskDelay(2000);
     count--;
     ESP_LOGI(WIFI_TAG, "counting: %d", count);
   }
   
-  if (wifiStart == 2) {  // not connect wifi
-    ESP_LOGI(WIFI_TAG, "Not connect to WiFi");
-  } else if (wifiStart == 0) {  // wait time out
+  if (!wifiStart) {  // wait time out
     ESP_LOGI(WIFI_TAG, "Not connect to WiFi");
     closeWifiBox();
-  } else if (wifiStart == 1) {         // connect wifi
+  } else {         // connect wifi
   WiFi.mode(WIFI_STA); // wifi station mode
 
   // reset settings - wipe stored credentials for testing

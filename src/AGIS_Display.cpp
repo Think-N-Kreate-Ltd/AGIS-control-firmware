@@ -1,6 +1,9 @@
 #include <AGIS_Display.h>
 
-volatile int wifiStart;
+volatile bool wifiStart = false;  // true if 'Yes' pressed, and will enalbe wifi in main file
+// a special state to lock the event change
+// TODO: find whether have method to reset the event state (`lv_obj_remove_event_cb` have problem currently)
+bool eventReseted;
 
 static lv_disp_draw_buf_t disp_buf; // lv_disp_buf_t cannot use, use this one instead
 static lv_color_t buf[TFT_WIDTH * TFT_HEIGHT / 10];
@@ -87,7 +90,7 @@ void my_disp_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *c
 void ask_for_wifi_enable_msgbox() {
   static const char * btns[] = {"Yes", "No", ""};
   lv_obj_t * wifi_box = lv_msgbox_create(screenMain, "Enable WiFi?", NULL, btns, false);
-  lv_obj_add_event_cb(wifi_box, confirmbox_event_cb, LV_EVENT_ALL, NULL);
+  lv_obj_add_event_cb(wifi_box, confirmbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
   lv_group_focus_obj(lv_msgbox_get_btns(wifi_box));
   lv_obj_add_state(lv_msgbox_get_btns(wifi_box), LV_STATE_FOCUS_KEY);
   lv_group_focus_freeze(grp, true);
@@ -137,7 +140,7 @@ void confirm_msgbox() {
   char DR_buf[25];
   sprintf(DR_buf, "Drip Rate: %dTODO:", testing);
   lv_obj_t * confirm_box = lv_msgbox_create(screenMain, DR_buf, "Confirm To Run?", btns, false);
-  lv_obj_add_event_cb(confirm_box, confirmbox_event_cb, LV_EVENT_ALL, NULL);
+  lv_obj_add_event_cb(confirm_box, confirmbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
   lv_group_focus_obj(lv_msgbox_get_btns(confirm_box));
   lv_obj_add_state(lv_msgbox_get_btns(confirm_box), LV_STATE_FOCUS_KEY);
   lv_group_focus_freeze(grp, true);
@@ -258,7 +261,7 @@ static void confirmbox_event_cb(lv_event_t * event) {
   lv_event_code_t code = lv_event_get_code(event);
   lv_obj_t * confirm_box = lv_event_get_current_target(event);
 
-  if(code == LV_EVENT_VALUE_CHANGED) { /*is sent by the buttons if one of them is clicked*/
+  if(code == LV_EVENT_VALUE_CHANGED && eventReseted) { /*is sent by the buttons if one of them is clicked*/
     const char * txt = lv_msgbox_get_active_btn_text(confirm_box);  /*get the button value*/
     if(txt){
       /*close the msgbox*/
@@ -274,14 +277,11 @@ static void confirmbox_event_cb(lv_event_t * event) {
         lv_disp_load_scr(screenMonitor);
       } else if (txt == "Yes") {
         /*start wifi & web page enable*/
-        wifiStart = 1;
-      } else {/*I don't know how to go to this condition*/Serial.println("error: not button found");}
-
-      /*now the last event is remembered
-      TODO: check how to remove the last event*/
-      // event -> code = LV_EVENT_REFRESH;
+        wifiStart = true;
+      } else {/*I don't know how to go to this condition*/}
     }
     Serial.println(txt);
+    eventReseted = false;
   }
 }
 
@@ -294,6 +294,7 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
     if (key == 'E') {
       data->key = LV_KEY_ENTER;
       Serial.println("pressed enter");
+      eventReseted = true;
     }
     else if (key == 'C') {
       data->key = LV_KEY_ESC;
@@ -328,7 +329,10 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
     }
     // TODO: add `G`, now is missing lots of things here
     else if (key == 'G') {
-      confirm_msgbox();
+      Serial.println("enter");
+      // if(!lv_obj_remove_event_cb(lv_obj_get_child(screenMain, 1), NULL)){
+        confirm_msgbox();
+      // }
     }
     else {
       data->key = key;  /*possible BUG due to conversion from char to uint32_t(?)*/
