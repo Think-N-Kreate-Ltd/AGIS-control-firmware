@@ -78,11 +78,10 @@ void ask_for_wifi_enable_msgbox() {
   lv_group_focus_freeze(grp, true);
 
   /*set the position*/
-  lv_obj_align(wifi_box, LV_ALIGN_TOP_LEFT, 3, 3);
+  lv_obj_align(wifi_box, LV_ALIGN_CENTER, 0, 0);
   lv_obj_set_width(wifi_box, 125);
 
   /*make the background a little bit grey*/
-  /*TODO: only grey when box pop up*/
   lv_obj_set_style_bg_opa(screenMain, LV_OPA_70, 0);
   lv_obj_set_style_bg_color(screenMain, lv_palette_main(LV_PALETTE_GREY), 0);
 
@@ -125,11 +124,10 @@ void confirm_msgbox() {
   lv_group_focus_freeze(grp, true);
 
   /*set the position*/
-  lv_obj_align(confirm_box, LV_ALIGN_TOP_LEFT, 3, 3);
+  lv_obj_align(confirm_box, LV_ALIGN_CENTER, 0, 0);
   lv_obj_set_width(confirm_box, 125);
 
   /*make the background a little bit grey*/
-  /*TODO: only grey when box pop up*/
   lv_obj_set_style_bg_opa(screenMain, LV_OPA_70, 0);
   lv_obj_set_style_bg_color(screenMain, lv_palette_main(LV_PALETTE_GREY), 0);
 }
