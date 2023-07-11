@@ -14,8 +14,6 @@ lv_group_t * grp;           /*a group to group all keypad evented object*/
 lv_obj_t * screenTest;      /*a screen object which will hold all other objects for tesing*/
 lv_obj_t * screenMain;      /*a screen object which will hold all other objects for input*/
 lv_obj_t * screenMonitor;   /*a screen object which will hold all other objects for data display*/
-// can use `lv_obj_get_child(obj, 0)` to get the child obj
-// lv_obj_t * table;           /*a table, which is a sub object in `screenMonitor`, set to global to change value in timer*/
 lv_indev_t * keypad_indev;  /*a driver in LVGL and save the created input device object*/
 lv_obj_t * vtbi_label;      // testing use
 
@@ -26,9 +24,6 @@ void display_init() {
   tft.begin();
   tft.setRotation(3);   // Landscape orientation, flipped
   tft.invertDisplay(false);  // set true to invert the color
-  // enable for reading touch screen
-  // analogReadResolution(10);
-  // oldPoint = ts.getPoint();
 
   lv_init();
 
@@ -121,8 +116,6 @@ void input_screen() {
 }
 
 void confirm_msgbox() {
-  /*a screen object which will hold all other objects for testing*/
-
   static const char * btns[] = {"No", "Confirm", ""};
   char DR_buf[25];
   sprintf(DR_buf, "Drip Rate: %dTODO:", testing);
@@ -147,6 +140,7 @@ void monitor_screen() {
   /*a screen object which will hold all other objects */
   screenMonitor = lv_obj_create(NULL);
 
+  /*as it is just create after `screenMinitor`, the index must be 0*/
   lv_obj_t * table = lv_table_create(screenMonitor);
 
   // lv_table_set_col_cnt(table, 2);
@@ -183,27 +177,6 @@ void set_textarea(lv_obj_t *& parent, uint16_t id, lv_coord_t x, lv_coord_t y) {
   lv_obj_set_user_data(parent, &id);
   lv_obj_add_event_cb(parent, textarea_event_cb, LV_EVENT_ALL, parent);
 }
-
-// /*check if any press screen*/
-// bool my_input_read(lv_indev_drv_t * drv, lv_indev_data_t*data)
-// {
-//   TSPoint p = ts.getPoint();
-  
-//   if (p.z > ts.pressureThreshhold){
-//     data->state = LV_INDEV_STATE_PR;
-//     data->point.x = p.x*240/1024;
-//     data->point.y = p.y*320/1024;
-//     oldPoint.x = p.x;
-//     oldPoint.y = p.y;
-//   }
-//   else {
-//     data->state = LV_INDEV_STATE_REL;
-//     data->point.x = oldPoint.x*240/1024;
-//     data->point.y = oldPoint.y*320/1024;
-//   }
-
-//   return false; /*No buffering now so no more data read*/
-// }
 
 static void textarea_event_cb(lv_event_t * event) {
   /*not to print anything in this function*/
@@ -273,11 +246,8 @@ static void confirmbox_event_cb(lv_event_t * event) {
 }
 
 void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
-  /*NOTE: do not print anything inside this function*/
   uint8_t key = keypad.getKey();
-  // uint8_t key;
   if(key) {
-    // Serial.write(key); // debug for demo
     if (key == 'E') {
       data->key = LV_KEY_ENTER;
       Serial.println("pressed enter");
@@ -316,10 +286,7 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
     }
     // TODO: add `G`, now is missing lots of things here
     else if (key == 'G') {
-      Serial.println("enter");
-      // if(!lv_obj_remove_event_cb(lv_obj_get_child(screenMain, 1), NULL)){
-        confirm_msgbox();
-      // }
+      confirm_msgbox();
     }
     else {
       data->key = key;  /*possible BUG due to conversion from char to uint32_t(?)*/
