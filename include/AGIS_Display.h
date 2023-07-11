@@ -47,7 +47,7 @@ void set_textarea(lv_obj_t *& testarea_object, uint16_t id, lv_coord_t x, lv_coo
 // event handler
 // static void radio_event_cb(lv_event_t * event);
 static void textarea_event_cb(lv_event_t * event);
-static void confirmbox_event_cb(lv_event_t * event);
+static void msgbox_event_cb(lv_event_t * event);
 void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data);
 
 // timer for monitoring display
