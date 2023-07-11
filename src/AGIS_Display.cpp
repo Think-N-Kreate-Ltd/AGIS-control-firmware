@@ -10,15 +10,6 @@ static lv_color_t buf[TFT_WIDTH * TFT_HEIGHT / 10];
 
 TFT_eSPI tft = TFT_eSPI();
 
-#if LV_USE_LOG != 0
-/* Serial debugging */
-void my_print(const char * buf)
-{
-    Serial.printf(buf);
-    Serial.flush();
-}
-#endif
-
 lv_group_t * grp;           /*a group to group all keypad evented object*/
 lv_obj_t * screenTest;      /*a screen object which will hold all other objects for tesing*/
 lv_obj_t * screenMain;      /*a screen object which will hold all other objects for input*/
@@ -40,10 +31,6 @@ void display_init() {
   // oldPoint = ts.getPoint();
 
   lv_init();
-
-#if LV_USE_LOG != 0
-  lv_log_register_print_cb( my_print ); /* register print function for debugging */
-#endif
 
   lv_disp_draw_buf_init(&disp_buf, buf, NULL, TFT_WIDTH * TFT_HEIGHT / 10);
 
