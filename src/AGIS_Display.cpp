@@ -100,44 +100,44 @@ void input_screen() {
   /*a screen object which will hold all other objects*/
   screenMain = lv_obj_create(NULL);
 
-  // /*Text area for VTBI_target (testing)*/
-  // lv_obj_t * VTBI_target = lv_textarea_create(screenMain);
-  // static int lv_VTBI_id = LV_VTBI_ID;
-  // set_textarea(VTBI_target, lv_VTBI_id, 5, 25);
+  /*Text area for VTBI_target (testing)*/
+  lv_obj_t * VTBI_target = lv_textarea_create(screenMain);
+  static int lv_VTBI_id = LV_VTBI_ID;
+  set_textarea(VTBI_target, lv_VTBI_id, 5, 25);
 
-  // /*label for VTBI_target (testing)*/
-  // lv_obj_t * vtbi_label = lv_label_create(screenMain);
-  // lv_label_set_text(vtbi_label, "VTBI:");
-  // lv_obj_align_to(vtbi_label, VTBI_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);  /*set position*/
+  /*label for VTBI_target (testing)*/
+  lv_obj_t * vtbi_label = lv_label_create(screenMain);
+  lv_label_set_text(vtbi_label, "VTBI:");
+  lv_obj_align_to(vtbi_label, VTBI_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);  /*set position*/
 
-  // lv_obj_t * mL_label = lv_label_create(screenMain);
-  // lv_label_set_text(mL_label, "mL");
-  // lv_obj_align_to(mL_label, VTBI_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
+  lv_obj_t * mL_label = lv_label_create(screenMain);
+  lv_label_set_text(mL_label, "mL");
+  lv_obj_align_to(mL_label, VTBI_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
 
   /* The idea is to enable `LV_OBJ_FLAG_EVENT_BUBBLE` on checkboxes and process the
    * `LV_EVENT_CLICKED` on the container.
    * A variable is passed as event user data where the index of the active
    * radiobutton is saved */
 
-  lv_style_init(&style_radio);
-  lv_style_set_radius(&style_radio, LV_RADIUS_CIRCLE);
+  // lv_style_init(&style_radio);
+  // lv_style_set_radius(&style_radio, LV_RADIUS_CIRCLE);
 
-  lv_style_init(&style_radio_chk);
-  lv_style_set_bg_img_src(&style_radio_chk, NULL);
+  // lv_style_init(&style_radio_chk);
+  // lv_style_set_bg_img_src(&style_radio_chk, NULL);
 
-  uint8_t dripFactor[4] = {10, 15, 20, 60};
-  char buf[16];
+  // uint8_t dripFactor[4] = {10, 15, 20, 60};
+  // char buf[16];
 
-  lv_obj_t * cont1 = lv_obj_create(screenMain);
-  lv_obj_set_flex_flow(cont1, LV_FLEX_FLOW_COLUMN);
-  // lv_obj_set_size(cont1, lv_pct(40), lv_pct(80));
-  lv_obj_align(cont1, LV_ALIGN_CENTER, 0, 0);
-  lv_obj_add_event_cb(cont1, radio_event_handler, LV_EVENT_CLICKED, &active_index_1);
+  // lv_obj_t * cont1 = lv_obj_create(screenMain);
+  // lv_obj_set_flex_flow(cont1, LV_FLEX_FLOW_COLUMN);
+  // // lv_obj_set_size(cont1, lv_pct(40), lv_pct(80));
+  // lv_obj_align(cont1, LV_ALIGN_CENTER, 0, 0);
+  // lv_obj_add_event_cb(cont1, radio_event_handler, LV_EVENT_CLICKED, &active_index_1);
 
-  for(int i=0; i<sizeof(dripFactor); i++) {
-    lv_snprintf(buf, 16, "%d drops/mL", dripFactor[i]);
-    radiobutton_create(cont1, buf);
-  }
+  // for(int i=0; i<sizeof(dripFactor); i++) {
+  //   lv_snprintf(buf, 16, "%d drops/mL", dripFactor[i]);
+  //   radiobutton_create(cont1, buf);
+  // }
 
   /*Loads the main screen*/
   lv_disp_load_scr(screenMain);
@@ -202,6 +202,23 @@ void set_textarea(lv_obj_t *& parent, uint16_t id, lv_coord_t x, lv_coord_t y) {
   lv_textarea_set_placeholder_text(parent, "Pls input");
   lv_obj_set_user_data(parent, &id);
   lv_obj_add_event_cb(parent, textarea_event_cb, LV_EVENT_ALL, parent);
+
+  // /*set style for boarder*/
+  // static lv_style_t style;
+  //   lv_style_init(&style);
+
+  // /*Set a background color and a radius*/
+  // lv_style_set_radius(&style, 10);
+  // lv_style_set_bg_opa(&style, LV_OPA_COVER);
+  // lv_style_set_bg_color(&style, lv_palette_lighten(LV_PALETTE_GREY, 1));
+
+  // /*Add border to the bottom+right*/
+  // lv_style_set_border_color(&style, lv_palette_main(LV_PALETTE_BLUE));
+  // lv_style_set_border_width(&style, 5);
+  // lv_style_set_border_opa(&style, LV_OPA_50);
+  // lv_style_set_border_side(&style, LV_BORDER_SIDE_FULL);
+
+  // lv_obj_add_style(parent, &style, 0);
 }
 
 static void radio_event_handler(lv_event_t * e) {
@@ -212,6 +229,11 @@ static void radio_event_handler(lv_event_t * e) {
 
   /*Do nothing if the container was clicked*/
   if(act_cb == cont) return;
+  // {
+  //   Serial.println("pressed");
+  //   uint32_t index = lv_obj_get_index(cont);
+  //   Serial.println(index);
+  // };
 
   lv_obj_clear_state(old_cb, LV_STATE_CHECKED);   /*Uncheck the previous radio button*/
   lv_obj_add_state(act_cb, LV_STATE_CHECKED);     /*Uncheck the current radio button*/
@@ -307,7 +329,10 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
       eventReseted = true;
     }
     else if (key == 'C') {
-      data->key = LV_KEY_ESC;
+      // data->key = LV_KEY_ESC;
+      // TODO: depending on context, e.g. pause infusion
+      // software reset:
+      esp_restart();
     }
     else if (key == 'L') {
       data->key = LV_KEY_LEFT;
@@ -317,15 +342,18 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
     }
     else if (key == 'U') {
       data->key = LV_KEY_PREV;
+      buttonState = buttonState_t::UP;
     }
     else if (key == 'D') {
       data->key = LV_KEY_NEXT;
+      buttonState = buttonState_t::DOWN;
     }
     else if (key == '#') {
       data->key = LV_KEY_BACKSPACE;
     }
     else if (key == '*') {
       data->key = LV_KEY_DEL;
+      buttonState = buttonState_t::ENTER;
     }
     else if (key == 'F') {
       /*convert the screen (go to monitor screen when first pressed)*/
@@ -346,9 +374,12 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
     }
 
     data->state = LV_INDEV_STATE_PRESSED;
+    Serial.println(key);
   }
-  else {
+  else if (keypad.getState() == 0) {
+    /*note that the key will be marked as released after get value if do so*/
     data->state = LV_INDEV_STATE_RELEASED;
+    buttonState = buttonState_t::IDLE;
   }
 }
 

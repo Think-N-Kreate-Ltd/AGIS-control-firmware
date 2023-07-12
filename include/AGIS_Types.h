@@ -3,6 +3,7 @@
 
 enum class motorState_t { UP, DOWN, OFF };
 enum class buttonState_t { UP, DOWN, ENTER, IDLE };
+extern buttonState_t buttonState;
 
 // NOTE: when infusionState_t type is modified, update the same type in script.js 
 enum class infusionState_t {
