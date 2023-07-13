@@ -358,10 +358,10 @@ void setup() {
   pinMode(TFT_CS, OUTPUT);
 
   // NOTE: commented for testing TFT
-  // ina219SetUp();
+  ina219SetUp();
   
-  // useSdCard();  // compulsorily change to communicate with SD
-  // sdCardSetUp();      
+  useSdCard();  // compulsorily change to communicate with SD
+  sdCardSetUp();      
 
   // setup for sensor interrupt
   attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
@@ -390,21 +390,21 @@ void setup() {
   display_init();
 
   // NOTE: commented for testing TFT
-  // /*Create a task for data logging*/
-  // xTaskCreate(loggingData,       /* Task function. */
-  //             "Data Logging",    /* String with name of task. */
-  //             4096,              /* Stack size in bytes. */
-  //             NULL,              /* Parameter passed as input of the task */
-  //             2,                 /* Priority of the task. */
-  //             NULL);             /* Task handle. */
+  /*Create a task for data logging*/
+  xTaskCreate(loggingData,       /* Task function. */
+              "Data Logging",    /* String with name of task. */
+              4096,              /* Stack size in bytes. */
+              NULL,              /* Parameter passed as input of the task */
+              2,                 /* Priority of the task. */
+              NULL);             /* Task handle. */
 
-  // // I2C is too slow that cannot use interrupt
-  // xTaskCreate(getI2CData,     // function that should be called
-  //             "Get I2C Data", // name of the task (debug use)
-  //             4096,           // stack size
-  //             NULL,           // parameter to pass
-  //             1,              // task priority, 0-24, 24 highest priority
-  //             NULL);          // task handle
+  // I2C is too slow that cannot use interrupt
+  xTaskCreate(getI2CData,     // function that should be called
+              "Get I2C Data", // name of the task (debug use)
+              4096,           // stack size
+              NULL,           // parameter to pass
+              1,              // task priority, 0-24, 24 highest priority
+              NULL);          // task handle
   
   // Create a task for TFT display
   xTaskCreate(tftDisplay,       // function that should be called
@@ -636,7 +636,7 @@ void infusionInit() {
 
 void loggingData(void * parameter) {
   // set up, only run once
-  rmOldData();
+  // rmOldData(); // move to `enableWifi` as this is not needed with no wifi connection
   static bool finishLogging = false;
 
   for (;;) {
@@ -749,6 +749,9 @@ void enableWifi(void * arg) {
   server.onNotFound(notFound); // if 404 not found, go to 404 not found
   AsyncElegantOTA.begin(&server); // for OTA update
   server.begin();
+
+  // remove sd card old data
+  rmOldData();
   }
 
   /*NOTE: The idle task is responsible for freeing the RTOS kernel allocated memory from tasks that have been deleted.

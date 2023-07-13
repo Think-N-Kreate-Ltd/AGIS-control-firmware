@@ -13,6 +13,9 @@ char datetime[11]; // var for storing the date time
 char fileName[32]; // var for storing the path of file
                    // assume VBTI=5char, time=5char, total should be 30char.
 
+// enable/disable the SPI CS pin to use
+// 1. SD card when state = true or NULL
+// 2. TFT display when state = false
 void useSdCard(bool state) {
   // one SPI can only communicate with one device at the same time
   // in most cases, the CS pin goes to LOW only when using
@@ -25,21 +28,24 @@ void useSdCard(bool state) {
   }
 }
 
-void getTime() {  // use for getting the real time
+// getting the real time
+void getTime() {
   // config time logging with NTP server
   configTime(28800, 0, "pool.ntp.org");  // 60x60x8=28800, +8h for Hong Kong
 
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo)){
     ESP_LOGE(DATA_LOGGING_TAG, "Failed to obtain time");
-    // return;
+    // return;  // not to return as users can choose to enable wifi or not
+    strcpy(datetime, "Data/00");                     // get the first base name
+  } else {
+    strftime(today , 4, "%a", &timeinfo);            // get the weekday of today
+    strftime(datetime , 11, "%a/%H%M%S", &timeinfo); // get the first base name
   }
-
-  strftime(today , 4, "%a", &timeinfo);            // get the weekday of today
-  strftime(datetime , 11, "%a/%H%M%S", &timeinfo); // get the first base name
 }
 
-void rmOldData() {  // remove data that is a week before
+// remove data that is a week before
+void rmOldData() {
   getTime();
 
   char path[5];
@@ -81,14 +87,35 @@ void sdCardSetUp() {
   }
 }
 
+// create new file and header
 void newFileInit() {
   getTime();
   sprintf(fileName, "%s_%u_%u_%u.csv", datetime, targetVTBI, targetTotalTime, dropFactor);
 
   // change the file name if already exists
   while (sd.exists(fileName)) {
-    // seems not possible to happened
-    sprintf(fileName, "%s_%u_%u_%u_2.csv", datetime, targetVTBI, targetTotalTime, dropFactor);
+    // it may happened while wifi not enable as first base name is fixed
+    // change the first base name to +1 to solve it, max can have 999
+    if (fileName[6] != '9') {
+      fileName[6]++;
+    } else if (fileName[5] != '9') {
+      fileName[6] = 48; // equal to '0'
+      fileName[5]++;
+    } else {
+      // clear all files in this directory
+      if (!file.open("/Data")) {
+        sd.errorHalt("file.open");
+      }
+      if (!file.rmRfStar()) { // remove all contents of the directory, also itself
+        sd.errorHalt("rmdir failed.");
+      } else {
+        ESP_LOGI(DATA_LOGGING_TAG, "Old directory removed");
+      }
+      if (!sd.mkdir("/Data")) {
+        sd.errorHalt("file.mkdir");
+      }
+      file.close();
+    }
   }
   if (!file.open(fileName, O_WRONLY | O_CREAT | O_EXCL)) {
     sd.errorHalt("file.open");
