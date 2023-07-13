@@ -332,8 +332,6 @@ void IRAM_ATTR motorControlISR() {
 
   // Handle keypad
   if (keypadInfusionConfirmed) {
-    // TODO: refactor below lines into a function call
-
     ESP_LOGI(KEYPAD_TAG, "Keypad inputs confirmed");
     infusionInit();
 
@@ -357,7 +355,6 @@ void setup() {
   pinMode(SD_CS, OUTPUT);
   pinMode(TFT_CS, OUTPUT);
 
-  // NOTE: commented for testing TFT
   ina219SetUp();
   
   useSdCard();  // compulsorily change to communicate with SD
@@ -389,7 +386,6 @@ void setup() {
   /*Initialize TFT display, LVGL*/
   display_init();
 
-  // NOTE: commented for testing TFT
   /*Create a task for data logging*/
   xTaskCreate(loggingData,       /* Task function. */
               "Data Logging",    /* String with name of task. */
@@ -757,7 +753,7 @@ void enableWifi(void * arg) {
   /*NOTE: The idle task is responsible for freeing the RTOS kernel allocated memory from tasks that have been deleted.
     It is therefore important that the idle task is not starved of microcontroller processing time if your application makes any calls to vTaskDelete ().
     Memory allocated by the task code is not automatically freed, and should be freed before the task is deleted.
-    TODO: check for how to free the memory <- `taskWifiDelete()`
+    NOTE: check for how to free the memory <- `taskWifiDelete()`
     UPDATE: seems it may have problem for web page & download log file, just keep it may be better*/
 
   vTaskDelete(NULL);  // delete itself

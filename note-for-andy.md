@@ -1,4 +1,4 @@
-#Note book point 6,7,10...etc
+#Note book point 6,7,10,15
 
 # LVGI note
 
