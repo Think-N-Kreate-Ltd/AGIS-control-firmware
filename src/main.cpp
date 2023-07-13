@@ -414,61 +414,61 @@ void setup() {
   }
 
   /*------------------------DISABLE WIFI FOR DEMO-------------------------*/
-  // WiFi.mode(WIFI_STA); // wifi station mode
+  WiFi.mode(WIFI_STA); // wifi station mode
 
-  // // reset settings - wipe stored credentials for testing
-  // // these are stored by the esp library
-  // // wm.resetSettings();
+  // reset settings - wipe stored credentials for testing
+  // these are stored by the esp library
+  // wm.resetSettings();
 
-  // if (!wm.autoConnect("AutoConnectAP",
-  //                     "password")) { // set esp32-s3 wifi ssid and pw to
-  //   // AutoConnectAP & password
-  //   ESP_LOGE(WIFI_TAG, "Failed to connect");
-  //   ESP.restart();
-  // } else {
-  //   // if you get here you have connected to the WiFi
-  //   ESP_LOGI(WIFI_TAG, "connected...yeah :)");
-  // }
+  if (!wm.autoConnect("AutoConnectAP",
+                      "password")) { // set esp32-s3 wifi ssid and pw to
+    // AutoConnectAP & password
+    ESP_LOGE(WIFI_TAG, "Failed to connect");
+    ESP.restart();
+  } else {
+    // if you get here you have connected to the WiFi
+    ESP_LOGI(WIFI_TAG, "connected...yeah :)");
+  }
 
-  // if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-  //   ESP_LOGE(WIFI_TAG, "WiFi Failed!");
-  //   return;
-  // }
+  if (WiFi.waitForConnectResult() != WL_CONNECTED) {
+    ESP_LOGE(WIFI_TAG, "WiFi Failed!");
+    return;
+  }
 
-  // // print the IP address of the web page
-  // ESP_LOGI(WIFI_TAG, "IP Address: %s", WiFi.localIP().toString());
+  // print the IP address of the web page
+  ESP_LOGI(WIFI_TAG, "IP Address: %s", WiFi.localIP().toString());
 
-  // // Init Websocket
-  // initWebSocket();
+  // Init Websocket
+  initWebSocket();
 
-  // // Create the file for web page
-  // // createDir(LittleFS, "/index.html");
-  // // createDir(LittleFS, "/style.css");
-  // // createDir(LittleFS, "/script.css");
+  // Create the file for web page
+  // createDir(LittleFS, "/index.html");
+  // createDir(LittleFS, "/style.css");
+  // createDir(LittleFS, "/script.css");
 
-  // // Send web page to client
-  // server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-  //   request->send(LittleFS, "/index.html", String(), false);
-  // });
+  // Send web page to client
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(LittleFS, "/index.html", String(), false);
+  });
 
-  // server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
-  //   request->send(LittleFS, "/style.css", "text/css");
-  // });
+  server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(LittleFS, "/style.css", "text/css");
+  });
 
-  // server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request) {
-  //   request->send(LittleFS, "/script.js", "text/javascript");
-  // });
+  server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(LittleFS, "/script.js", "text/javascript");
+  });
 
-  // server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
-  //   request->send(LittleFS, logFilePath, "text/plain", true);  // force download the file
-  // });
+  server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(LittleFS, logFilePath, "text/plain", true);  // force download the file
+  });
 
-  // server.onNotFound(notFound); // if 404 not found, go to 404 not found
-  // AsyncElegantOTA.begin(&server); // for OTA update
-  // server.begin();
+  server.onNotFound(notFound); // if 404 not found, go to 404 not found
+  AsyncElegantOTA.begin(&server); // for OTA update
+  server.begin();
 
-  // // config time logging with NTP server
-  // configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+  // config time logging with NTP server
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
   /*------------------------DISABLE WIFI FOR DEMO-------------------------*/
 
   /*Initialize TFT display, LVGL*/
@@ -480,12 +480,12 @@ void setup() {
 
   // TODO: set different prioity for different task
   /*Create a task for data logging*/
-  // xTaskCreate(loggingInitTask,   /* Task function. */
-  //             "loggingInitTask", /* String with name of task. */
-  //             4096,              /* Stack size in bytes. */
-  //             NULL,              /* Parameter passed as input of the task */
-  //             1,                 /* Priority of the task. */
-  //             NULL);             /* Task handle. */
+  xTaskCreate(loggingInitTask,   /* Task function. */
+              "loggingInitTask", /* String with name of task. */
+              4096,              /* Stack size in bytes. */
+              NULL,              /* Parameter passed as input of the task */
+              1,                 /* Priority of the task. */
+              NULL);             /* Task handle. */
 
   /*Create a task for OLED display*/
   xTaskCreate(oledDisplayTask,   /* Task function. */
