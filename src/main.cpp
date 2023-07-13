@@ -317,7 +317,6 @@ void IRAM_ATTR motorControlISR() {
   // Use button_DOWN to manually move down
   if (buttonState == buttonState_t::DOWN) {  // touched
     motorOnDown();
-    Serial.println("down");
   }
 
   // Use button_ENTER to toggle autoControlISR()
@@ -325,7 +324,6 @@ void IRAM_ATTR motorControlISR() {
     enableAutoControl = !enableAutoControl;
 
     infusionInit();
-    Serial.println("enter");
   }
 
   if (buttonState == buttonState_t::IDLE) {
@@ -353,6 +351,7 @@ void IRAM_ATTR motorControlISR() {
 
 void setup() {
   Serial.begin(115200);
+  pinMode(48, INPUT); // prevent blink of onboard LED
   pinMode(DROP_SENSOR_PIN, INPUT);
   pinMode(SENSOR_LED_PIN, OUTPUT);
   digitalWrite(SENSOR_LED_PIN, HIGH); // prevent the LED is turned on initially

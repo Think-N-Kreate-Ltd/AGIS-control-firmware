@@ -374,12 +374,14 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
     }
 
     data->state = LV_INDEV_STATE_PRESSED;
-    Serial.println(key);
+    Serial.write(key);
   }
-  else if (keypad.getState() == 0) {
-    /*note that the key will be marked as released after get value if do so*/
+  else if (keypad.getState() == 0) {  // when keypad pressing is released
     data->state = LV_INDEV_STATE_RELEASED;
-    buttonState = buttonState_t::IDLE;
+    // stop the motor control
+    if (buttonState != buttonState_t::IDLE) {
+      buttonState = buttonState_t::IDLE;
+    }
   }
 }
 
