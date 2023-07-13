@@ -351,7 +351,6 @@ void IRAM_ATTR motorControlISR() {
 
 void setup() {
   Serial.begin(115200);
-  pinMode(48, INPUT); // prevent blink of onboard LED
   pinMode(DROP_SENSOR_PIN, INPUT);
   pinMode(SENSOR_LED_PIN, OUTPUT);
   digitalWrite(SENSOR_LED_PIN, HIGH); // prevent the LED is turned on initially
@@ -678,7 +677,7 @@ void getI2CData(void * arg) {
 void tftDisplay(void * arg) {
   // get the screen object
   input_screen();
-  vTaskDelay(100);  // avoid CPU crashing
+  vTaskDelay(20);  // avoid CPU crashing
   ask_for_wifi_enable_msgbox();
   monitor_screen();
   // test_screen();

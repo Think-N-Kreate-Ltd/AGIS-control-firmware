@@ -322,6 +322,7 @@ static void msgbox_event_cb(lv_event_t * event) {
 
 void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
   uint8_t key = keypad.getKey();
+  Serial.write(key);
   if(key) {
     if (key == 'E') {
       data->key = LV_KEY_ENTER;
@@ -374,7 +375,6 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
     }
 
     data->state = LV_INDEV_STATE_PRESSED;
-    Serial.write(key);
   }
   else if (keypad.getState() == 0) {  // when keypad pressing is released
     data->state = LV_INDEV_STATE_RELEASED;
