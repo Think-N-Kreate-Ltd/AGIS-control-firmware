@@ -92,7 +92,7 @@ bool homingCompleted = false;   // true when lower limit switch is activated
 #define AUTO_CONTROL_ON_TIME_MIN 30   // motor will be enabled for this amount of time at minimum (unit: ms)
 #define AUTO_CONTROL_TOTAL_TIME_FAST    500  // 500ms
 #define AUTO_CONTROL_TOTAL_TIME_NORMAL  1000  // 1000ms
-#define DROP_DEBOUNCE_TIME       30   // if two pulses are generated within debounce time, it must be detected as 1 drop
+#define DROP_DEBOUNCE_TIME       10   // if two pulses are generated within debounce time, it must be detected as 1 drop
 
 // WiFiManager, Local intialization. Once its business is done, there is no need
 // to keep it around
