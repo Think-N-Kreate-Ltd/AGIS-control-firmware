@@ -226,6 +226,14 @@ void set_textarea(lv_obj_t *& parent, uint16_t id, lv_coord_t x, lv_coord_t y) {
   // lv_obj_add_style(parent, &style, 0);
 }
 
+static void radiobutton_create(lv_obj_t * parent, const char * txt) {
+  lv_obj_t * obj = lv_checkbox_create(parent);
+  lv_checkbox_set_text(obj, txt);
+  lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE);
+  lv_obj_add_style(obj, &style_radio, LV_PART_INDICATOR);
+  lv_obj_add_style(obj, &style_radio_chk, LV_PART_INDICATOR | LV_STATE_CHECKED);
+}
+
 static void radio_event_handler(lv_event_t * e) {
   uint32_t * active_id = (uint32_t *)lv_event_get_user_data(e);
   lv_obj_t * cont = lv_event_get_current_target(e);
@@ -244,14 +252,6 @@ static void radio_event_handler(lv_event_t * e) {
   *active_id = lv_obj_get_index(act_cb);          /*I don't know what it is use for*/
   uint16_t i = lv_obj_get_index(act_cb);          /*get the index if button*/
   dropFactor = dripFactor[i];                     /*store the drip factor selected*/
-}
-
-static void radiobutton_create(lv_obj_t * parent, const char * txt) {
-  lv_obj_t * obj = lv_checkbox_create(parent);
-  lv_checkbox_set_text(obj, txt);
-  lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE);
-  lv_obj_add_style(obj, &style_radio, LV_PART_INDICATOR);
-  lv_obj_add_style(obj, &style_radio_chk, LV_PART_INDICATOR | LV_STATE_CHECKED);
 }
 
 static void textarea_event_cb(lv_event_t * event) {

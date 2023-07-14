@@ -42,11 +42,10 @@ void my_disp_flush( lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *colo
 // int32_t calculate_drip_rate(int32_t volume, int32_t time, int32_t dropFactor);
 /*set the textarea with coordinate x and y*/
 void set_textarea(lv_obj_t *& testarea_object, uint16_t id, lv_coord_t x, lv_coord_t y);
-static void radio_event_handler(lv_event_t * e);
 static void radiobutton_create(lv_obj_t * parent, const char * txt);
 
 // event handler
-// static void radio_event_cb(lv_event_t * event);
+static void radio_event_handler(lv_event_t * e);
 static void textarea_event_cb(lv_event_t * event);
 static void wifibox_event_cb(lv_event_t * event);
 static void confirmbox_event_cb(lv_event_t * event);
