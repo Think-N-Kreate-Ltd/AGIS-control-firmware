@@ -1,5 +1,15 @@
-#Note book point 6,7,10,15
+# modified library
 
+1. FS.h -> rename define `FILE_READ` to `FS_FILE_READ` ...etc
+2. AsyncElegantOTA.h -> L4 commented, remember not to use `.loop()`
+3. WiFiManger -> not yet
+4. lv_obj.c -> add `const` on L143
+5. lv_tabview.c & lv_checkbox -> also about const, give up fixing it
+
+=======================================================
+# Note book point 6,7,10,15
+
+=======================================================
 # LVGI note
 
 To handle the tasks of LVGL you need to call lv_timer_handler() periodically in one of the following:

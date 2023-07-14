@@ -11,7 +11,7 @@
 
 #include <Arduino.h>
 #include <AsyncTCP.h>
-#include <WiFiManager.h> // define before <WiFi.h>
+#include <WiFiManager.h>      // define before <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <SPI.h>
 #include "SdFat.h"
@@ -685,7 +685,7 @@ void tftDisplay(void * arg) {
 }
 
 void enableWifi(void * arg) {
-  static int count = 10;        // for time count
+  static int count = 10;  // for time counting
   while ((wifiStart == 0) && (count > 0)) {
     // waiting for response, mostly wait for 20s
     vTaskDelay(2000);
@@ -723,7 +723,7 @@ void enableWifi(void * arg) {
     // print the IP address of the web page
     ESP_LOGI(WIFI_TAG, "IP Address: %s", WiFi.localIP().toString());
 
-      // Init Websocket
+    // Init Websocket
     initWebSocket();
 
     // Send web page to client

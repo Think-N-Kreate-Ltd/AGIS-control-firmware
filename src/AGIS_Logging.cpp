@@ -55,7 +55,7 @@ bool logInfusionMonitoringData(char* logFilePath) {
   // write csv header
   if (!SD.exists(logFilePath)) {
     ESP_LOGI(DATA_LOGGING_TAG, "Logging started...");
-    File file = SD.open(logFilePath, FILE_WRITE);
+    File file = SD.open(logFilePath, FS_FILE_WRITE);
     if (!file) {
       ESP_LOGE(DATA_LOGGING_TAG, "There was an error opening the file for writing");
       return false;
@@ -78,7 +78,7 @@ bool logInfusionMonitoringData(char* logFilePath) {
   }
 
   // TODO: use folder for all data files
-  File file = SD.open(logFilePath, FILE_APPEND);
+  File file = SD.open(logFilePath, FS_FILE_APPEND);
   if (!file) {
     ESP_LOGE(DATA_LOGGING_TAG, "There was an error opening the file for writing");
     return false;
