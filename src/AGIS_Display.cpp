@@ -78,7 +78,7 @@ void my_disp_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *c
 void ask_for_wifi_enable_msgbox() {
   static const char * btns[] = {"Yes", "No", ""};
   lv_obj_t * wifi_box = lv_msgbox_create(screenMain, "Enable WiFi?", NULL, btns, false);
-  lv_obj_add_event_cb(wifi_box, msgbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+  lv_obj_add_event_cb(wifi_box, wifibox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
   lv_group_focus_obj(lv_msgbox_get_btns(wifi_box));
   lv_obj_add_state(lv_msgbox_get_btns(wifi_box), LV_STATE_FOCUS_KEY);
   lv_group_focus_freeze(grp, true);
@@ -146,11 +146,11 @@ void input_screen() {
 }
 
 void confirm_msgbox() {
-  static const char * btns[] = {"No", "Confirm", ""};
+  static const char * btns[] = {"No", "Yes", ""};
   char DR_buf[25];
   sprintf(DR_buf, "Drip Rate: %dTODO:", testing);
   lv_obj_t * confirm_box = lv_msgbox_create(screenMain, DR_buf, "Confirm To Run?", btns, false);
-  lv_obj_add_event_cb(confirm_box, msgbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+  lv_obj_add_event_cb(confirm_box, confirmbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
   lv_group_focus_obj(lv_msgbox_get_btns(confirm_box));
   lv_obj_add_state(lv_msgbox_get_btns(confirm_box), LV_STATE_FOCUS_KEY);
   lv_group_focus_freeze(grp, true);
@@ -293,7 +293,7 @@ static void textarea_event_cb(lv_event_t * event) {
   // }
 }
 
-static void msgbox_event_cb(lv_event_t * event) {
+static void wifibox_event_cb(lv_event_t * event) {
   lv_event_code_t code = lv_event_get_code(event);
   lv_obj_t * confirm_box = lv_event_get_current_target(event);
 
@@ -309,12 +309,38 @@ static void msgbox_event_cb(lv_event_t * event) {
         lv_group_focus_obj(screenMain);
         lv_obj_scroll_to(screenMain, 0, 0, LV_ANIM_OFF);
         wifiStart = 1;
-      } else if (txt == "Confirm") {
-        /*go to monitor screen, TODO: and start infusion*/
-        lv_disp_load_scr(screenMonitor);
       } else if (txt == "Yes") {
         /*start wifi & web page enable*/
         wifiStart = 2;
+      } else {/*I don't know how to go to this condition*/}
+    }
+    Serial.println(txt);
+    eventReseted = false;
+
+    /*set the background color back, not suggested to do by remove style*/
+    lv_obj_set_style_bg_opa(screenMain, LV_OPA_100, 0);
+    lv_obj_set_style_bg_color(screenMain, lv_color_hex(0xacacac), LV_PART_MAIN);
+  }
+}
+
+static void confirmbox_event_cb(lv_event_t * event) {
+  lv_event_code_t code = lv_event_get_code(event);
+  lv_obj_t * confirm_box = lv_event_get_current_target(event);
+
+  if(code == LV_EVENT_VALUE_CHANGED && eventReseted) { /*is sent by the buttons if one of them is clicked*/
+    const char * txt = lv_msgbox_get_active_btn_text(confirm_box);  /*get the button value*/
+    if(txt){
+      /*close the msgbox*/
+      lv_msgbox_close(confirm_box); 
+      lv_group_focus_freeze(grp, false);
+
+      if(txt == "No") {
+        /*go back to input screen*/
+        lv_group_focus_obj(screenMain);
+        lv_obj_scroll_to(screenMain, 0, 0, LV_ANIM_OFF);
+      } else if (txt == "Yes") {
+        /*go to monitor screen, TODO: and start infusion*/
+        lv_disp_load_scr(screenMonitor);
       } else {/*I don't know how to go to this condition*/}
     }
     Serial.println(txt);
