@@ -1,6 +1,7 @@
 #include <AGIS_Display.h>
 
-volatile bool wifiStart = false;  // true if 'Yes' pressed, and will enalbe wifi in main file
+// state for checking the wifibox, 0=waiting, 1=not start, 2=start
+volatile uint8_t wifiStart = 0;
 // a special state to lock the event change
 // TODO: find whether have method to reset the event state (`lv_obj_remove_event_cb` have problem currently)
 bool eventReseted;
@@ -92,7 +93,8 @@ void ask_for_wifi_enable_msgbox() {
 
   /*there is no auto close in master version(8) of lvgl
   should close in other function, 
-  thus, need to get the object `wifi_box` outside this function*/
+  thus, need to get the object `wifi_box` outside this function, 
+  and a state to check whether the msgbox is closed*/
   lv_obj_move_to_index(wifi_box, 1);  // should less then the total no. of child
 }
 
@@ -100,44 +102,44 @@ void input_screen() {
   /*a screen object which will hold all other objects*/
   screenMain = lv_obj_create(NULL);
 
-  /*Text area for VTBI_target (testing)*/
-  lv_obj_t * VTBI_target = lv_textarea_create(screenMain);
-  static int lv_VTBI_id = LV_VTBI_ID;
-  set_textarea(VTBI_target, lv_VTBI_id, 5, 25);
+  // /*Text area for VTBI_target (testing)*/
+  // lv_obj_t * VTBI_target = lv_textarea_create(screenMain);
+  // static int lv_VTBI_id = LV_VTBI_ID;
+  // set_textarea(VTBI_target, lv_VTBI_id, 5, 25);
 
-  /*label for VTBI_target (testing)*/
-  lv_obj_t * vtbi_label = lv_label_create(screenMain);
-  lv_label_set_text(vtbi_label, "VTBI:");
-  lv_obj_align_to(vtbi_label, VTBI_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);  /*set position*/
+  // /*label for VTBI_target (testing)*/
+  // lv_obj_t * vtbi_label = lv_label_create(screenMain);
+  // lv_label_set_text(vtbi_label, "VTBI:");
+  // lv_obj_align_to(vtbi_label, VTBI_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);  /*set position*/
 
-  lv_obj_t * mL_label = lv_label_create(screenMain);
-  lv_label_set_text(mL_label, "mL");
-  lv_obj_align_to(mL_label, VTBI_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
+  // lv_obj_t * mL_label = lv_label_create(screenMain);
+  // lv_label_set_text(mL_label, "mL");
+  // lv_obj_align_to(mL_label, VTBI_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
 
   /* The idea is to enable `LV_OBJ_FLAG_EVENT_BUBBLE` on checkboxes and process the
    * `LV_EVENT_CLICKED` on the container.
    * A variable is passed as event user data where the index of the active
    * radiobutton is saved */
 
-  // lv_style_init(&style_radio);
-  // lv_style_set_radius(&style_radio, LV_RADIUS_CIRCLE);
+  lv_style_init(&style_radio);
+  lv_style_set_radius(&style_radio, LV_RADIUS_CIRCLE);
 
-  // lv_style_init(&style_radio_chk);
-  // lv_style_set_bg_img_src(&style_radio_chk, NULL);
+  lv_style_init(&style_radio_chk);
+  lv_style_set_bg_img_src(&style_radio_chk, NULL);
 
-  // uint8_t dripFactor[4] = {10, 15, 20, 60};
-  // char buf[16];
+  uint8_t dripFactor[4] = {10, 15, 20, 60};
+  char buf[16];
 
-  // lv_obj_t * cont1 = lv_obj_create(screenMain);
-  // lv_obj_set_flex_flow(cont1, LV_FLEX_FLOW_COLUMN);
-  // // lv_obj_set_size(cont1, lv_pct(40), lv_pct(80));
-  // lv_obj_align(cont1, LV_ALIGN_CENTER, 0, 0);
-  // lv_obj_add_event_cb(cont1, radio_event_handler, LV_EVENT_CLICKED, &active_index_1);
+  lv_obj_t * cont1 = lv_obj_create(screenMain);
+  lv_obj_set_flex_flow(cont1, LV_FLEX_FLOW_COLUMN);
+  // lv_obj_set_size(cont1, lv_pct(40), lv_pct(80));
+  lv_obj_align(cont1, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_add_event_cb(cont1, radio_event_handler, LV_EVENT_CLICKED, &active_index_1);
 
-  // for(int i=0; i<sizeof(dripFactor); i++) {
-  //   lv_snprintf(buf, 16, "%d drops/mL", dripFactor[i]);
-  //   radiobutton_create(cont1, buf);
-  // }
+  for(int i=0; i<sizeof(dripFactor); i++) {
+    lv_snprintf(buf, 16, "%d drops/mL", dripFactor[i]);
+    radiobutton_create(cont1, buf);
+  }
 
   /*Loads the main screen*/
   lv_disp_load_scr(screenMain);
@@ -235,6 +237,9 @@ static void radio_event_handler(lv_event_t * e) {
   //   Serial.println(index);
   // };
 
+  // uint32_t index = lv_obj_get_index(cont);
+  // Serial.println(index);
+
   lv_obj_clear_state(old_cb, LV_STATE_CHECKED);   /*Uncheck the previous radio button*/
   lv_obj_add_state(act_cb, LV_STATE_CHECKED);     /*Uncheck the current radio button*/
 
@@ -299,24 +304,25 @@ static void msgbox_event_cb(lv_event_t * event) {
       lv_msgbox_close(confirm_box); 
       lv_group_focus_freeze(grp, false);
 
-      /*set the background color back, not suggested to do by remove style*/
-      lv_obj_set_style_bg_opa(screenMain, LV_OPA_100, 0);
-      lv_obj_set_style_bg_color(screenMain, lv_color_hex(0xacacac), LV_PART_MAIN);
-
       if(txt == "No") {
         /*go back to input screen*/
         lv_group_focus_obj(screenMain);
         lv_obj_scroll_to(screenMain, 0, 0, LV_ANIM_OFF);
+        wifiStart = 1;
       } else if (txt == "Confirm") {
         /*go to monitor screen, TODO: and start infusion*/
         lv_disp_load_scr(screenMonitor);
       } else if (txt == "Yes") {
         /*start wifi & web page enable*/
-        wifiStart = true;
+        wifiStart = 2;
       } else {/*I don't know how to go to this condition*/}
     }
     Serial.println(txt);
     eventReseted = false;
+
+    /*set the background color back, not suggested to do by remove style*/
+    lv_obj_set_style_bg_opa(screenMain, LV_OPA_100, 0);
+    lv_obj_set_style_bg_color(screenMain, lv_color_hex(0xacacac), LV_PART_MAIN);
   }
 }
 
@@ -425,5 +431,5 @@ void infusion_monitoring_cb(lv_timer_t * timer) {
 }
 
 void closeWifiBox() {
-  lv_msgbox_close(lv_obj_get_child(screenMain, 1)); /*close wifi box*/
+    lv_msgbox_close(lv_obj_get_child(screenMain, 1)); /*close wifi box*/
 }

@@ -16,7 +16,7 @@
 // #define LV_DROP_FACTOR_20_ID   2
 // #define LV_DROP_FACTOR_60_ID   3
 
-extern volatile bool wifiStart;  // 0=waiting, 1=start, 2=not start
+extern volatile uint8_t wifiStart;  // 0=waiting, 1=not start, 2=start
 
 void display_init();
 // void test_screen();

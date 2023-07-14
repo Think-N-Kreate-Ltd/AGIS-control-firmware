@@ -686,68 +686,70 @@ void tftDisplay(void * arg) {
 
 void enableWifi(void * arg) {
   static int count = 10;        // for time count
-  while (!wifiStart && (count > 0)) {
+  while ((wifiStart == 0) && (count > 0)) {
     // waiting for response, mostly wait for 20s
     vTaskDelay(2000);
     count--;
     ESP_LOGI(WIFI_TAG, "counting: %d", count);
   }
   
-  if (!wifiStart) {  // wait time out
+  if (wifiStart != 2) {   // not to connect to wifi
     ESP_LOGI(WIFI_TAG, "Not connect to WiFi");
-    closeWifiBox();
-  } else {         // connect wifi
-  WiFi.mode(WIFI_STA); // wifi station mode
+    if (wifiStart == 0) { // timeout
+      closeWifiBox();
+    }
+  } else {                // connect wifi
+    WiFi.mode(WIFI_STA);  // wifi station mode
 
-  // reset settings - wipe stored credentials for testing
-  // these are stored by the esp library
-  // wm.resetSettings();
+    // reset settings - wipe stored credentials for testing
+    // these are stored by the esp library
+    // wm.resetSettings();
 
-  if (!wm.autoConnect("AutoConnectAP",
-                      "password")) { // set esp32-s3 wifi ssid and pw to
-    // AutoConnectAP & password
-    ESP_LOGE(WIFI_TAG, "Failed to connect");
-    ESP.restart();
-  } else {
-    // if you get here you have connected to the WiFi
-    ESP_LOGI(WIFI_TAG, "connected...yeah :)");
-  }
+    if (!wm.autoConnect("AutoConnectAP",
+                        "password")) { // set esp32-s3 wifi ssid and pw to
+      // AutoConnectAP & password
+      ESP_LOGE(WIFI_TAG, "Failed to connect");
+      ESP.restart();
+    } else {
+      // if you get here you have connected to the WiFi
+      ESP_LOGI(WIFI_TAG, "connected...yeah :)");
+    }
 
-  if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    ESP_LOGE(WIFI_TAG, "WiFi Failed!");
-    return;
-  }
+    if (WiFi.waitForConnectResult() != WL_CONNECTED) {
+      ESP_LOGE(WIFI_TAG, "WiFi Failed!");
+      return;
+    }
 
-  // print the IP address of the web page
-  ESP_LOGI(WIFI_TAG, "IP Address: %s", WiFi.localIP().toString());
+    // print the IP address of the web page
+    ESP_LOGI(WIFI_TAG, "IP Address: %s", WiFi.localIP().toString());
 
-    // Init Websocket
-  initWebSocket();
+      // Init Websocket
+    initWebSocket();
 
-  // Send web page to client
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(LittleFS, "/index.html", String(), false);
-  });
+    // Send web page to client
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+      request->send(LittleFS, "/index.html", String(), false);
+    });
 
-  // server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-  //   request->send(SD, "/web_server/index.html", String(), false);
-  // });
+    // server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    //   request->send(SD, "/web_server/index.html", String(), false);
+    // });
 
-  server.serveStatic("/", LittleFS, "/");
+    server.serveStatic("/", LittleFS, "/");
 
-  // server.serveStatic("/", SD, "/web_server/");
+    // server.serveStatic("/", SD, "/web_server/");
 
-  // force download file
-  server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
-    loadFromSdCard(request);
-  });
+    // force download file
+    server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
+      loadFromSdCard(request);
+    });
 
-  server.onNotFound(notFound); // if 404 not found, go to 404 not found
-  AsyncElegantOTA.begin(&server); // for OTA update
-  server.begin();
+    server.onNotFound(notFound); // if 404 not found, go to 404 not found
+    AsyncElegantOTA.begin(&server); // for OTA update
+    server.begin();
 
-  // remove sd card old data
-  rmOldData();
+    // remove sd card old data
+    rmOldData();
   }
 
   /*NOTE: The idle task is responsible for freeing the RTOS kernel allocated memory from tasks that have been deleted.
