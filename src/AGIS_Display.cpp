@@ -92,7 +92,7 @@ void ask_for_wifi_enable_msgbox() {
   lv_obj_set_width(wifi_box, 125);
 
   /*make the background a little bit grey*/
-  lv_obj_set_style_bg_opa(screenMain, LV_OPA_70, 0);
+  lv_obj_set_style_bg_opa(screenMain, LV_OPA_100, 0);
   lv_obj_set_style_bg_color(screenMain, lv_palette_main(LV_PALETTE_GREY), 0);
 
   /*there is no auto close in master version(8) of lvgl
@@ -106,43 +106,58 @@ void input_screen() {
   /*a screen object which will hold all other objects*/
   screenMain = lv_obj_create(NULL);
 
-  // /*Text area for VTBI_target (testing)*/
-  // lv_obj_t * VTBI_target = lv_textarea_create(screenMain);
-  // static int lv_VTBI_id = LV_VTBI_ID;
-  // set_textarea(VTBI_target, lv_VTBI_id, 5, 25);
+  /*Text area for VTBI_target*/
+  lv_obj_t * VTBI_target = lv_textarea_create(screenMain);
+  static int lv_VTBI_id = LV_VTBI_ID;
+  set_textarea(VTBI_target, lv_VTBI_id, 5, 25);
 
-  // /*label for VTBI_target (testing)*/
-  // lv_obj_t * vtbi_label = lv_label_create(screenMain);
-  // lv_label_set_text(vtbi_label, "VTBI:");
-  // lv_obj_align_to(vtbi_label, VTBI_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);  /*set position*/
+  /*label for VTBI_target*/
+  lv_obj_t * vtbi_label = lv_label_create(screenMain);
+  lv_label_set_text(vtbi_label, "VTBI:");
+  lv_obj_align_to(vtbi_label, VTBI_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);  /*set position*/
 
-  // lv_obj_t * mL_label = lv_label_create(screenMain);
-  // lv_label_set_text(mL_label, "mL");
-  // lv_obj_align_to(mL_label, VTBI_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
+  lv_obj_t * mL_label = lv_label_create(screenMain);
+  lv_label_set_text(mL_label, "mL");
+  lv_obj_align_to(mL_label, VTBI_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
+
+  /*Text area for timeHr_target*/
+  lv_obj_t * timeHr_target = lv_textarea_create(screenMain);
+  static int lv_timeHr_id = LV_TOTAL_TIME_HOUR_ID;
+  Serial.println(lv_obj_get_height(VTBI_target));
+  set_textarea(timeHr_target, lv_timeHr_id, 5, 91);
+
+  /*label for timeHr_target*/
+  lv_obj_t * timeHr_label = lv_label_create(screenMain);
+  lv_label_set_text(timeHr_label, "Total time:");
+  lv_obj_align_to(timeHr_label, timeHr_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);  /*set position*/
+
+  lv_obj_t * hr_label = lv_label_create(screenMain);
+  lv_label_set_text(hr_label, "hours");
+  lv_obj_align_to(hr_label, timeHr_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
 
   /* The idea is to enable `LV_OBJ_FLAG_EVENT_BUBBLE` on checkboxes and process the
    * `LV_EVENT_CLICKED` on the container.
    * A variable is passed as event user data where the index of the active
    * radiobutton is saved */
 
-  lv_style_init(&style_radio);
-  lv_style_set_radius(&style_radio, LV_RADIUS_CIRCLE);
+  // lv_style_init(&style_radio);
+  // lv_style_set_radius(&style_radio, LV_RADIUS_CIRCLE);
 
-  lv_style_init(&style_radio_chk);
-  lv_style_set_bg_img_src(&style_radio_chk, NULL);
+  // lv_style_init(&style_radio_chk);
+  // lv_style_set_bg_img_src(&style_radio_chk, NULL);
 
-  char buf[16];
+  // char buf[16];
 
-  lv_obj_t * cont1 = lv_obj_create(screenMain);
-  lv_obj_set_flex_flow(cont1, LV_FLEX_FLOW_COLUMN);
-  // lv_obj_set_size(cont1, lv_pct(40), lv_pct(80));
-  lv_obj_align(cont1, LV_ALIGN_CENTER, 0, 0);
-  lv_obj_add_event_cb(cont1, radio_event_handler, LV_EVENT_CLICKED, &active_index_1);
+  // lv_obj_t * cont1 = lv_obj_create(screenMain);
+  // lv_obj_set_flex_flow(cont1, LV_FLEX_FLOW_COLUMN);
+  // // lv_obj_set_size(cont1, lv_pct(40), lv_pct(80));
+  // lv_obj_align(cont1, LV_ALIGN_CENTER, 0, 0);
+  // lv_obj_add_event_cb(cont1, radio_event_handler, LV_EVENT_CLICKED, &active_index_1);
 
-  for(int i=0; i<sizeof(dripFactor); i++) {
-    lv_snprintf(buf, 16, "%d drops/mL", dripFactor[i]);
-    radiobutton_create(cont1, buf);
-  }
+  // for(int i=0; i<sizeof(dripFactor); i++) {
+  //   lv_snprintf(buf, 16, "%d drops/mL", dripFactor[i]);
+  //   radiobutton_create(cont1, buf);
+  // }
 
   /*Loads the main screen*/
   lv_disp_load_scr(screenMain);
@@ -203,7 +218,7 @@ void monitor_screen() {
 void set_textarea(lv_obj_t *& parent, uint16_t id, lv_coord_t x, lv_coord_t y) {
   lv_textarea_set_one_line(parent, true);
   lv_obj_align(parent, LV_ALIGN_TOP_LEFT, x, y);
-  lv_obj_set_width(parent, 80);
+  lv_obj_set_width(parent, 80); /*Note: width=80, height=36*/
   lv_textarea_set_placeholder_text(parent, "Pls input");
   lv_obj_set_user_data(parent, &id);
   lv_obj_add_event_cb(parent, textarea_event_cb, LV_EVENT_ALL, parent);
