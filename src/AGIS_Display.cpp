@@ -7,6 +7,8 @@ volatile uint8_t wifiStart = 0;
 bool eventReseted;
 // the state of the screen, true=input screen, false=monitor screen
 bool screenState = true;
+// an array to store the option of drip factor
+uint8_t dripFactor[4] = {10, 15, 20, 60};
 
 static lv_disp_draw_buf_t disp_buf; // lv_disp_buf_t cannot use, use this one instead
 static lv_color_t buf[TFT_WIDTH * TFT_HEIGHT / 10];
@@ -129,7 +131,6 @@ void input_screen() {
   lv_style_init(&style_radio_chk);
   lv_style_set_bg_img_src(&style_radio_chk, NULL);
 
-  uint8_t dripFactor[4] = {10, 15, 20, 60};
   char buf[16];
 
   lv_obj_t * cont1 = lv_obj_create(screenMain);
@@ -233,19 +234,16 @@ static void radio_event_handler(lv_event_t * e) {
 
   /*Do nothing if the container was clicked*/
   if(act_cb == cont) return;
-  // {
-  //   Serial.println("pressed");
-  //   uint32_t index = lv_obj_get_index(cont);
-  //   Serial.println(index);
-  // };
 
-  // uint32_t index = lv_obj_get_index(cont);
-  // Serial.println(index);
+  // const char * txt = lv_checkbox_get_text(cont);
+  // Serial.println(txt);
 
   lv_obj_clear_state(old_cb, LV_STATE_CHECKED);   /*Uncheck the previous radio button*/
   lv_obj_add_state(act_cb, LV_STATE_CHECKED);     /*Uncheck the current radio button*/
 
-  *active_id = lv_obj_get_index(act_cb);
+  *active_id = lv_obj_get_index(act_cb);          /*I don't know what it is use for*/
+  uint16_t i = lv_obj_get_index(act_cb);          /*get the index if button*/
+  dropFactor = dripFactor[i];                     /*store the drip factor selected*/
 }
 
 static void radiobutton_create(lv_obj_t * parent, const char * txt) {

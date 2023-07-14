@@ -7,8 +7,8 @@ extern volatile unsigned int numDrops;
 extern volatile unsigned int dripRate;
 extern volatile unsigned int infusedVolume_x100;
 extern volatile unsigned int infusedTime;
-extern unsigned int dropFactor;
 
+extern unsigned int dropFactor;
 extern unsigned int targetVTBI;
 extern unsigned int targetTotalTime;
 extern unsigned int targetDripRate;

@@ -7,6 +7,7 @@
 #include <lv_conf.h>
 #include <AGIS_Keypad.h>
 #include <AGIS_Types.h>
+#include <AGIS_Commons.h>
 
 #define LV_VTBI_ID             100
 // #define LV_TOTAL_TIME_HOUR_ID  101
