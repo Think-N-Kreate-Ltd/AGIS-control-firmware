@@ -22,7 +22,6 @@ void display_init();
 // void test_screen();
 void input_screen();
 void ask_for_wifi_enable_msgbox();
-void confirm_msgbox();
 void monitor_screen();
 
 void closeWifiBox();
@@ -35,6 +34,8 @@ extern volatile int testing;
 // void infusion_monitoring_cb(lv_timer_t * timer);
 
 /*----------function prototype only use in AGIS_Display.h (private)----------*/
+void confirm_msgbox();
+
 void my_disp_flush( lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p );
 // bool validate_keypad_inputs();
 // int32_t calculate_drip_rate(int32_t volume, int32_t time, int32_t dropFactor);

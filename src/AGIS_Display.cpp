@@ -5,6 +5,8 @@ volatile uint8_t wifiStart = 0;
 // a special state to lock the event change
 // TODO: find whether have method to reset the event state (`lv_obj_remove_event_cb` have problem currently)
 bool eventReseted;
+// the state of the screen, true=input screen, false=monitor screen
+bool screenState = true;
 
 static lv_disp_draw_buf_t disp_buf; // lv_disp_buf_t cannot use, use this one instead
 static lv_color_t buf[TFT_WIDTH * TFT_HEIGHT / 10];
@@ -341,6 +343,8 @@ static void confirmbox_event_cb(lv_event_t * event) {
       } else if (txt == "Yes") {
         /*go to monitor screen, TODO: and start infusion*/
         lv_disp_load_scr(screenMonitor);
+        keypadInfusionConfirmed = true;
+        screenState = false;
       } else {/*I don't know how to go to this condition*/}
     }
     Serial.println(txt);
@@ -363,7 +367,6 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
     }
     else if (key == 'C') {
       // data->key = LV_KEY_ESC;
-      // TODO: depending on context, e.g. pause infusion
       // software reset:
       esp_restart();
     }
@@ -389,18 +392,23 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
       buttonState = buttonState_t::ENTER;
     }
     else if (key == 'F') {
-      /*convert the screen (go to monitor screen when first pressed)*/
-      static bool state;
-      if (state) {
-        lv_disp_load_scr(screenMain);
-      } else {
+      /*convert the screen*/
+      if (screenState) {
         lv_disp_load_scr(screenMonitor);
+      } else {
+        lv_disp_load_scr(screenMain);
       }
-      state = !state;
+      screenState = !screenState;
     }
     // TODO: add `G`, now is missing lots of things here
     else if (key == 'G') {
-      confirm_msgbox();
+      /*not to pop up the message box if input missed or in monitor screen*/
+      if (keypadInfusionConfirmed && screenState) {  // need to change to check all input fulfilled
+        /*pop up a message box to confirm*/
+        confirm_msgbox();
+      } else {
+        /*nothing*/
+      }
     }
     else {
       data->key = key;  /*possible BUG due to conversion from char to uint32_t(?)*/
