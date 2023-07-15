@@ -324,6 +324,9 @@ struct
  - https://stackoverflow.com/questions/330793/how-to-initialize-a-struct-in-accordance-with-c-programming-language-standards
  - use for conveniently change value for many vars at the same time
 
+pointer and array
+ - https://www.w3schools.com/c/c_pointers_arrays.php
+
 may use for button
  - https://www.w3schools.com/howto/howto_css_animate_buttons.asp
  - https://www.w3schools.com/howto/howto_css_switch.asp
