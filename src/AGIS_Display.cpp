@@ -315,7 +315,6 @@ static void wifibox_event_cb(lv_event_t * event) {
       } else {/*I don't know how to go to this condition*/}
     }
     Serial.println(txt);
-    eventReseted = false;
   }
 }
 
@@ -342,7 +341,6 @@ static void confirmbox_event_cb(lv_event_t * event) {
       } else {/*I don't know how to go to this condition*/}
     }
     Serial.println(txt);
-    eventReseted = false;
 
     /*set the background color back, not suggested to do by remove style*/
     lv_obj_set_style_bg_opa(screenMain, LV_OPA_100, 0);
@@ -397,12 +395,12 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
     // TODO: add `G`, now is missing lots of things here
     else if (key == 'G') {
       /*not to pop up the message box if input missed or in monitor screen*/
-      if (allInputs && screenState) {
+      // if (allInputs && screenState) {
         /*pop up a message box to confirm*/
         confirm_msgbox();
-      } else {
-        /*nothing*/
-      }
+      // } else {
+      //   /*nothing*/
+      // }
     }
     else {
       data->key = key;  /*possible BUG due to conversion from char to uint32_t(?)*/
@@ -412,6 +410,7 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
   }
   else if (keypad.getState() == 0) {  // when keypad pressing is released
     data->state = LV_INDEV_STATE_RELEASED;
+    eventReseted = false;
     // stop the motor control
     if (buttonState != buttonState_t::IDLE) {
       buttonState = buttonState_t::IDLE;
