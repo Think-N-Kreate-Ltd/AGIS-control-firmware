@@ -16,7 +16,7 @@ static lv_color_t buf[TFT_WIDTH * TFT_HEIGHT / 10];
 TFT_eSPI tft = TFT_eSPI();
 
 lv_group_t * grp;           /*a group to group all keypad evented object*/
-// lv_obj_t * screenTest;      /*a screen object which will hold all other objects for tesing*/
+lv_obj_t * wifi_box;        /*an object which hold wifi msgbox*/
 lv_obj_t * screenMain;      /*a screen object which will hold all other objects for input*/
 lv_obj_t * screenMonitor;   /*a screen object which will hold all other objects for data display*/
 lv_indev_t * keypad_indev;  /*a driver in LVGL and save the created input device object*/
@@ -80,26 +80,31 @@ void my_disp_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *c
 }
 
 void ask_for_wifi_enable_msgbox() {
+  lv_obj_t * screenTest = lv_obj_create(NULL);
+
   static const char * btns[] = {"Yes", "No", ""};
-  lv_obj_t * wifi_box = lv_msgbox_create(screenMain, "Enable WiFi?", NULL, btns, false);
+  wifi_box = lv_msgbox_create(screenTest, "Enable WiFi?", NULL, btns, false);
   lv_obj_add_event_cb(wifi_box, wifibox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
   lv_group_focus_obj(lv_msgbox_get_btns(wifi_box));
   lv_obj_add_state(lv_msgbox_get_btns(wifi_box), LV_STATE_FOCUS_KEY);
+  lv_group_add_obj(grp, wifi_box);
   lv_group_focus_freeze(grp, true);
 
   /*set the position*/
   lv_obj_align(wifi_box, LV_ALIGN_CENTER, 0, 0);
-  lv_obj_set_width(wifi_box, 125);
+  /*set the size to use 99% area, which can avoid `detected modifying dirty areas in render`*/
+  lv_obj_set_size(wifi_box, lv_pct(99), lv_pct(99));
 
   /*make the background a little bit grey*/
-  lv_obj_set_style_bg_opa(screenMain, LV_OPA_100, 0);
-  lv_obj_set_style_bg_color(screenMain, lv_palette_main(LV_PALETTE_GREY), 0);
+  // lv_obj_set_style_bg_opa(screenMain, LV_OPA_70, 0);
+  // lv_obj_set_style_bg_color(screenMain, lv_palette_main(LV_PALETTE_GREY), 0);
 
   /*there is no auto close in master version(8) of lvgl
   should close in other function, 
   thus, need to get the object `wifi_box` outside this function, 
   and a state to check whether the msgbox is closed*/
-  lv_obj_move_to_index(wifi_box, 1);  // should less then the total no. of child
+  // lv_obj_move_to_index(wifi_box, 1);  // should less then the total no. of child
+  lv_disp_load_scr(screenTest);
 }
 
 void input_screen() {
@@ -160,7 +165,7 @@ void input_screen() {
   // }
 
   /*Loads the main screen*/
-  lv_disp_load_scr(screenMain);
+  // lv_disp_load_scr(screenMain);
 }
 
 void confirm_msgbox() {
@@ -321,6 +326,7 @@ static void wifibox_event_cb(lv_event_t * event) {
 
       if(txt == "No") {
         /*go back to input screen*/
+        lv_disp_load_scr(screenMain);
         lv_group_focus_obj(screenMain);
         lv_obj_scroll_to(screenMain, 0, 0, LV_ANIM_OFF);
         wifiStart = 1;
@@ -478,5 +484,5 @@ void infusion_monitoring_cb(lv_timer_t * timer) {
 }
 
 void closeWifiBox() {
-    lv_msgbox_close(lv_obj_get_child(screenMain, 1)); /*close wifi box*/
+  lv_msgbox_close(wifi_box); /*close wifi box*/
 }
