@@ -7,8 +7,12 @@ volatile uint8_t wifiStart = 0;
 bool eventReseted;
 // the state of the screen, true=input screen, false=monitor screen
 bool screenState = true;
+// check for whether all text area are filled
+bool allInputs = false;
 // an array to store the option of drip factor
 uint8_t dripFactor[4] = {10, 15, 20, 60};
+// an array to store keypad input, 0=VTBI, 1=timeHr, 2=timeMin
+int32_t keypadInput[3] = {-1, -1, -1};
 
 static lv_disp_draw_buf_t disp_buf; // lv_disp_buf_t cannot use, use this one instead
 static lv_color_t buf[TFT_WIDTH * TFT_HEIGHT / 10];
@@ -110,54 +114,54 @@ void input_screen() {
   screenMain = lv_obj_create(NULL);
 
   /*Text area for VTBI_target*/
-  lv_obj_t * VTBI_target = lv_textarea_create(screenMain);
-  set_textarea(VTBI_target, VTBI_INDEX, 5, 25);
+  // lv_obj_t * VTBI_target = lv_textarea_create(screenMain);
+  // set_textarea(VTBI_target, VTBI_INDEX, 5, 25);
 
-  /*label for VTBI_target*/
-  lv_obj_t * vtbi_label = lv_label_create(screenMain);
-  lv_label_set_text(vtbi_label, "VTBI:");
-  lv_obj_align_to(vtbi_label, VTBI_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);  /*set position*/
+  // /*label for VTBI_target*/
+  // lv_obj_t * vtbi_label = lv_label_create(screenMain);
+  // lv_label_set_text(vtbi_label, "VTBI:");
+  // lv_obj_align_to(vtbi_label, VTBI_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);  /*set position*/
 
-  lv_obj_t * mL_label = lv_label_create(screenMain);
-  lv_label_set_text(mL_label, "mL");
-  lv_obj_align_to(mL_label, VTBI_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
+  // lv_obj_t * mL_label = lv_label_create(screenMain);
+  // lv_label_set_text(mL_label, "mL");
+  // lv_obj_align_to(mL_label, VTBI_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
 
-  /*Text area for timeHr_target*/
-  lv_obj_t * timeHr_target = lv_textarea_create(screenMain);
-  set_textarea(timeHr_target, TOTAL_TIME_HOUR_INDEX, 5, 91);
+  // /*Text area for timeHr_target*/
+  // lv_obj_t * timeHr_target = lv_textarea_create(screenMain);
+  // set_textarea(timeHr_target, TOTAL_TIME_HOUR_INDEX, 5, 91);
 
-  /*label for timeHr_target*/
-  lv_obj_t * timeHr_label = lv_label_create(screenMain);
-  lv_label_set_text(timeHr_label, "Total time:");
-  lv_obj_align_to(timeHr_label, timeHr_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);  /*set position*/
+  // /*label for timeHr_target*/
+  // lv_obj_t * timeHr_label = lv_label_create(screenMain);
+  // lv_label_set_text(timeHr_label, "Total time:");
+  // lv_obj_align_to(timeHr_label, timeHr_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);  /*set position*/
 
-  lv_obj_t * hr_label = lv_label_create(screenMain);
-  lv_label_set_text(hr_label, "hours");
-  lv_obj_align_to(hr_label, timeHr_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
+  // lv_obj_t * hr_label = lv_label_create(screenMain);
+  // lv_label_set_text(hr_label, "hours");
+  // lv_obj_align_to(hr_label, timeHr_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
 
   /* The idea is to enable `LV_OBJ_FLAG_EVENT_BUBBLE` on checkboxes and process the
    * `LV_EVENT_CLICKED` on the container.
    * A variable is passed as event user data where the index of the active
    * radiobutton is saved */
 
-  // lv_style_init(&style_radio);
-  // lv_style_set_radius(&style_radio, LV_RADIUS_CIRCLE);
+  lv_style_init(&style_radio);
+  lv_style_set_radius(&style_radio, LV_RADIUS_CIRCLE);
 
-  // lv_style_init(&style_radio_chk);
-  // lv_style_set_bg_img_src(&style_radio_chk, NULL);
+  lv_style_init(&style_radio_chk);
+  lv_style_set_bg_img_src(&style_radio_chk, NULL);
 
-  // char buf[16];
+  char buf[16];
 
-  // lv_obj_t * cont1 = lv_obj_create(screenMain);
-  // lv_obj_set_flex_flow(cont1, LV_FLEX_FLOW_COLUMN);
-  // // lv_obj_set_size(cont1, lv_pct(40), lv_pct(80));
-  // lv_obj_align(cont1, LV_ALIGN_CENTER, 0, 0);
-  // lv_obj_add_event_cb(cont1, radio_event_handler, LV_EVENT_CLICKED, &active_index_1);
+  lv_obj_t * cont1 = lv_obj_create(screenMain);
+  lv_obj_set_flex_flow(cont1, LV_FLEX_FLOW_COLUMN);
+  // lv_obj_set_size(cont1, lv_pct(40), lv_pct(80));
+  lv_obj_align(cont1, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_add_event_cb(cont1, radio_event_handler, LV_EVENT_CLICKED, &active_index_1);
 
-  // for(int i=0; i<sizeof(dripFactor); i++) {
-  //   lv_snprintf(buf, 16, "%d drops/mL", dripFactor[i]);
-  //   radiobutton_create(cont1, buf);
-  // }
+  for(int i=0; i<sizeof(dripFactor); i++) {
+    lv_snprintf(buf, 16, "%d drops/mL", dripFactor[i]);
+    radiobutton_create(cont1, buf);
+  }
 
   /*set background color*/
   lv_obj_set_style_bg_opa(screenMain, LV_OPA_100, 0);
@@ -225,6 +229,7 @@ void set_textarea(lv_obj_t *& parent, uint16_t index, lv_coord_t x, lv_coord_t y
   lv_obj_align(parent, LV_ALIGN_TOP_LEFT, x, y);
   lv_obj_set_width(parent, 80); /*Note: width=80, height=36*/
   lv_textarea_set_placeholder_text(parent, "Pls input");
+  /*in fact, if create all textarea obj first, then we don't need to set index*/
   lv_obj_move_to_index(parent, index);
   lv_obj_add_event_cb(parent, textarea_event_cb, LV_EVENT_ALL, parent);
 
@@ -272,6 +277,9 @@ static void radio_event_handler(lv_event_t * e) {
   *active_id = lv_obj_get_index(act_cb);          /*I don't know what it is use for*/
   uint16_t i = lv_obj_get_index(act_cb);          /*get the index if button*/
   dropFactor = dripFactor[i];                     /*store the drip factor selected*/
+
+  /*check for whether all inputs are filled*/
+  allInputs = validate_keypad_inputs();
 }
 
 static void textarea_event_cb(lv_event_t * event) {  
@@ -279,10 +287,15 @@ static void textarea_event_cb(lv_event_t * event) {
   lv_obj_t * ta = lv_event_get_target(event);
 
   if (code == LV_EVENT_CLICKED || code == LV_EVENT_FOCUSED) {
-    /*focus on clicked text area*/
-    Serial.printf("clicked text area: %d", lv_obj_get_index(ta));
+    /*when text area is clicked*/
+    /*do nothing*/
   } else if (code == LV_EVENT_READY) {
-    // Serial.printf("get text: %s", lv_textarea_get_text);
+    /*get the input and store it*/
+    uint16_t i = lv_obj_get_index(ta);
+    keypadInput[i] = atoi(lv_textarea_get_text(ta));
+
+    /*check for whether all inputs are filled*/
+    allInputs = validate_keypad_inputs();
   }
   // if(event->code == LV_EVENT_KEY && lv_indev_get_key(keypad_indev) == LV_KEY_ENTER) {
   //   lv_obj_t * ta = lv_event_get_target(event);
@@ -425,7 +438,7 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
     // TODO: add `G`, now is missing lots of things here
     else if (key == 'G') {
       /*not to pop up the message box if input missed or in monitor screen*/
-      if (keypadInfusionConfirmed && screenState) {  // need to change to check all input fulfilled
+      if (allInputs && screenState) {
         /*pop up a message box to confirm*/
         confirm_msgbox();
       } else {
@@ -491,4 +504,18 @@ void closeWifiBox() {
   // lv_obj_del(screenWifi);
   lv_disp_load_scr(screenMain);
   lv_group_focus_obj(screenMain);                   /*go back to input screen*/
+  eventReseted = false;
+}
+
+bool validate_keypad_inputs() {
+  bool state = true;
+  for (int i=0; i<3; i++){
+    if (keypadInput[i] == -1) {
+      state = false;
+    }
+  }
+  if (dropFactor > 100) {
+    state = false;
+  }
+  return state;
 }
