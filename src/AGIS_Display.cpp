@@ -14,7 +14,7 @@ uint8_t dripFactor[4] = {10, 15, 20, 60};
 // an array to store keypad input, 0=VTBI, 1=timeHr, 2=timeMin
 int32_t keypadInput[3] = {-1, -1, -1};
 
-static lv_disp_draw_buf_t disp_buf; // lv_disp_buf_t cannot use, use this one instead
+static lv_disp_draw_buf_t disp_buf;
 static lv_color_t buf[TFT_WIDTH * TFT_HEIGHT / 10];
 
 TFT_eSPI tft = TFT_eSPI();
@@ -24,10 +24,6 @@ lv_obj_t * screenWifi;      /*a screen object which hold wifi msgbox object*/
 lv_obj_t * screenMain;      /*a screen object which will hold all other objects for input*/
 lv_obj_t * screenMonitor;   /*a screen object which will hold all other objects for data display*/
 lv_indev_t * keypad_indev;  /*a driver in LVGL and save the created input device object*/
-lv_obj_t * vtbi_label;      // testing use
-
-/*Parsed user input variables*/
-int32_t keypad_VTBI = -1;
 
 /*var for radio button*/
 static lv_style_t style_radio;
@@ -268,9 +264,6 @@ static void radio_event_handler(lv_event_t * e) {
   /*Do nothing if the container was clicked*/
   if(act_cb == cont) return;
 
-  // const char * txt = lv_checkbox_get_text(cont);
-  // Serial.println(txt);
-
   lv_obj_clear_state(old_cb, LV_STATE_CHECKED);   /*Uncheck the previous radio button*/
   lv_obj_add_state(act_cb, LV_STATE_CHECKED);     /*Uncheck the current radio button*/
 
@@ -297,40 +290,6 @@ static void textarea_event_cb(lv_event_t * event) {
     /*check for whether all inputs are filled*/
     allInputs = validate_keypad_inputs();
   }
-  // if(event->code == LV_EVENT_KEY && lv_indev_get_key(keypad_indev) == LV_KEY_ENTER) {
-  //   lv_obj_t * ta = lv_event_get_target(event);
-
-  //   // Parse the inputted data
-  //   const char * data_buf = NULL;
-  //   data_buf = lv_textarea_get_text(ta);
-
-  //   // Identify which input
-  //   static int32_t * selected_input;
-  //   int ta_id = *(int *) lv_obj_get_user_data(ta);
-  //   if (ta_id == LV_VTBI_ID) {
-  //     selected_input = &keypad_VTBI;
-  //   }
-  //   else if (ta_id == LV_TOTAL_TIME_HOUR_ID) {
-  //     selected_input = &keypad_totalTimeHour;
-  //   }
-  //   else if (ta_id == LV_TOTAL_TIME_MINUE_ID) {
-  //     selected_input = &keypad_totalTimeMinute;
-  //   }
-
-  //   if (*data_buf) {  // only parse when we receive input
-  //     *selected_input = atoi(data_buf);
-  //   }
-  //   else {
-  //     // reset value of that input
-  //     *selected_input = -1;
-  //   }
-
-  //   // Stop cursor blinking
-  //   lv_obj_clear_state(ta, LV_STATE_FOCUSED);
-
-  //   // Call the function to validate keypad inputs
-  //   keypad_inputs_valid = validate_keypad_inputs();
-  // }
 }
 
 static void wifibox_event_cb(lv_event_t * event) {
