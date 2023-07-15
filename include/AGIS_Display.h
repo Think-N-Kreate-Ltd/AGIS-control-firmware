@@ -9,14 +9,9 @@
 #include <AGIS_Types.h>
 #include <AGIS_Commons.h>
 
-#define LV_VTBI_ID             100
-#define LV_TOTAL_TIME_HOUR_ID  101
-// #define LV_TOTAL_TIME_MINUE_ID 102
-// below defined id are useless already
-// #define LV_DROP_FACTOR_10_ID   0
-// #define LV_DROP_FACTOR_15_ID   1
-// #define LV_DROP_FACTOR_20_ID   2
-// #define LV_DROP_FACTOR_60_ID   3
+#define VTBI_INDEX             0
+#define TOTAL_TIME_HOUR_INDEX  1
+#define TOTAL_TIME_MINUE_INDEX 2
 
 extern volatile uint8_t wifiStart;  // 0=waiting, 1=not start, 2=start
 

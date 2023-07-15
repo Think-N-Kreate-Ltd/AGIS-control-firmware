@@ -111,8 +111,7 @@ void input_screen() {
 
   /*Text area for VTBI_target*/
   lv_obj_t * VTBI_target = lv_textarea_create(screenMain);
-  static int lv_VTBI_id = LV_VTBI_ID;
-  set_textarea(VTBI_target, lv_VTBI_id, 5, 25);
+  set_textarea(VTBI_target, VTBI_INDEX, 5, 25);
 
   /*label for VTBI_target*/
   lv_obj_t * vtbi_label = lv_label_create(screenMain);
@@ -125,9 +124,7 @@ void input_screen() {
 
   /*Text area for timeHr_target*/
   lv_obj_t * timeHr_target = lv_textarea_create(screenMain);
-  static int lv_timeHr_id = LV_TOTAL_TIME_HOUR_ID;
-  Serial.println(lv_obj_get_height(VTBI_target));
-  set_textarea(timeHr_target, lv_timeHr_id, 5, 91);
+  set_textarea(timeHr_target, TOTAL_TIME_HOUR_INDEX, 5, 91);
 
   /*label for timeHr_target*/
   lv_obj_t * timeHr_label = lv_label_create(screenMain);
@@ -222,12 +219,13 @@ void monitor_screen() {
 }
 
 /*set the testarea with coordinate x and y*/
-void set_textarea(lv_obj_t *& parent, uint16_t id, lv_coord_t x, lv_coord_t y) {
+void set_textarea(lv_obj_t *& parent, uint16_t index, lv_coord_t x, lv_coord_t y) {
   lv_textarea_set_one_line(parent, true);
+  lv_textarea_set_max_length(parent, 5);
   lv_obj_align(parent, LV_ALIGN_TOP_LEFT, x, y);
   lv_obj_set_width(parent, 80); /*Note: width=80, height=36*/
   lv_textarea_set_placeholder_text(parent, "Pls input");
-  lv_obj_set_user_data(parent, &id);
+  lv_obj_move_to_index(parent, index);
   lv_obj_add_event_cb(parent, textarea_event_cb, LV_EVENT_ALL, parent);
 
   // /*set style for boarder*/
@@ -276,9 +274,16 @@ static void radio_event_handler(lv_event_t * e) {
   dropFactor = dripFactor[i];                     /*store the drip factor selected*/
 }
 
-static void textarea_event_cb(lv_event_t * event) {
-  /*not to print anything in this function*/
-  
+static void textarea_event_cb(lv_event_t * event) {  
+  lv_event_code_t code = lv_event_get_code(event);
+  lv_obj_t * ta = lv_event_get_target(event);
+
+  if (code == LV_EVENT_CLICKED || code == LV_EVENT_FOCUSED) {
+    /*focus on clicked text area*/
+    Serial.printf("clicked text area: %d", lv_obj_get_index(ta));
+  } else if (code == LV_EVENT_READY) {
+    // Serial.printf("get text: %s", lv_textarea_get_text);
+  }
   // if(event->code == LV_EVENT_KEY && lv_indev_get_key(keypad_indev) == LV_KEY_ENTER) {
   //   lv_obj_t * ta = lv_event_get_target(event);
 
