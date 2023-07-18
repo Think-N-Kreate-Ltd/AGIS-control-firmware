@@ -3,38 +3,43 @@
 ## Description
 This is the firmware for AGIS control board.
 
+## Keypad key functions:
++ number keys 0->9: numbers for input fields
++ `Ent`: confirm each input field
++ arrows UP and DOWN: motor move up or down
++ arrows Left and Right: navigate between input fields / bottons
++ `F1`: toggle between input screen and monitor screen
++ `F2`: start infusion after all input fields are confirmed
++ `Esc`: reset program, equivalent to reset button
+
+## I2C address:
++ OLED: 0x3C
++ INA219: 0x40
+
 ## Wiring
 
-- TFT display wiring:
+- OLED & INA219 display wiring:
 
-| **TFT pin** |                  **ESP32 devkit pin**                  |
-|:-----------:|:------------------------------------------------------:|
-|     LED     | 3V3 (can change to GPIO pin to allow toggle backlight) |
-|     SCK     |                           12                           |
-|     MOSI    |                           11                           |
-|      DC     |                           13                           |
-|    RESET    |                           14                           |
-|      CS     |                           10                           |
-|     GND     |                           GND                          |
-|     VCC     |                           3V3                          |
+| **OLED pin** | **ESP32 devkit pin** |
+|:------------:|:--------------------:|
+|      VCC     |          3V3         |
+|      GND     |          GND         |
+|      SCL     |          41          |
+|      SDA     |          40          |
 
 - Keypad wiring:
 
-| **Keypad pin** | **ESP32 devkit pin** |
-|:--------------:|:--------------------:|
-|        1       |           5          |
-|        2       |           6          |
-|        3       |           7          |
-|        4       |          17          |
-|        5       |          18          |
-|        6       |           1          |
-|        7       |           2          |
-|        8       |          47          |
-|        9       |          48          |
-
-- Update SPI wiring:
-  - SCK, MOSI, GND, 3V3 use the same pin, can make use of the jumper on SD module
-  - GPIO 35 should not be used as it will affect the result of drop sensor
+| **Keypad pin** | **ESP32 devkit pin**                                 |
+|:--------------:|:----------------------------------------------------:|
+|        1       |           5                                          |
+|        2       |           6                                          |
+|        3       |           7                                          |
+|        4       |          17                                          |
+|        5       |          18                                          |
+|        6       |           1                                          |
+|        7       |           2                                          |
+|        8       |          47 (remove 0 Ohm resistor)                  |
+|        9       |          48 (remove 0 Ohm resistor and flash)        |
 
 | **SPI pin** |                  **ESP32 devkit pin**                  |
 |:-----------:|:------------------------------------------------------:|
