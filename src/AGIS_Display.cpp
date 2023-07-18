@@ -34,7 +34,7 @@ static uint32_t active_index_1 = 0;
 
 void display_init() {
   tft.begin();
-  tft.setRotation(3);   // Landscape orientation, flipped
+  tft.setRotation(1);        // Landscape orientation
   tft.invertDisplay(false);  // set true to invert the color
 
   lv_init();

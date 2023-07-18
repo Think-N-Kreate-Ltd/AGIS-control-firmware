@@ -359,8 +359,9 @@ void setup() {
   ina219SetUp();
   oledSetUp();
   
-  useSdCard();  // compulsorily change to communicate with SD
-  sdCardSetUp();      
+  // NOTE
+  // useSdCard();  // compulsorily change to communicate with SD
+  // sdCardSetUp();      
 
   // setup for sensor interrupt
   attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
@@ -388,13 +389,14 @@ void setup() {
   /*Initialize TFT display, LVGL*/
   display_init();
 
+  // NOTE
   /*Create a task for data logging*/
-  xTaskCreate(loggingData,       /* Task function. */
-              "Data Logging",    /* String with name of task. */
-              4096,              /* Stack size in bytes. */
-              NULL,              /* Parameter passed as input of the task */
-              2,                 /* Priority of the task. */
-              NULL);             /* Task handle. */
+  // xTaskCreate(loggingData,       /* Task function. */
+  //             "Data Logging",    /* String with name of task. */
+  //             4096,              /* Stack size in bytes. */
+  //             NULL,              /* Parameter passed as input of the task */
+  //             2,                 /* Priority of the task. */
+  //             NULL);             /* Task handle. */
 
   // I2C is too slow that cannot use interrupt
   xTaskCreate(getI2CData,     // function that should be called
@@ -777,17 +779,19 @@ void enableWifi(void * arg) {
 
     // server.serveStatic("/", SD, "/web_server/");
 
+    // NOTE
     // force download file
-    server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
-      loadFromSdCard(request);
-    });
+    // server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
+    //   loadFromSdCard(request);
+    // });
 
     server.onNotFound(notFound); // if 404 not found, go to 404 not found
     AsyncElegantOTA.begin(&server); // for OTA update
     server.begin();
 
+    // NOTE
     // remove sd card old data
-    rmOldData();
+    // rmOldData();
   }
 
   /*NOTE: The idle task is responsible for freeing the RTOS kernel allocated memory from tasks that have been deleted.
