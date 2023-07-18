@@ -218,7 +218,7 @@ void input_screen() {
 void confirm_msgbox() {
   static const char * btns[] = {"No", "Yes", ""};
   char DR_buf[25];
-  sprintf(DR_buf, "Drip Rate: %dTODO:", testing);
+  sprintf(DR_buf, "Drip Rate: %d", targetDripRate);
   lv_obj_t * confirm_box = lv_msgbox_create(screenMain, DR_buf, "Confirm To Run?", btns, false);
   lv_obj_add_event_cb(confirm_box, confirmbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
   lv_group_focus_obj(lv_msgbox_get_btns(confirm_box));
@@ -448,7 +448,6 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
       }
       screenState = !screenState;
     }
-    // TODO: add `G`, now is missing lots of things here
     else if (key == 'G') {
       /*not to pop up the message box if input missed or in monitor screen*/
       if (allInputs && screenState) {
@@ -504,6 +503,20 @@ bool validate_keypad_inputs() {
   }
   if (dropFactor > 100) {
     state = false;
+  }
+
+  if (state) {
+    /*Submit verified inputs to autoControl*/
+    targetVTBI = keypadInput[0];
+    targetTotalTime = keypadInput[1]*3600 + keypadInput[2]*60;
+    targetDripRate = targetVTBI * dropFactor / (keypadInput[1]*60 + keypadInput[2]);
+    targetNumDrops = targetVTBI / dropFactor;
+
+    /*set the text on top right widget*/
+    lv_obj_set_style_text_color(lv_obj_get_child(lv_obj_get_child(screenMain, 5), 1), 
+                                lv_color_hex(0x40ce00), LV_PART_MAIN);
+    lv_label_set_text_fmt(lv_obj_get_child(lv_obj_get_child(screenMain, 5), 1), 
+                          "Drip Rate: %d", targetDripRate);
   }
   return state;
 }
