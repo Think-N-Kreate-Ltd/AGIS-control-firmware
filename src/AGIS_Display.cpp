@@ -119,7 +119,7 @@ void input_screen() {
   /*label for VTBI_target*/
   lv_obj_t * vtbi_label = lv_label_create(screenMain);
   lv_label_set_text(vtbi_label, "VTBI:");
-  lv_obj_align_to(vtbi_label, VTBI_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);  /*set position*/
+  lv_obj_align_to(vtbi_label, VTBI_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);
 
   lv_obj_t * mL_label = lv_label_create(screenMain);
   lv_label_set_text(mL_label, "mL");
@@ -132,7 +132,7 @@ void input_screen() {
   /*label for timeHr_target*/
   lv_obj_t * timeHr_label = lv_label_create(screenMain);
   lv_label_set_text(timeHr_label, "Total time:");
-  lv_obj_align_to(timeHr_label, timeHr_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);  /*set position*/
+  lv_obj_align_to(timeHr_label, timeHr_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);
 
   lv_obj_t * hr_label = lv_label_create(screenMain);
   lv_label_set_text(hr_label, "hours");
@@ -143,10 +143,6 @@ void input_screen() {
   set_textarea(timeMin_target, TOTAL_TIME_MINUE_INDEX, 160, 91);
 
   /*label for timeMin_target*/
-  lv_obj_t * timeMin_label = lv_label_create(screenMain);
-  lv_label_set_text(timeMin_label, "Total time:");
-  lv_obj_align_to(timeMin_label, timeMin_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);  /*set position*/
-
   lv_obj_t * min_label = lv_label_create(screenMain);
   lv_label_set_text(min_label, "minutes");
   lv_obj_align_to(min_label, timeMin_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
@@ -165,17 +161,10 @@ void input_screen() {
   char buf[16];
 
   lv_obj_t * cont1 = lv_obj_create(screenMain);
-  lv_obj_set_flex_flow(cont1, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_flow(cont1, LV_FLEX_FLOW_ROW_WRAP);
   lv_obj_set_size(cont1, lv_pct(95), lv_pct(32));
   lv_obj_align(cont1, LV_ALIGN_OUT_TOP_LEFT, 5, 157);
   lv_obj_add_event_cb(cont1, radio_event_handler, LV_EVENT_CLICKED, &active_index_1);
-
-  /*set layout*/
-  static lv_coord_t col_dsc[] = {130, 130, LV_GRID_TEMPLATE_LAST};
-  static lv_coord_t row_dsc[] = {20, 20, LV_GRID_TEMPLATE_LAST};
-  lv_obj_set_style_grid_column_dsc_array(cont1, col_dsc, 0);
-  lv_obj_set_style_grid_row_dsc_array(cont1, row_dsc, 0);
-  lv_obj_set_layout(cont1, LV_LAYOUT_GRID);
 
   /*add radio button*/
   for(int i=0; i<sizeof(dripFactor); i++) {
@@ -183,9 +172,34 @@ void input_screen() {
     radiobutton_create(cont1, buf);
   }
 
+  /*label for drop factor*/
+  lv_obj_t * drop_factor_label = lv_label_create(screenMain);
+  lv_label_set_text(drop_factor_label, "Drop Factor:");
+  lv_obj_align_to(drop_factor_label, cont1, LV_ALIGN_OUT_TOP_LEFT, 0, -5);
+
   /*set background color*/
   lv_obj_set_style_bg_opa(screenMain, LV_OPA_100, 0);
   lv_obj_set_style_bg_color(screenMain, lv_color_hex(0xacacac), LV_PART_MAIN);
+
+  /*Widget for showing derived drip rate*/
+  lv_obj_t * DRWidget = lv_obj_create(screenMain);
+  lv_obj_set_style_border_color(DRWidget, lv_color_hex(0x5b5b5b), LV_PART_MAIN);
+  lv_obj_set_style_radius(DRWidget, 0x00, LV_PART_MAIN);
+  lv_obj_set_size(DRWidget, 183, 70);
+  lv_obj_align(DRWidget, LV_ALIGN_TOP_RIGHT, -5, 5);
+
+  /*label for derived drip rate widget*/
+  lv_obj_t * DR_label1 = lv_label_create(DRWidget);
+  lv_label_set_text(DR_label1, "Drip rate (drops/min):");
+  lv_obj_align_to(DR_label1, DRWidget, LV_ALIGN_TOP_LEFT, -5, 0);
+
+  lv_obj_t * DR_label2 = lv_label_create(DRWidget);
+  lv_label_set_text(DR_label2, "Please fill in all inputs");
+  lv_obj_set_style_text_color(DR_label2, lv_color_hex(0xcc0000), LV_PART_MAIN);
+  lv_obj_align_to(DR_label2, DR_label1, LV_ALIGN_LEFT_MID, 0, 20);
+  /*as we need to change the text of this label, we need to set index*/
+  lv_obj_move_to_index(DRWidget, 5);
+  /*don't need to set for `DR_label2` as it must be 1*/
 
   /*Loads the main screen*/
   // lv_disp_load_scr(screenMain);
@@ -219,9 +233,6 @@ void monitor_screen() {
   /*as it is just create after `screenMinitor`, the index must be 0*/
   lv_obj_t * table = lv_table_create(screenMonitor);
 
-  // row and column will automatically set
-  // lv_table_set_col_cnt(table, 2);
-  // lv_table_set_row_cnt(table, 5);
   lv_obj_align(table, LV_ALIGN_CENTER, 0, 0);
   // lv_obj_set_style_border_color(table, lv_color_hex(0x5b5b5b), LV_PART_MAIN);
   lv_obj_set_style_border_opa(table, LV_OPA_TRANSP, LV_PART_MAIN);
@@ -430,12 +441,12 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
     // TODO: add `G`, now is missing lots of things here
     else if (key == 'G') {
       /*not to pop up the message box if input missed or in monitor screen*/
-      // if (allInputs && screenState) {
+      if (allInputs && screenState) {
         /*pop up a message box to confirm*/
         confirm_msgbox();
-      // } else {
-      //   /*nothing*/
-      // }
+      } else {
+        /*nothing*/
+      }
     }
     else {
       data->key = key;  /*possible BUG due to conversion from char to uint32_t(?)*/
@@ -464,10 +475,11 @@ void infusion_monitoring_cb(lv_timer_t * timer) {
 void closeWifiBox() {
   lv_msgbox_close(lv_obj_get_child(screenWifi, 0)); /*close wifi box*/
   // lv_obj_del(screenWifi);
-  lv_disp_load_scr(screenMain);
-  lv_group_focus_obj(screenMain);                   /*go back to input screen*/
+  lv_disp_load_scr(screenMain);   /*go back to input screen*/
+  lv_group_focus_obj(screenMain); /*focus to input field*/
   enterClicked = false;
   inMsgbox = false;
+  vTaskDelay(10);                 /*avoid crashing*/
 }
 
 bool validate_keypad_inputs() {
