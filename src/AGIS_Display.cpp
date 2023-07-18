@@ -4,7 +4,9 @@
 volatile uint8_t wifiStart = 0;
 // a special state to lock the event change
 // TODO: find whether have method to reset the event state (`lv_obj_remove_event_cb` have problem currently)
-bool eventReseted;
+bool enterClicked;
+// the state of the msgbox, true=in msgbox. for switching the use of key `L` `R`
+bool inMsgbox;
 // the state of the screen, true=input screen, false=monitor screen
 bool screenState = true;
 // check for whether all text area are filled
@@ -103,6 +105,7 @@ void ask_for_wifi_enable_msgbox() {
   // lv_obj_move_to_index(wifi_box, 1);  // should less then the total no. of child
 
   lv_disp_load_scr(screenWifi);
+  inMsgbox = true;
 }
 
 void input_screen() {
@@ -184,6 +187,8 @@ void confirm_msgbox() {
   /*make the background a little bit grey*/
   lv_obj_set_style_bg_opa(screenMain, LV_OPA_70, 0);
   lv_obj_set_style_bg_color(screenMain, lv_palette_main(LV_PALETTE_GREY), 0);
+
+  inMsgbox = true;
 }
 
 void monitor_screen() {
@@ -296,12 +301,13 @@ static void wifibox_event_cb(lv_event_t * event) {
   lv_event_code_t code = lv_event_get_code(event);
   lv_obj_t * confirm_box = lv_event_get_current_target(event);
 
-  if(code == LV_EVENT_VALUE_CHANGED && eventReseted) { /*is sent by the buttons if one of them is clicked*/
+  if(code == LV_EVENT_VALUE_CHANGED && enterClicked) { /*is sent by the buttons if one of them is clicked*/
     const char * txt = lv_msgbox_get_active_btn_text(confirm_box);  /*get the button value*/
     if(txt){
       /*close the msgbox*/
       lv_msgbox_close(confirm_box); 
       lv_group_focus_freeze(grp, false);
+      inMsgbox = false;
       /*go back to input screen*/
       lv_disp_load_scr(screenMain);
       lv_group_focus_obj(screenMain);
@@ -322,19 +328,20 @@ static void confirmbox_event_cb(lv_event_t * event) {
   lv_event_code_t code = lv_event_get_code(event);
   lv_obj_t * confirm_box = lv_event_get_current_target(event);
 
-  if(code == LV_EVENT_VALUE_CHANGED && eventReseted) { /*is sent by the buttons if one of them is clicked*/
+  if(code == LV_EVENT_VALUE_CHANGED && enterClicked) { /*is sent by the buttons if one of them is clicked*/
     const char * txt = lv_msgbox_get_active_btn_text(confirm_box);  /*get the button value*/
     if(txt){
       /*close the msgbox*/
       lv_msgbox_close(confirm_box); 
       lv_group_focus_freeze(grp, false);
+      inMsgbox = false;
 
       if(txt == "No") {
         /*go back to input screen*/
         lv_group_focus_obj(screenMain);
         lv_obj_scroll_to(screenMain, 0, 0, LV_ANIM_OFF);
       } else if (txt == "Yes") {
-        /*go to monitor screen, TODO: and start infusion*/
+        /*go to monitor screen, and start infusion*/
         lv_disp_load_scr(screenMonitor);
         keypadInfusionConfirmed = true;
         screenState = false;
@@ -355,7 +362,7 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
     if (key == 'E') {
       data->key = LV_KEY_ENTER;
       Serial.println("pressed enter");
-      eventReseted = true;
+      enterClicked = true;
     }
     else if (key == 'C') {
       // data->key = LV_KEY_ESC;
@@ -363,17 +370,23 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
       esp_restart();
     }
     else if (key == 'L') {
-      data->key = LV_KEY_LEFT;
+      if (inMsgbox) {
+        data->key = LV_KEY_LEFT;
+      } else {
+        data->key = LV_KEY_PREV;
+      }
     }
     else if (key == 'R') {
-      data->key = LV_KEY_RIGHT;
+      if (inMsgbox) {
+        data->key = LV_KEY_RIGHT;
+      } else {
+        data->key = LV_KEY_NEXT;
+      }
     }
     else if (key == 'U') {
-      data->key = LV_KEY_PREV;
       buttonState = buttonState_t::UP;
     }
     else if (key == 'D') {
-      data->key = LV_KEY_NEXT;
       buttonState = buttonState_t::DOWN;
     }
     else if (key == '#') {
@@ -410,7 +423,7 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
   }
   else if (keypad.getState() == 0) {  // when keypad pressing is released
     data->state = LV_INDEV_STATE_RELEASED;
-    eventReseted = false;
+    enterClicked = false;
     // stop the motor control
     if (buttonState != buttonState_t::IDLE) {
       buttonState = buttonState_t::IDLE;
@@ -462,7 +475,8 @@ void closeWifiBox() {
   // lv_obj_del(screenWifi);
   lv_disp_load_scr(screenMain);
   lv_group_focus_obj(screenMain);                   /*go back to input screen*/
-  eventReseted = false;
+  enterClicked = false;
+  inMsgbox = false;
 }
 
 bool validate_keypad_inputs() {
