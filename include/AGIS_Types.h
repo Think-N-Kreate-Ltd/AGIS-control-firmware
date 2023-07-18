@@ -28,5 +28,6 @@ typedef struct _infusion_monitoring_data_handle_t {
   volatile unsigned int * infusedTime_p;
   infusionState_t * infusionState_p;
 } infusion_monitoring_data_handle_t;
+extern infusion_monitoring_data_handle_t monitor_data;
 
 #endif /* EA655F7D_5387_4B55_B11C_DB866F12DCC6 */

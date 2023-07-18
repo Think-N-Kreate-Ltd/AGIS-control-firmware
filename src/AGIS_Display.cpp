@@ -94,7 +94,7 @@ void ask_for_wifi_enable_msgbox() {
   lv_group_focus_freeze(grp, true);
 
   /*set the position*/
-  lv_obj_align(wifi_box, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_set_align(wifi_box, LV_ALIGN_CENTER);
   /*set the size to use 99% area, which can avoid `detected modifying dirty areas in render`*/
   lv_obj_set_size(wifi_box, lv_pct(99), lv_pct(99));
 
@@ -113,30 +113,43 @@ void input_screen() {
   screenMain = lv_obj_create(NULL);
 
   /*Text area for VTBI_target*/
-  // lv_obj_t * VTBI_target = lv_textarea_create(screenMain);
-  // set_textarea(VTBI_target, VTBI_INDEX, 5, 25);
+  lv_obj_t * VTBI_target = lv_textarea_create(screenMain);
+  set_textarea(VTBI_target, VTBI_INDEX, 5, 25);
 
-  // /*label for VTBI_target*/
-  // lv_obj_t * vtbi_label = lv_label_create(screenMain);
-  // lv_label_set_text(vtbi_label, "VTBI:");
-  // lv_obj_align_to(vtbi_label, VTBI_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);  /*set position*/
+  /*label for VTBI_target*/
+  lv_obj_t * vtbi_label = lv_label_create(screenMain);
+  lv_label_set_text(vtbi_label, "VTBI:");
+  lv_obj_align_to(vtbi_label, VTBI_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);  /*set position*/
 
-  // lv_obj_t * mL_label = lv_label_create(screenMain);
-  // lv_label_set_text(mL_label, "mL");
-  // lv_obj_align_to(mL_label, VTBI_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
+  lv_obj_t * mL_label = lv_label_create(screenMain);
+  lv_label_set_text(mL_label, "mL");
+  lv_obj_align_to(mL_label, VTBI_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
 
-  // /*Text area for timeHr_target*/
-  // lv_obj_t * timeHr_target = lv_textarea_create(screenMain);
-  // set_textarea(timeHr_target, TOTAL_TIME_HOUR_INDEX, 5, 91);
+  /*Text area for timeHr_target*/
+  lv_obj_t * timeHr_target = lv_textarea_create(screenMain);
+  set_textarea(timeHr_target, TOTAL_TIME_HOUR_INDEX, 5, 91);
 
-  // /*label for timeHr_target*/
-  // lv_obj_t * timeHr_label = lv_label_create(screenMain);
-  // lv_label_set_text(timeHr_label, "Total time:");
-  // lv_obj_align_to(timeHr_label, timeHr_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);  /*set position*/
+  /*label for timeHr_target*/
+  lv_obj_t * timeHr_label = lv_label_create(screenMain);
+  lv_label_set_text(timeHr_label, "Total time:");
+  lv_obj_align_to(timeHr_label, timeHr_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);  /*set position*/
 
-  // lv_obj_t * hr_label = lv_label_create(screenMain);
-  // lv_label_set_text(hr_label, "hours");
-  // lv_obj_align_to(hr_label, timeHr_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
+  lv_obj_t * hr_label = lv_label_create(screenMain);
+  lv_label_set_text(hr_label, "hours");
+  lv_obj_align_to(hr_label, timeHr_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
+
+  /*Text area for timeMin_target*/
+  lv_obj_t * timeMin_target = lv_textarea_create(screenMain);
+  set_textarea(timeMin_target, TOTAL_TIME_MINUE_INDEX, 160, 91);
+
+  /*label for timeMin_target*/
+  lv_obj_t * timeMin_label = lv_label_create(screenMain);
+  lv_label_set_text(timeMin_label, "Total time:");
+  lv_obj_align_to(timeMin_label, timeMin_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);  /*set position*/
+
+  lv_obj_t * min_label = lv_label_create(screenMain);
+  lv_label_set_text(min_label, "minutes");
+  lv_obj_align_to(min_label, timeMin_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
 
   /* The idea is to enable `LV_OBJ_FLAG_EVENT_BUBBLE` on checkboxes and process the
    * `LV_EVENT_CLICKED` on the container.
@@ -153,10 +166,18 @@ void input_screen() {
 
   lv_obj_t * cont1 = lv_obj_create(screenMain);
   lv_obj_set_flex_flow(cont1, LV_FLEX_FLOW_COLUMN);
-  // lv_obj_set_size(cont1, lv_pct(40), lv_pct(80));
-  lv_obj_align(cont1, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_set_size(cont1, lv_pct(95), lv_pct(32));
+  lv_obj_align(cont1, LV_ALIGN_OUT_TOP_LEFT, 5, 157);
   lv_obj_add_event_cb(cont1, radio_event_handler, LV_EVENT_CLICKED, &active_index_1);
 
+  /*set layout*/
+  static lv_coord_t col_dsc[] = {130, 130, LV_GRID_TEMPLATE_LAST};
+  static lv_coord_t row_dsc[] = {20, 20, LV_GRID_TEMPLATE_LAST};
+  lv_obj_set_style_grid_column_dsc_array(cont1, col_dsc, 0);
+  lv_obj_set_style_grid_row_dsc_array(cont1, row_dsc, 0);
+  lv_obj_set_layout(cont1, LV_LAYOUT_GRID);
+
+  /*add radio button*/
   for(int i=0; i<sizeof(dripFactor); i++) {
     lv_snprintf(buf, 16, "%d drops/mL", dripFactor[i]);
     radiobutton_create(cont1, buf);
@@ -198,26 +219,27 @@ void monitor_screen() {
   /*as it is just create after `screenMinitor`, the index must be 0*/
   lv_obj_t * table = lv_table_create(screenMonitor);
 
+  // row and column will automatically set
   // lv_table_set_col_cnt(table, 2);
   // lv_table_set_row_cnt(table, 5);
-  // lv_obj_align(table, LV_ALIGN_CENTER, 0, 0);
-  // lv_obj_set_style_border_color(infusion_monitoring_table, lv_color_hex(0x5b5b5b), LV_PART_MAIN);
+  lv_obj_align(table, LV_ALIGN_CENTER, 0, 0);
+  // lv_obj_set_style_border_color(table, lv_color_hex(0x5b5b5b), LV_PART_MAIN);
   lv_obj_set_style_border_opa(table, LV_OPA_TRANSP, LV_PART_MAIN);
   lv_obj_set_style_line_color(table, lv_color_hex(0x5b5b5b), LV_PART_MAIN);
-  lv_table_set_col_width(table, 0, /*180*/90);
-  lv_obj_set_height(table, 200);
+  lv_table_set_col_width(table, 0, 180);
+  // lv_obj_set_height(table, 200);
 
   /*Fill the first column*/
-  lv_table_set_cell_value(table, 0, 0, "Name");
-  lv_table_set_cell_value(table, 1, 0, "Apple");
-  lv_table_set_cell_value(table, 2, 0, "Banana");
-  lv_table_set_cell_value(table, 3, 0, "Lemon");
+  lv_table_set_cell_value(table, 0, 0, "No. of drops:");
+  lv_table_set_cell_value(table, 1, 0, "Drip rate (drops/min):");
+  lv_table_set_cell_value(table, 2, 0, "Infused volume (mL):");
+  lv_table_set_cell_value(table, 3, 0, "Infused time:");
+  lv_table_set_cell_value(table, 4, 0, "Infusion state:");
 
   /*Fill the second column*/
-  lv_table_set_cell_value(table, 0, 1, "Price");
-  lv_table_set_cell_value(table, 1, 1, "$7");
-  lv_table_set_cell_value(table, 2, 1, "$4");
-  lv_table_set_cell_value(table, 3, 1, "$6");
+  for (int i=0; i<5; i++) {
+    lv_table_set_cell_value(table, i, 1, "Not started");
+  }
 
   /*Add an event callback to to apply some custom drawing*/
   // lv_obj_add_event(table, draw_part_event_cb, LV_EVENT_DRAW_PART_BEGIN, NULL);
@@ -433,41 +455,10 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
 
 // update the data on display every 500ms
 void infusion_monitoring_cb(lv_timer_t * timer) {
-  lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 1, 1, "%d", testing);
-  lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 1, 0, "%02d:%02d:%02d", testing/3600, testing%3600/60, testing%60);
+  // infusion_monitoring_data_handle_t monitor_data;
+  // lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 0, 1, "%d", monitor_data.numDrops_p);
+  lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 1, 1, "%02d:%02d:%02d", testing/3600, testing%3600/60, testing%60);
 
-  // if (infusion_monitoring_table != NULL) {
-  //   /*Update LVGL table cells*/
-  //   char numDrops_buf[20];
-  //   sprintf(numDrops_buf, "%d", *(infusion_monitoring_data_handle.numDrops_p));
-  //   lv_table_set_cell_value(infusion_monitoring_table, 0, 1, numDrops_buf);
-
-  //   char dripRate_buf[20];
-  //   sprintf(dripRate_buf, "%d", *(infusion_monitoring_data_handle.dripRate_p));
-  //   lv_table_set_cell_value(infusion_monitoring_table, 1, 1, dripRate_buf);
-
-  //   // since `infusedVolume_x100` is 100 times larger than actual value in mL,
-  //   // we need to divide by 100 before display
-  //   char infusedVolume_buf[20];
-  //   sprintf(infusedVolume_buf, "%.2f", *(infusion_monitoring_data_handle.infusedVolume_p) / 100.0f);
-  //   lv_table_set_cell_value(infusion_monitoring_table, 2, 1, infusedVolume_buf);
-
-  //   char infusedTime_buf[20];
-  //   // Convert the infused time from seconds to HH:MM:SS format
-  //   unsigned long sec;
-  //   uint16_t h, m, s;
-  //   sec = *(infusion_monitoring_data_handle.infusedTime_p);
-  //   h = sec / 3600;
-  //   m = (sec - (h * 3600)) / 60;
-  //   s = sec - (h * 3600) - (m * 60);
-
-  //   sprintf(infusedTime_buf, "%02d:%02d:%02d", h, m, s);
-  //   lv_table_set_cell_value(infusion_monitoring_table, 3, 1, infusedTime_buf);
-
-  //   const char *infusionState_buf =
-  //       getInfusionState(*(infusion_monitoring_data_handle.infusionState_p));
-  //   lv_table_set_cell_value(infusion_monitoring_table, 4, 1, infusionState_buf);
-  // }
 }
 
 void closeWifiBox() {
