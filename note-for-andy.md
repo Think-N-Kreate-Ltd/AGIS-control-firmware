@@ -12,18 +12,21 @@
 =======================================================
 # LVGI note
 
-To handle the tasks of LVGL you need to call lv_timer_handler() periodically in one of the following:
+~~To handle the tasks of LVGL you need to call lv_timer_handler() periodically in one of the following:~~
 
  - while(1) of main() function
  - timer interrupt periodically (lower priority than lv_tick_inc())
  - an OS task periodically
 
-The timing is not critical but it should be about 5 milliseconds to keep the system responsive.
+~~The timing is not critical but it should be about 5 milliseconds to keep the system responsive.~~
 comes from: https://docs.lvgl.io/8/porting/task-handler.html
+=======================================================
 
-~~Try to avoid calling LVGL functions from interrupt handlers (except lv_tick_inc() and lv_disp_flush_ready()). But if you need to do this you have to disable the interrupt which uses LVGL functions while lv_timer_handler() is running.~~
+If you need to use real tasks or threads, you need a mutex which should be invoked before the call of lv_timer_handler() and released after it. Also, you have to use the same mutex in other tasks and threads around every LVGL (lv_...) related function call and code. This way you can use LVGL in a real multitasking environment. Just make use of a mutex to avoid the concurrent calling of LVGL functions.
 
-~~It's a better approach to simply set a flag or some value in the interrupt, and periodically check it in an LVGL timer (which is run by lv_timer_handler()).~~
+Try to avoid calling LVGL functions from interrupt handlers (except lv_tick_inc() and lv_disp_flush_ready()). But if you need to do this you have to disable the interrupt which uses LVGL functions while lv_timer_handler() is running.
+
+It's a better approach to simply set a flag or some value in the interrupt, and periodically check it in an LVGL timer (which is run by lv_timer_handler()).
 
 https://docs.lvgl.io/master/porting/os.html#tasks-and-threads
 https://docs.lvgl.io/master/overview/event.html#events

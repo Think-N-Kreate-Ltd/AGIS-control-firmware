@@ -2,6 +2,7 @@
 #define ECFC85B5_FBAD_44F5_B4D7_5DC33680411F
 
 #include <TFT_eSPI.h>
+// #include <pthread.h>
 // #include <Free_Fonts.h>
 #include <lvgl.h>
 #include <lv_conf.h>

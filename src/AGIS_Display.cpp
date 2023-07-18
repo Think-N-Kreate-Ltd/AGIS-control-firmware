@@ -1,9 +1,19 @@
+/*
+  Try to avoid calling LVGL functions from interrupt handlers
+  It is also thread-unsafe / task-unsafe (unsafe on multitasking)
+  If need to use real tasks or threads, need a lock before and after lvgl function
+  (check here https://docs.lvgl.io/master/porting/os.html)
+  HOWEVER, sleep is also so harmful 
+  (check here https://stackoverflow.com/questions/8815895/why-is-thread-sleep-so-harmful)
+  thus, I avoid use of it and there are many limitations, it's normal to feel strange on some parts
+*/
+
 #include <AGIS_Display.h>
 
 // state for checking the wifibox, 0=waiting, 1=not start, 2=start
 volatile uint8_t wifiStart = 0;
 // a special state to lock the event change
-// TODO: find whether have method to reset the event state (`lv_obj_remove_event_cb` have problem currently)
+// seems no method to reset the event state (`lv_obj_remove_event_cb` have problem and cannot use)
 bool enterClicked;
 // the state of the msgbox, true=in msgbox. for switching the use of key `L` `R`
 bool inMsgbox;
@@ -186,7 +196,7 @@ void input_screen() {
   lv_obj_set_style_border_color(DRWidget, lv_color_hex(0x5b5b5b), LV_PART_MAIN);
   lv_obj_set_style_radius(DRWidget, 0x00, LV_PART_MAIN);
   lv_obj_set_size(DRWidget, 183, 70);
-  lv_obj_align(DRWidget, LV_ALIGN_TOP_RIGHT, -5, 5);
+  lv_obj_align(DRWidget, LV_ALIGN_TOP_RIGHT, -7, 7);
 
   /*label for derived drip rate widget*/
   lv_obj_t * DR_label1 = lv_label_create(DRWidget);
@@ -473,13 +483,16 @@ void infusion_monitoring_cb(lv_timer_t * timer) {
 }
 
 void closeWifiBox() {
+  // static pthread_mutex_t lvgl_mutex;
+  // pthread_mutex_lock(&lvgl_mutex);
   lv_msgbox_close(lv_obj_get_child(screenWifi, 0)); /*close wifi box*/
-  // lv_obj_del(screenWifi);
+  // lv_obj_del(screenWifi);      /*cannot delete any object*/
   lv_disp_load_scr(screenMain);   /*go back to input screen*/
   lv_group_focus_obj(screenMain); /*focus to input field*/
   enterClicked = false;
   inMsgbox = false;
-  vTaskDelay(10);                 /*avoid crashing*/
+  // pthread_mutex_unlock(&lvgl_mutex);
+  vTaskDelay(20);                 /*avoid crashing*/
 }
 
 bool validate_keypad_inputs() {
