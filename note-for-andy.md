@@ -7,7 +7,19 @@
 5. lv_tabview.c & lv_checkbox -> also about const, give up fixing it
 
 =======================================================
-# Note book point 6,7,10,15
+# things to work on
+
+ - main:
+     - move all function protype to header file
+     - check and test for `no drop 20s`
+ - lvgl:
+     - monitor screen update data
+     - when run by web, tft display switch screen to monitor screen
+     - signal error on keypad
+     - wifibox timeout close problem
+     - when click `F2` but not input filled in, do sth?
+     - place the wifibox text in center
+ - remember to add the sd card back finally
 
 =======================================================
 # LVGI note
