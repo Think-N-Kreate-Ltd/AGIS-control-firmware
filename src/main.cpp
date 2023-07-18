@@ -22,7 +22,7 @@
 #include <ArduinoJson.h>
 #include <AsyncElegantOTA.h>  // define after <ESPAsyncWebServer.h>
 #include <AGIS_Commons.h>
-// #include <AGIS_OLED.h>
+#include <AGIS_OLED.h>
 #include <AGIS_Types.h>       // user defined data types
 #include <AGIS_Utilities.h>
 #include <AGIS_Display.h>
@@ -124,6 +124,7 @@ void infusionInit();
 void loggingData(void * parameter);
 void getI2CData(void * arg);
 void tftDisplay(void * arg);
+void oledDisplay(void * arg);
 void enableWifi(void * arg);
 void otherLittleWorks(void * arg);
 // void taskWifiDelete();
@@ -356,6 +357,7 @@ void setup() {
   pinMode(TFT_CS, OUTPUT);
 
   ina219SetUp();
+  oledSetUp();
   
   useSdCard();  // compulsorily change to communicate with SD
   sdCardSetUp();      
@@ -408,6 +410,14 @@ void setup() {
               4096,             // stack size
               NULL,             // parameter to pass
               3,                // task priority, 0-24, 24 highest priority
+              NULL);            // task handle
+
+  // Create a task for OLED display
+  xTaskCreate(oledDisplay,      // function that should be called
+              "OLED display",   // name of the task (debug use)
+              4096,             // stack size
+              NULL,             // parameter to pass
+              4,                // task priority, 0-24, 24 highest priority
               NULL);            // task handle
 
   xTaskCreate(enableWifi,     // function that should be called
@@ -681,6 +691,34 @@ void tftDisplay(void * arg) {
   for(;;) {
     lv_timer_handler(); // Should be call periodically
     vTaskDelay(5);      // The timing is not critical but it should be about 5 milliseconds to keep the system responsive
+  }
+}
+
+void oledDisplay(void * arg) {
+  for(;;) {
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+
+    /*show gtt/m on the left side of display*/
+    display.setTextSize(2);
+    display.setCursor(0, 15);
+    display.printf("%d\n", dripRate);
+    display.setTextSize(2);
+    display.setCursor(0, 40);
+    display.printf("gtt/m\n");
+
+    /*show mL/h on the right side of display*/
+    display.setTextSize(2);
+    display.setCursor(80, 15);
+    // Convert from drops/min to mL/h:
+    display.printf("%d\n", dripRate * (60 / dropFactor));
+    display.setTextSize(2);
+    display.setCursor(80, 40);
+    display.printf("mL/h\n");
+
+    display.display();
+
+    vTaskDelay(500);  // block for 500ms
   }
 }
 

@@ -1,16 +1,35 @@
 #include <AGIS_OLED.h>
-#include <Adafruit_SSD1306.h>
-#include <Adafruit_GFX.h>
+#include <Wire.h>
 #include <AGIS_Commons.h>
 #include <AGIS_Logging.h>
 
-// TODO: add ifdef guard to use OLED or not
-// set up for OLED display
+/*Variables used to toggle display unit*/
+unsigned int numIteration = 0;
+bool unitChanged = false;
+
+#ifdef OLED_I2C
+/*Set up for OLED I2C*/
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+#else
+/*Set up for OLED SPI*/
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT,
   OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);
+#endif
 
 void oledSetUp() {
   // Initialize OLED
+#ifdef OLED_I2C
+  Wire.setPins(I2C_SDA, I2C_SCL);
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    ESP_LOGE(OLED_TAG, "SSD1306 allocation failed");
+    return;
+  } else {
+    ESP_LOGI(OLED_TAG, "SSD1306 allocation succeeded");
+    // clear the original display on the screen
+    display.clearDisplay();
+    display.display();
+  }
+#else
   if(!display.begin(SSD1306_SWITCHCAPVCC)) {
     ESP_LOGE(OLED_TAG, "SSD1306 allocation failed");
     return;
@@ -19,6 +38,7 @@ void oledSetUp() {
     display.clearDisplay();
     display.display();
   }
+#endif
 }
 
 // display the table on the screen
