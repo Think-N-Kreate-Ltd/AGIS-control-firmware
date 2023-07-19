@@ -8,6 +8,7 @@ This is the firmware for AGIS control board.
 + `Ent`: confirm each input field
 + arrows UP and DOWN: motor move up or down
 + arrows Left and Right: navigate between input fields / bottons
++ `*`: the enter button in motor control
 + `F1`: toggle between input screen and monitor screen
 + `F2`: start infusion after all input fields are confirmed
 + `Esc`: reset program, equivalent to reset button

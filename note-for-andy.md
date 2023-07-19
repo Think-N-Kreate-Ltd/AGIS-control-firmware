@@ -15,7 +15,7 @@
  - lvgl:
      - ~~monitor screen update data~~
      - when run by web, tft display switch screen to monitor screen
-     - signal error on keypad
+     - ~~signal error on keypad~~
      - ~~wifibox timeout close problem~~
      - when click `F2` but not input filled in, do sth?
      - place the wifibox text in center

@@ -26,9 +26,6 @@ void monitor_screen();
 
 void closeWifiBox();
 
-// for testing
-extern volatile int testing;
-
 /*----------function prototype only use in AGIS_Display.h (private)----------*/
 void confirm_msgbox();
 

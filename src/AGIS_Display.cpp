@@ -1,11 +1,11 @@
-/*
-  Try to avoid calling LVGL functions from interrupt handlers
-  It is also thread-unsafe / task-unsafe (unsafe on multitasking)
-  If need to use real tasks or threads, need a lock before and after lvgl function
-  (check here https://docs.lvgl.io/master/porting/os.html)
-  HOWEVER, sleep is also so harmful 
-  (check here https://stackoverflow.com/questions/8815895/why-is-thread-sleep-so-harmful)
-  thus, I avoid use of it and there are many limitations, it's normal to feel strange on some parts
+/**
+ * Try to avoid calling LVGL functions from interrupt handlers
+ * LVGL is also thread-unsafe / task-unsafe (unsafe on multitasking)
+ * If need to use real tasks or threads, need a lock before and after lvgl function
+ * (check here https://docs.lvgl.io/master/porting/os.html)
+ * HOWEVER, sleep is also so harmful
+ * (check here https://stackoverflow.com/questions/8815895/why-is-thread-sleep-so-harmful)
+ * thus, I avoid use of it and there are many limitations, it's normal to feel strange on some parts
 */
 
 #include <AGIS_Display.h>
@@ -273,7 +273,7 @@ void set_textarea(lv_obj_t *& parent, uint16_t index, lv_coord_t x, lv_coord_t y
   lv_obj_align(parent, LV_ALIGN_TOP_LEFT, x, y);
   lv_obj_set_width(parent, 80); /*Note: width=80, height=36*/
   lv_textarea_set_placeholder_text(parent, "Pls input");
-  /*in fact, if create all textarea obj first, then we don't need to set index*/
+  /*in fact, if we create all textarea obj first, then we don't need to set index*/
   lv_obj_move_to_index(parent, index);
   lv_obj_add_event_cb(parent, textarea_event_cb, LV_EVENT_ALL, parent);
 
@@ -363,7 +363,6 @@ static void wifibox_event_cb(lv_event_t * event) {
         wifiStart = 2;
       } else {/*I don't know how to go to this condition*/}
     }
-    Serial.println(txt);
   }
 }
 
@@ -390,7 +389,6 @@ static void confirmbox_event_cb(lv_event_t * event) {
         screenState = false;
       } else {/*I don't know how to go to this condition*/}
     }
-    Serial.println(txt);
 
     /*set the background color back, not suggested to do by remove style*/
     lv_obj_set_style_bg_opa(screenMain, LV_OPA_100, 0);
@@ -400,11 +398,9 @@ static void confirmbox_event_cb(lv_event_t * event) {
 
 void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
   uint8_t key = keypad.getKey();
-  Serial.write(key);
   if(key) {
     if (key == 'E') {
       data->key = LV_KEY_ENTER;
-      Serial.println("pressed enter");
       enterClicked = true;
     }
     else if (key == 'C') {
@@ -486,14 +482,16 @@ void infusion_monitoring_cb(lv_timer_t * timer) {
 void closeWifiBox() {
   // static pthread_mutex_t lvgl_mutex;
   // pthread_mutex_lock(&lvgl_mutex);
+  vTaskDelay(50);
   lv_msgbox_close(lv_obj_get_child(screenWifi, 0)); /*close wifi box*/
+  vTaskDelay(50);
   // lv_obj_del(screenWifi);      /*cannot delete any object*/
   lv_disp_load_scr(screenMain);   /*go back to input screen*/
   lv_group_focus_obj(screenMain); /*focus to input field*/
   enterClicked = false;
   inMsgbox = false;
   // pthread_mutex_unlock(&lvgl_mutex);
-  vTaskDelay(30);                 /*avoid crashing*/
+  vTaskDelay(50);                 /*avoid crashing, 30 should be enough*/
 }
 
 bool validate_keypad_inputs() {

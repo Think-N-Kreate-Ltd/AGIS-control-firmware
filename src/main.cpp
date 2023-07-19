@@ -31,8 +31,6 @@
 // #include <AGIS_Logging.h>
 #include <esp_log.h>
 
-// debug use var
-volatile int testing;
 TaskHandle_t xHandle = NULL;
 
 #define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
@@ -57,11 +55,14 @@ volatile bool turnOnLed = false;      // state for LED, true when need to turn o
 volatile unsigned int infusedVolume_x100 = 0;  // 100 times larger than actual value, unit: mL
 volatile unsigned int infusedTime = 0;         // unit: seconds
 volatile unsigned long infusionStartTime = 0;
+// NOTE: var for quick fix the problem for doing demo only
+// volatile bool lockInfusionStartTime = false;
 
 // volatile unsigned int dripRateSamplingCount = 0;  // use for drip rate sampling
 // volatile unsigned int numDropsInterval = 0;  // number of drops in 15 seconds
 volatile unsigned int autoControlCount = 0;  // use for regulating frequency of motor is on
 volatile unsigned int autoControlOnTime = 0;  // use for regulating frequency of motor is on
+volatile unsigned int autoControlTotalTime = 0; // to change `autoControlTotalTime` based on `dripRateDifference`
 int dripRateDifference = 0; 
 volatile unsigned int dripRatePeak = 1;   // drip rate at the position when 1st drop is detected,
                                           // set to 1 to avoid zero division
@@ -91,10 +92,12 @@ bool homingCompleted = false;   // true when lower limit switch is activated
 
 // To reduce the sensitive of autoControlISR()
 // i.e. (targetDripRate +/-3) is good enough
+// NOTE: not complete change here
 #define AUTO_CONTROL_ALLOW_RANGE 3
-#define AUTO_CONTROL_ON_TIME_MAX 600  // motor will be enabled for this amount of time at maximum (unit: ms)
+#define AUTO_CONTROL_ON_TIME_MAX 200  // motor will be enabled for this amount of time at maximum (unit: ms)
 #define AUTO_CONTROL_ON_TIME_MIN 30   // motor will be enabled for this amount of time at minimum (unit: ms)
-#define AUTO_CONTROL_TOTAL_TIME  1000  // 1000ms
+#define AUTO_CONTROL_TOTAL_TIME_FAST    500  // 500ms
+#define AUTO_CONTROL_TOTAL_TIME_NORMAL  1000  // 1000ms
 #define DROP_DEBOUNCE_TIME       10   // if two pulses are generated within 10ms, it must be detected as 1 drop
 
 // WiFiManager, Local intialization. Once its business is done, there is no need
@@ -150,7 +153,7 @@ void IRAM_ATTR dropSensorISR() {
   if (lastState != dropSensorState) {
     lastState = dropSensorState;
     // call when drop detected
-    // disable for 10 ms after called
+    // disable for `DROP_DEBOUNCE_TIME` after called
     if ((dropSensorState == 1) && 
         ((millis()-lastTime)>=DROP_DEBOUNCE_TIME)) {
       turnOnLed = true; // turn on LED on drop sensor on task
@@ -210,12 +213,18 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
       firstDropDetected = false;
       timeBtw2Drops = UINT_MAX;
 
-      infusionState = infusionState_t::NOT_STARTED;
+      if ((infusionState == infusionState_t::ALARM_COMPLETED) || 
+          (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED)) {
+            infusionState = infusionState_t::NOT_STARTED;
+          }
 
       // infusion is still in progress but we cannot detect drops for 20s,
       // something must be wrong, sound the alarm
       if (infusionState == infusionState_t::IN_PROGRESS) {
         infusionState = infusionState_t::ALARM_STOPPED;
+
+      // NOTE: prevent infusion time goto 0
+      // lockInfusionStartTime = true;
       }
     }
   } else {
@@ -230,7 +239,11 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
   // get infusion time so far:
   if ((infusionState != infusionState_t::ALARM_COMPLETED) && firstDropDetected) {
     infusedTime = (millis() - infusionStartTime) / 1000;  // in seconds
-  }
+  } 
+  // else if ((infusionState != infusionState_t::IN_PROGRESS) && !firstDropDetected) {
+  //   // reset the infused time before the second infusion
+  //   infusionStartTime = millis();
+  // }
 
   // Only run autoControlISR() when the following conditions satisfy:
   //   1. button_ENTER is pressed, or command is sent from website
@@ -282,7 +295,6 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
     if ((infusionState == infusionState_t::ALARM_COMPLETED) && !homingCompleted) {
     // homing the roller clamp, i.e. move it down to completely closed position
       homingRollerClamp();
-      enableLogging = false;
     }
     else {
       if (enableAutoControl) {
@@ -292,12 +304,19 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
   }
 
   // reset this for the next autoControlISR()
-  if (autoControlCount == AUTO_CONTROL_TOTAL_TIME) {   // reset count every 1s
+  dripRateDifference = dripRate - targetDripRate;
+  if (abs(dripRateDifference) <= 10) {
+    autoControlTotalTime = AUTO_CONTROL_TOTAL_TIME_NORMAL;
+  }
+  else {
+    autoControlTotalTime = AUTO_CONTROL_TOTAL_TIME_FAST;
+  }
+
+  if (autoControlCount >= autoControlTotalTime) {   // reset count every `autoControlTotalTime`
     autoControlCount = 0;
 
     // calculate new autoControlOnTime based on the absolute difference
     // between dripRate and targetDripRate
-    dripRateDifference = dripRate - targetDripRate;
     autoControlOnTime =
         max(abs(dripRateDifference) * AUTO_CONTROL_ON_TIME_MAX / dripRatePeak,
             (unsigned int)AUTO_CONTROL_ON_TIME_MIN);
@@ -439,6 +458,7 @@ void setup() {
 
   // homing the roller clamp
   while (!homingCompleted) {
+    //NOTE
     // homingRollerClamp();
 
     // problem will occur when homing and click "Set and Run" at the same time
@@ -792,6 +812,8 @@ void enableWifi(void * arg) {
     // NOTE
     // remove sd card old data
     // rmOldData();
+
+    wifiStart = 0;  /*I don't know why it can solve the crash problem*/
   }
 
   /*NOTE: The idle task is responsible for freeing the RTOS kernel allocated memory from tasks that have been deleted.
