@@ -171,14 +171,14 @@ void input_screen() {
   char buf[16];
 
   lv_obj_t * cont1 = lv_obj_create(screenMain);
-  lv_obj_set_flex_flow(cont1, LV_FLEX_FLOW_ROW_WRAP);
-  lv_obj_set_size(cont1, lv_pct(95), lv_pct(32));
+  lv_obj_set_flex_flow(cont1, LV_FLEX_FLOW_COLUMN_WRAP);
+  lv_obj_set_size(cont1, lv_pct(96), lv_pct(33));
   lv_obj_align(cont1, LV_ALIGN_OUT_TOP_LEFT, 5, 157);
   lv_obj_add_event_cb(cont1, radio_event_handler, LV_EVENT_CLICKED, &active_index_1);
 
   /*add radio button*/
   for(int i=0; i<sizeof(dripFactor); i++) {
-    lv_snprintf(buf, 16, "%d drops/mL", dripFactor[i]);
+    lv_snprintf(buf, 16, "%d drops/mL  ", dripFactor[i]);
     radiobutton_create(cont1, buf);
   }
 
@@ -458,7 +458,7 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
       }
     }
     else {
-      data->key = key;  /*possible BUG due to conversion from char to uint32_t(?)*/
+      data->key = key;  /*should not enter here*/
     }
 
     data->state = LV_INDEV_STATE_PRESSED;
@@ -476,9 +476,11 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
 // update the data on display every 500ms
 void infusion_monitoring_cb(lv_timer_t * timer) {
   // infusion_monitoring_data_handle_t monitor_data;
-  // lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 0, 1, "%d", monitor_data.numDrops_p);
-  lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 1, 1, "%02d:%02d:%02d", testing/3600, testing%3600/60, testing%60);
-
+  lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 0, 1, "%d", numDrops);
+  lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 1, 1, "%d", dripRate);
+  lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 2, 1, "%d.%02d", infusedVolume_x100/100, infusedVolume_x100%100);
+  lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 3, 1, "%02d:%02d:%02d", infusedTime/3600, infusedTime%3600/60, infusedTime%60);
+  lv_table_set_cell_value(lv_obj_get_child(screenMonitor, 0), 4, 1, getInfusionState(infusionState));
 }
 
 void closeWifiBox() {
@@ -491,7 +493,7 @@ void closeWifiBox() {
   enterClicked = false;
   inMsgbox = false;
   // pthread_mutex_unlock(&lvgl_mutex);
-  vTaskDelay(20);                 /*avoid crashing*/
+  vTaskDelay(30);                 /*avoid crashing*/
 }
 
 bool validate_keypad_inputs() {

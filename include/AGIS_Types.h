@@ -21,13 +21,13 @@ enum class infusionState_t {
  * Data elements are packed as a struct s.t. it can be called from the timer callback.
  * Struct elements are pointers to actual data.
  */
-typedef struct _infusion_monitoring_data_handle_t {
-  volatile unsigned int * numDrops_p;
-  volatile unsigned int * dripRate_p;
-  volatile unsigned int * infusedVolume_p;
-  volatile unsigned int * infusedTime_p;
-  infusionState_t * infusionState_p;
-} infusion_monitoring_data_handle_t;
-extern infusion_monitoring_data_handle_t monitor_data;
+// typedef struct _infusion_monitoring_data_handle_t {
+//   volatile unsigned int * numDrops_p;
+//   volatile unsigned int * dripRate_p;
+//   volatile unsigned int * infusedVolume_p;
+//   volatile unsigned int * infusedTime_p;
+//   infusionState_t * infusionState_p;
+// } infusion_monitoring_data_handle_t;
+// extern infusion_monitoring_data_handle_t monitor_data; // to pass the data directly
 
 #endif /* EA655F7D_5387_4B55_B11C_DB866F12DCC6 */

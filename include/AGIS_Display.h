@@ -9,6 +9,7 @@
 #include <AGIS_Keypad.h>
 #include <AGIS_Types.h>
 #include <AGIS_Commons.h>
+#include <AGIS_Utilities.h>
 
 // this follow the index in array `keypadInput`
 #define VTBI_INDEX             0
