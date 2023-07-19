@@ -92,7 +92,6 @@ bool homingCompleted = false;   // true when lower limit switch is activated
 
 // To reduce the sensitive of autoControlISR()
 // i.e. (targetDripRate +/-3) is good enough
-// NOTE: not complete change here
 #define AUTO_CONTROL_ALLOW_RANGE 3
 #define AUTO_CONTROL_ON_TIME_MAX 200  // motor will be enabled for this amount of time at maximum (unit: ms)
 #define AUTO_CONTROL_ON_TIME_MIN 30   // motor will be enabled for this amount of time at minimum (unit: ms)
@@ -378,9 +377,8 @@ void setup() {
   ina219SetUp();
   oledSetUp();
   
-  // NOTE
-  // useSdCard();  // compulsorily change to communicate with SD
-  // sdCardSetUp();      
+  useSdCard();  // compulsorily change to communicate with SD
+  sdCardSetUp();      
 
   // setup for sensor interrupt
   attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
@@ -408,14 +406,13 @@ void setup() {
   /*Initialize TFT display, LVGL*/
   display_init();
 
-  // NOTE
   /*Create a task for data logging*/
-  // xTaskCreate(loggingData,       /* Task function. */
-  //             "Data Logging",    /* String with name of task. */
-  //             4096,              /* Stack size in bytes. */
-  //             NULL,              /* Parameter passed as input of the task */
-  //             2,                 /* Priority of the task. */
-  //             NULL);             /* Task handle. */
+  xTaskCreate(loggingData,       /* Task function. */
+              "Data Logging",    /* String with name of task. */
+              4096,              /* Stack size in bytes. */
+              NULL,              /* Parameter passed as input of the task */
+              4,                 /* Priority of the task. */
+              NULL);             /* Task handle. */
 
   // I2C is too slow that cannot use interrupt
   xTaskCreate(getI2CData,     // function that should be called
@@ -438,7 +435,7 @@ void setup() {
               "OLED display",   // name of the task (debug use)
               4096,             // stack size
               NULL,             // parameter to pass
-              4,                // task priority, 0-24, 24 highest priority
+              2,                // task priority, 0-24, 24 highest priority
               NULL);            // task handle
 
   xTaskCreate(enableWifi,     // function that should be called
@@ -799,19 +796,17 @@ void enableWifi(void * arg) {
 
     // server.serveStatic("/", SD, "/web_server/");
 
-    // NOTE
     // force download file
-    // server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
-    //   loadFromSdCard(request);
-    // });
+    server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
+      loadFromSdCard(request);
+    });
 
     server.onNotFound(notFound); // if 404 not found, go to 404 not found
     AsyncElegantOTA.begin(&server); // for OTA update
     server.begin();
 
-    // NOTE
     // remove sd card old data
-    // rmOldData();
+    rmOldData();
 
     wifiStart = 0;  /*I don't know why it can solve the crash problem*/
   }

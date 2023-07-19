@@ -45,10 +45,8 @@ static uint32_t active_index_1 = 0;
 void display_init() {
   tft.begin();
   tft.setRotation(1);        // Landscape orientation
-  tft.invertDisplay(false);  // set true to invert the color
 
   lv_init();
-
   lv_disp_draw_buf_init(&disp_buf, buf, NULL, TFT_WIDTH * TFT_HEIGHT / 10);
 
   /*Initialize the display driver*/
@@ -81,7 +79,6 @@ void my_disp_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *c
 {
   uint32_t w = (area->x2 - area->x1 + 1);
   uint32_t h = (area->y2 - area->y1 + 1);
-  uint32_t wh = w*h;
 
   tft.startWrite();
   tft.setAddrWindow(area->x1, area->y1, w, h);
@@ -383,6 +380,11 @@ static void confirmbox_event_cb(lv_event_t * event) {
         lv_group_focus_obj(screenMain);
         lv_obj_scroll_to(screenMain, 0, 0, LV_ANIM_OFF);
       } else if (txt == "Yes") {
+        /*Submit verified inputs to autoControl*/
+        targetVTBI = keypadInput[0];
+        targetTotalTime = keypadInput[1]*3600 + keypadInput[2]*60;
+        targetDripRate = targetVTBI * dropFactor / (keypadInput[1]*60 + keypadInput[2]);
+        targetNumDrops = targetVTBI * dropFactor;
         /*go to monitor screen, and start infusion*/
         lv_disp_load_scr(screenMonitor);
         keypadInfusionConfirmed = true;
@@ -507,10 +509,10 @@ bool validate_keypad_inputs() {
 
   if (state) {
     /*Submit verified inputs to autoControl*/
-    targetVTBI = keypadInput[0];
-    targetTotalTime = keypadInput[1]*3600 + keypadInput[2]*60;
-    targetDripRate = targetVTBI * dropFactor / (keypadInput[1]*60 + keypadInput[2]);
-    targetNumDrops = targetVTBI / dropFactor;
+    // targetVTBI = keypadInput[0];
+    // targetTotalTime = keypadInput[1]*3600 + keypadInput[2]*60;
+    targetDripRate = keypadInput[0] * dropFactor / (keypadInput[1]*60 + keypadInput[2]);
+    // targetNumDrops = targetVTBI / dropFactor;
 
     /*set the text on top right widget*/
     lv_obj_set_style_text_color(lv_obj_get_child(lv_obj_get_child(screenMain, 5), 1), 
