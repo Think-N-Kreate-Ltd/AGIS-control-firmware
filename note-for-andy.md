@@ -12,6 +12,7 @@
  - main:
      - move all function protype to header file
      - check and test for `no drop 20s`
+     - reset value for tft after finish once, or use a button to do
  - lvgl:
      - ~~monitor screen update data~~
      - when run by web, tft display switch screen to monitor screen
@@ -19,6 +20,10 @@
      - ~~wifibox timeout close problem~~
      - when click `F2` but not input filled in, do sth?
      - place the wifibox text in center
+     - cannot press the `F2` when msgbox is here
+     - `*` do the enter? or pause the infusion
+ - INA219
+     - check the value(with motor), seems strange sometimes
  - remember to add the sd card back finally
 
 =======================================================
