@@ -329,7 +329,6 @@ void IRAM_ATTR motorControlISR() {
   // button_ENTER.loop();     // MUST call the loop() function first
   // button_DOWN.loop();      // MUST call the loop() function first
 
-  static int32_t count;          // time count for reset the infusion
   static bool pressing = false;  // check for the key is pressing or not
 
   // Use keypad `U` to manually move up
@@ -356,19 +355,19 @@ void IRAM_ATTR motorControlISR() {
     enableAutoControl = !enableAutoControl;
 
     // if press it twice within 500ms, reset the infusion
-    // static int recordTime = millis();
-    // if ((millis()-recordTime)<1000 && (millis()-recordTime)>50) {
-    //   if (infusionState == infusionState_t::IN_PROGRESS) {
-    //     // TODO: reset the infusion
-    //     infusionInit();
-    //     infusedTime = 0;
-    //     enableAutoControl = false;
-    //     infusionState = infusionState_t::NOT_STARTED;
+    static int recordTime;
+    if ((millis()-recordTime)<500 && ((infusionState == infusionState_t::IN_PROGRESS) 
+        || (infusionState == infusionState_t::ALARM_STOPPED))) {
+      // reset the value
+      infusionInit();
+      enableAutoControl = false;
+      enableLogging = false;
 
-    //     enableLogging = false;
-    //   }
-    // }
-
+      // stop droping and mark as complete
+      infusionState = infusionState_t::ALARM_COMPLETED;
+      /*auto control will do homing*/
+    }
+    recordTime = millis();
     pressing = true;
   } 
 
@@ -412,10 +411,10 @@ void setup() {
   attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
 
   // setup for timer0
-  Timer0_cfg = timerBegin(0, 80, true);    // prescaler = 80
+  Timer0_cfg = timerBegin(0, 400, true);    // prescaler = 400
   timerAttachInterrupt(Timer0_cfg, &motorControlISR,
                        false);             // call the function motorcontrol()
-  timerAlarmWrite(Timer0_cfg, 1000, true); // time = 80*1000/80,000,000 = 1ms
+  timerAlarmWrite(Timer0_cfg, 1000, true); // time = 400*1000/80,000,000 = 5ms
   timerAlarmEnable(Timer0_cfg);            // start the interrupt
 
   // setup for timer1
@@ -478,13 +477,13 @@ void setup() {
   // homing the roller clamp
   while (!homingCompleted) {
     //NOTE
-    // homingRollerClamp();
+    homingRollerClamp();
 
     // problem will occur when homing and click "Set and Run" at the same time
     // ONLY uncomment while testing, and also comment homingRollerClamp()
-    delay(2000);
-    homingCompleted = true;
-    enableAutoControl = false;
+    // delay(2000);
+    // homingCompleted = true;
+    // enableAutoControl = false;
     if (homingCompleted) {
       Serial.println("homing completed, can move the motor now");
     }
@@ -652,7 +651,7 @@ void sendInfusionMonitoringDataWs() {
 void homingRollerClamp() {
   limitSwitch_Down.loop();   // MUST call the loop() function first
 
-  if (limitSwitch_Down.getState()) { // untouched
+  if (limitSwitch_Down.getStateRaw() == 1) { // untouched
     // Read PWM value
     PWMValue = analogRead(PWM_PIN);
 

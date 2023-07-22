@@ -168,10 +168,12 @@ void logData() {
 
   while (infusionState == infusionState_t::ALARM_STOPPED) {
     // lock the function in here when infusion is paused
+    file.printf("%u, infusion paused\n", infusedTime);
     vTaskDelay(1000);
 
     // go back to logging if resume infusion
     if (infusionState == infusionState_t::IN_PROGRESS) {
+      file.printf("%u, infusion resume\n", infusedTime);
       logData();
     } else {/*let it finish*/}
   }
