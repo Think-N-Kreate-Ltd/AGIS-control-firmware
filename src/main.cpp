@@ -32,6 +32,7 @@
 #include <esp_log.h>
 
 TaskHandle_t xHandle = NULL;
+volatile int test = 0;
 
 #define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
 #define SENSOR_LED_PIN   35 // output pin to sensor for toggling LED
@@ -329,30 +330,33 @@ void IRAM_ATTR motorControlISR() {
   // button_ENTER.loop();     // MUST call the loop() function first
   // button_DOWN.loop();      // MUST call the loop() function first
 
-  static int32_t count;             // time count for reset the infusion
-  static bool controlling = false;  // check for it is controlling by button or not
+  static int32_t count;          // time count for reset the infusion
+  static bool pressing = false;  // check for the key is pressing or not
 
   // Use keypad `U` to manually move up
   if (buttonState == buttonState_t::UP) {
     motorOnUp();
-    controlling = true;
+    pressing = true;
   }
 
   // Use keypad `D` to manually move down
   if (buttonState == buttonState_t::DOWN) {
     motorOnDown();
-    controlling = true;
+    pressing = true;
   }
 
-  // Use keypad `*` to pause / restart / reset the infusion
-  if (buttonState == buttonState_t::ENTER) {
-    // pause / restart the infusion
+  // Use keypad `*` to pause / resume / reset the infusion
+  // ensure it will only run once when holding the key
+  if (buttonState == buttonState_t::ENTER && !pressing) {
+    // pause / resume the infusion
     if (enableAutoControl) {
       infusionState = infusionState_t::ALARM_STOPPED;
+      test = 1;
     } else {
       infusionState = infusionState_t::IN_PROGRESS;
+      test = 2;
     }
-    // enableAutoControl = !enableAutoControl;
+    enableAutoControl = !enableAutoControl;
 
     // if press it twice within 500ms, reset the infusion
     // static int recordTime = millis();
@@ -367,11 +371,13 @@ void IRAM_ATTR motorControlISR() {
     //     enableLogging = false;
     //   }
     // }
+
+    pressing = true;
   } 
 
-  if (buttonState == buttonState_t::IDLE && controlling) {  // it will only run once each time
+  if (buttonState == buttonState_t::IDLE && pressing) {  // it will only run once each time
     motorOff();
-    controlling = false;
+    pressing = false;
   }
 
   // Handle keypad
@@ -495,6 +501,13 @@ void loop() {
   //     dripRate, targetDripRate, getMotorState(motorState));
 
   // Serial.printf("%s\n", getInfusionState(infusionState));
+  if (test == 1)  {
+    Serial.println("gets into pause");
+    test = 0;
+  } else if (test == 2) {
+    Serial.println("gets into resume");
+    test = 0;
+  }
 }
 
 void motorOnUp() {
