@@ -701,6 +701,7 @@ void loggingData(void * parameter) {
     if ((infusionState == infusionState_t::ALARM_COMPLETED) && finishLogging) {
       endLogging();
       finishLogging = false;
+      enableLogging = false;
       useSdCard(false);
     }
 
