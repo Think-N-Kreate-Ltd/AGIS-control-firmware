@@ -32,7 +32,6 @@
 #include <esp_log.h>
 
 TaskHandle_t xHandle = NULL;
-volatile int test = 0;
 
 #define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
 #define SENSOR_LED_PIN   35 // output pin to sensor for toggling LED
@@ -351,10 +350,8 @@ void IRAM_ATTR motorControlISR() {
     // pause / resume the infusion
     if (enableAutoControl) {
       infusionState = infusionState_t::ALARM_STOPPED;
-      test = 1;
     } else {
       infusionState = infusionState_t::IN_PROGRESS;
-      test = 2;
     }
     enableAutoControl = !enableAutoControl;
 
@@ -501,13 +498,6 @@ void loop() {
   //     dripRate, targetDripRate, getMotorState(motorState));
 
   // Serial.printf("%s\n", getInfusionState(infusionState));
-  if (test == 1)  {
-    Serial.println("gets into pause");
-    test = 0;
-  } else if (test == 2) {
-    Serial.println("gets into resume");
-    test = 0;
-  }
 }
 
 void motorOnUp() {
@@ -704,7 +694,6 @@ void loggingData(void * parameter) {
       // after create file, do data logging
       while (infusionState == infusionState_t::IN_PROGRESS) {
         logData();
-        vTaskDelay(999); // wait for data logging
       }
 
       finishLogging = true;

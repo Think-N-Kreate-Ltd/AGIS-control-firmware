@@ -132,6 +132,9 @@ void newFileInit() {
   file.println();
 }
 
+// do data logging every second
+// just wait and do nothing when the infusion is paused
+// resume logging if infusion is resumed
 void logData() {
   // // to avoid SD write latency between readings
   // float data[8] = {infusedTime, dripRate, infusedVolume_x100 / 100.0f, current_mA, busvoltage, shuntvoltage,
@@ -159,6 +162,18 @@ void logData() {
   // Force data to SD and update the directory entry to avoid data loss.
   if (!file.sync() || file.getWriteError()) {
     sd.errorHalt("write error");
+  }
+
+  vTaskDelay(999); // wait for next data logging
+
+  while (infusionState == infusionState_t::ALARM_STOPPED) {
+    // lock the function in here when infusion is paused
+    vTaskDelay(1000);
+
+    // go back to logging if resume infusion
+    if (infusionState == infusionState_t::IN_PROGRESS) {
+      logData();
+    } else {/*let it finish*/}
   }
 }
 
