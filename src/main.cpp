@@ -198,7 +198,9 @@ void IRAM_ATTR dropSensorISR() {
       if (firstDropDetected) {
         dripRatePeak = max(dripRatePeak, dripRate);
       }
-    } else if (dropSensorState == 0) {/*nothing*/}
+    } else if (dropSensorState == 0) {
+      turnOnLed = false; // turn off LED on drop sensor on task
+    }
   } 
 }
 
@@ -419,12 +421,6 @@ void setup() {
                        false);             // call the function autoControlISR()
   timerAlarmWrite(Timer1_cfg, 1000, true); // Time = 80*1000/80,000,000 = 1ms
   timerAlarmEnable(Timer1_cfg);            // start the interrupt
-
-  // Initialize LittleFS
-  if (!LittleFS.begin(true)) {
-    ESP_LOGE(LITTLE_FS_TAG, "An Error has occurred while mounting LittleFS");
-    return;
-  }
 
   /*Initialize TFT display, LVGL*/
   display_init();
@@ -802,6 +798,12 @@ void enableWifi(void * arg) {
   // print the IP address of the web page
   ESP_LOGI(WIFI_TAG, "IP Address: %s", WiFi.localIP().toString());
 
+  // Initialize LittleFS
+  if (!LittleFS.begin(true)) {
+    ESP_LOGE(LITTLE_FS_TAG, "An Error has occurred while mounting LittleFS");
+    return;
+  }
+
   // Init Websocket
   initWebSocket();
 
@@ -843,13 +845,14 @@ void otherLittleWorks(void * arg) {
   for(;;) {
     // toggle LED
     if (turnOnLed) {
-      digitalWrite(SENSOR_LED_PIN, LOW);   // reversed because the LED is pull up
+      digitalWrite(SENSOR_LED_PIN, LOW);     // reversed because the LED is pull up
       vTaskDelay(50);
-      digitalWrite(SENSOR_LED_PIN, HIGH);  // reversed because the LED is pull up
-      turnOnLed = false;
     }
 
     while (!turnOnLed) {
+      if (digitalRead(SENSOR_LED_PIN) == LOW) {
+        digitalWrite(SENSOR_LED_PIN, HIGH);  // reversed because the LED is pull up
+      }
       // free the CPU
       vTaskDelay(50);
     }
