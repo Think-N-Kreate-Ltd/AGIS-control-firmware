@@ -1,6 +1,7 @@
 #include <AGIS_SD.h>
 #include <AGIS_Commons.h>
 #include <AGIS_INA219.h>
+#include <AGIS_Display.h> // for getting `wifiStart` only
 
 // File system object.
 SdFat sd;
@@ -30,18 +31,23 @@ void useSdCard(bool state) {
 
 // getting the real time
 void getTime() {
-  // config time logging with NTP server
-  configTime(28800, 0, "pool.ntp.org");  // 60x60x8=28800, +8h for Hong Kong
+  if (wifiStart) {
+    // config time logging with NTP server
+    configTime(28800, 0, "pool.ntp.org");  // 60x60x8=28800, +8h for Hong Kong
 
-  struct tm timeinfo;
-  if(!getLocalTime(&timeinfo)){
-    ESP_LOGE(DATA_LOGGING_TAG, "Failed to obtain time");
-    // return;  // not to return as users can choose to enable wifi or not
-    strcpy(datetime, "Data/00");                     // get the first base name
-  } else {
-    strftime(today , 4, "%a", &timeinfo);            // get the weekday of today
-    strftime(datetime , 11, "%a/%H%M%S", &timeinfo); // get the first base name
+    struct tm timeinfo;
+    if(!getLocalTime(&timeinfo)){
+      ESP_LOGE(DATA_LOGGING_TAG, "Failed to obtain time");
+      // return;  // not to return as users can choose to enable wifi or not
+      
+    } else {
+      strftime(today , 4, "%a", &timeinfo);            // get the weekday of today
+      strftime(datetime , 11, "%a/%H%M%S", &timeinfo); // get the first base name
+    }
+  } else {  // when not connect to wifi
+    strcpy(datetime, "Data/00");                       // get the first base name
   }
+  
 }
 
 // remove data that is a week before
@@ -94,11 +100,12 @@ void newFileInit() {
 
   // change the file name if already exists
   while (sd.exists(fileName)) {
+    vTaskDelay(5);  // prevent crash
     // it may happened while wifi not enable as first base name is fixed
-    // change the first base name to +1 to solve it, max can have 999
+    // change the first base name to +1 to solve it, max can have 29
     if (fileName[6] != '9') {
       fileName[6]++;
-    } else if (fileName[5] != '9') {
+    } else if (fileName[5] != '2') {
       fileName[6] = 48; // equal to '0'
       fileName[5]++;
     } else {

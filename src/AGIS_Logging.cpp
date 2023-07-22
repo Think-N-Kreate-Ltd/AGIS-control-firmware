@@ -11,7 +11,7 @@ const char* ntpServer = "pool.ntp.org";
 const long gmtOffset_sec = 28800;  // for Hong Kong
 const int daylightOffset_sec = 0;
 bool loggingCompleted = false;
-bool enableLogging = false;
+// bool enableLogging = false; // not extern to this file anymore
 
 // NOTE: do not call this function inside interrupt,
 // since getLocalTime() causes panic

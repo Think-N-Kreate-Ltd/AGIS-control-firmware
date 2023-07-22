@@ -10,8 +10,8 @@
 
 #include <AGIS_Display.h>
 
-// state for checking the wifibox, 0=waiting, 1=not start, 2=start
-volatile uint8_t wifiStart = 0;
+// state for checking the wifibox, false=not enable
+volatile bool wifiStart = NULL;
 // a special state to lock the event change
 // seems no method to reset the event state (`lv_obj_remove_event_cb` have problem and cannot use)
 bool enterClicked;
@@ -354,10 +354,10 @@ static void wifibox_event_cb(lv_event_t * event) {
 
       if(txt == "No") {
         /*not to enable wifi*/
-        wifiStart = 1;
+        wifiStart = false;
       } else if (txt == "Yes") {
         /*start wifi & web page enable*/
-        wifiStart = 2;
+        wifiStart = true;
       } else {/*I don't know how to go to this condition*/}
     }
   }
@@ -401,6 +401,7 @@ static void confirmbox_event_cb(lv_event_t * event) {
 void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
   uint8_t key = keypad.getKey();
   if(key) {
+    Serial.write(key);
     if (key == 'E') {
       data->key = LV_KEY_ENTER;
       enterClicked = true;
@@ -434,7 +435,6 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
       data->key = LV_KEY_BACKSPACE;
     }
     else if (key == '*') {
-      data->key = LV_KEY_DEL;
       buttonState = buttonState_t::ENTER;
     }
     else if (key == 'F') {
@@ -481,6 +481,7 @@ void infusion_monitoring_cb(lv_timer_t * timer) {
   lv_table_set_cell_value(lv_obj_get_child(screenMonitor, 0), 4, 1, getInfusionState(infusionState));
 }
 
+/*it is decrecated*/
 void closeWifiBox() {
   // static pthread_mutex_t lvgl_mutex;
   // pthread_mutex_lock(&lvgl_mutex);

@@ -86,6 +86,7 @@ unsigned int dropFactor = UINT_MAX;  // to avoid divide by zero, unit: drops/mL
 
 volatile bool enableAutoControl = false; // to enable AutoControl() or not
 
+volatile bool enableLogging = false;     // true when (start) doing logging
 volatile bool firstDropDetected = false; // to check when we receive the 1st drop
 volatile bool autoControlOnPeriod = false;
 bool homingCompleted = false;   // true when lower limit switch is activated
@@ -295,10 +296,8 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
     // homing the roller clamp, i.e. move it down to completely closed position
       homingRollerClamp();
     }
-    else {
-      if (enableAutoControl) {
-        motorOff();
-      }
+    else if (enableAutoControl) {
+      motorOff();
     }
   }
 
@@ -324,29 +323,53 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
 
 void IRAM_ATTR motorControlISR() {
   // Read buttons and switches state
-  button_UP.loop();        // MUST call the loop() function first
-  button_ENTER.loop();     // MUST call the loop() function first
-  button_DOWN.loop();      // MUST call the loop() function first
+  // button_UP.loop();        // MUST call the loop() function first
+  // button_ENTER.loop();     // MUST call the loop() function first
+  // button_DOWN.loop();      // MUST call the loop() function first
 
-  // Use button_UP to manually move up
-  if (buttonState == buttonState_t::UP) {  // touched
+  static int32_t count;             // time count for reset the infusion
+  static bool controlling = false;  // check for it is controlling by button or not
+
+  // Use keypad `U` to manually move up
+  if (buttonState == buttonState_t::UP) {
     motorOnUp();
+    controlling = true;
   }
 
-  // Use button_DOWN to manually move down
-  if (buttonState == buttonState_t::DOWN) {  // touched
+  // Use keypad `D` to manually move down
+  if (buttonState == buttonState_t::DOWN) {
     motorOnDown();
+    controlling = true;
   }
 
-  // Use button_ENTER to toggle autoControlISR()
-  if (buttonState == buttonState_t::ENTER) {  // pressed is different from touched
-    enableAutoControl = !enableAutoControl;
+  // Use keypad `*` to pause / restart / reset the infusion
+  if (buttonState == buttonState_t::ENTER) {
+    // pause / restart the infusion
+    if (enableAutoControl) {
+      infusionState = infusionState_t::ALARM_STOPPED;
+    } else {
+      infusionState = infusionState_t::IN_PROGRESS;
+    }
+    // enableAutoControl = !enableAutoControl;
 
-    infusionInit();
-  }
+    // if press it twice within 500ms, reset the infusion
+    // static int recordTime = millis();
+    // if ((millis()-recordTime)<1000 && (millis()-recordTime)>50) {
+    //   if (infusionState == infusionState_t::IN_PROGRESS) {
+    //     // TODO: reset the infusion
+    //     infusionInit();
+    //     infusedTime = 0;
+    //     enableAutoControl = false;
+    //     infusionState = infusionState_t::NOT_STARTED;
 
-  if (buttonState == buttonState_t::IDLE) {
+    //     enableLogging = false;
+    //   }
+    // }
+  } 
+
+  if (buttonState == buttonState_t::IDLE && controlling) {  // it will only run once each time
     motorOff();
+    controlling = false;
   }
 
   // Handle keypad
@@ -456,13 +479,13 @@ void setup() {
   // homing the roller clamp
   while (!homingCompleted) {
     //NOTE
-    homingRollerClamp();
+    // homingRollerClamp();
 
     // problem will occur when homing and click "Set and Run" at the same time
     // ONLY uncomment while testing, and also comment homingRollerClamp()
-    // delay(2000);
-    // homingCompleted = true;
-    // enableAutoControl = false;
+    delay(2000);
+    homingCompleted = true;
+    enableAutoControl = false;
     if (homingCompleted) {
       Serial.println("homing completed, can move the motor now");
     }
@@ -685,10 +708,16 @@ void loggingData(void * parameter) {
       useSdCard(false);
     }
 
-    while ((infusionState == infusionState_t::ALARM_COMPLETED) && !finishLogging) {
-      // free the CPU when finish infusion
-      vTaskDelay(500);
-    }
+    // while ((infusionState == infusionState_t::ALARM_COMPLETED) && !finishLogging) {
+    //   // free the CPU when finish infusion
+    //   vTaskDelay(500);
+    // }
+    // while ((infusionState == infusionState_t::NOT_STARTED) && !enableLogging) {
+    //   // free the CPU when reset the infusion
+    //   vTaskDelay(500);
+    // }
+
+    vTaskDelay(500);
   }
 }
 
@@ -742,74 +771,64 @@ void oledDisplay(void * arg) {
 }
 
 void enableWifi(void * arg) {
-  static int count = 10;  // for time counting
-  while ((wifiStart == 0) && (count > 0)) {
-    // waiting for response, mostly wait for 20s
+  while (!wifiStart) {
+    // waiting for response, for loop forever if no enable wifi
     vTaskDelay(2000);
-    count--;
-    ESP_LOGI(WIFI_TAG, "counting: %d", count);
+    ESP_LOGD(WIFI_TAG, "waiting, or not enabled");
   }
   
-  if (wifiStart != 2) {   // not to connect to wifi
-    ESP_LOGI(WIFI_TAG, "Not connect to WiFi");
-    if (wifiStart == 0) { // timeout
-      closeWifiBox();
-    }
-  } else {                // connect wifi
-    WiFi.mode(WIFI_STA);  // wifi station mode
+  // connect wifi
+  WiFi.mode(WIFI_STA);  // wifi station mode
 
-    // reset settings - wipe stored credentials for testing
-    // these are stored by the esp library
-    // wm.resetSettings();
+  // reset settings - wipe stored credentials for testing
+  // these are stored by the esp library
+  // wm.resetSettings();
 
-    if (!wm.autoConnect("AutoConnectAP",
-                        "password")) { // set esp32-s3 wifi ssid and pw to
-      // AutoConnectAP & password
-      ESP_LOGE(WIFI_TAG, "Failed to connect");
-      ESP.restart();
-    } else {
-      // if you get here you have connected to the WiFi
-      ESP_LOGI(WIFI_TAG, "connected...yeah :)");
-    }
-
-    if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-      ESP_LOGE(WIFI_TAG, "WiFi Failed!");
-      return;
-    }
-
-    // print the IP address of the web page
-    ESP_LOGI(WIFI_TAG, "IP Address: %s", WiFi.localIP().toString());
-
-    // Init Websocket
-    initWebSocket();
-
-    // Send web page to client
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-      request->send(LittleFS, "/index.html", String(), false);
-    });
-
-    // server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    //   request->send(SD, "/web_server/index.html", String(), false);
-    // });
-
-    server.serveStatic("/", LittleFS, "/");
-
-    // server.serveStatic("/", SD, "/web_server/");
-
-    // force download file
-    server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
-      loadFromSdCard(request);
-    });
-
-    server.onNotFound(notFound); // if 404 not found, go to 404 not found
-    AsyncElegantOTA.begin(&server); // for OTA update
-    server.begin();
-
-    // remove sd card old data
-    rmOldData();
-
-    wifiStart = 0;  /*I don't know why it can solve the crash problem*/
+  if (!wm.autoConnect("AutoConnectAP",
+                      "password")) { // set esp32-s3 wifi ssid and pw to
+    // AutoConnectAP & password
+    ESP_LOGE(WIFI_TAG, "Failed to connect");
+    ESP.restart();
+  } else {
+    // if you get here you have connected to the WiFi
+    ESP_LOGI(WIFI_TAG, "connected...yeah :)");
   }
+
+  if (WiFi.waitForConnectResult() != WL_CONNECTED) {
+    ESP_LOGE(WIFI_TAG, "WiFi Failed!");
+    return;
+  }
+
+  // print the IP address of the web page
+  ESP_LOGI(WIFI_TAG, "IP Address: %s", WiFi.localIP().toString());
+
+  // Init Websocket
+  initWebSocket();
+
+  // Send web page to client
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(LittleFS, "/index.html", String(), false);
+  });
+
+  // server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+  //   request->send(SD, "/web_server/index.html", String(), false);
+  // });
+
+  server.serveStatic("/", LittleFS, "/");
+
+  // server.serveStatic("/", SD, "/web_server/");
+
+  // force download file
+  server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
+    loadFromSdCard(request);
+  });
+
+  server.onNotFound(notFound); // if 404 not found, go to 404 not found
+  AsyncElegantOTA.begin(&server); // for OTA update
+  server.begin();
+
+  // remove sd card old data
+  rmOldData();
 
   /*NOTE: The idle task is responsible for freeing the RTOS kernel allocated memory from tasks that have been deleted.
     It is therefore important that the idle task is not starved of microcontroller processing time if your application makes any calls to vTaskDelete ().

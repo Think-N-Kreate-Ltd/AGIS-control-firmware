@@ -26,7 +26,9 @@ static const char* OLED_TAG = "OLED";
 // extern const char* ntpServer;
 // extern const long gmtOffset_sec;
 // extern const int daylightOffset_sec;
-extern bool enableLogging;
+// extern bool enableLogging;
 // extern bool loggingCompleted;
+
+// extern volatile uint8_t wifiStart;  // 0=waiting, 1=not start, 2=start
 
 #endif /* D8C84950_1B28_4594_B461_3D52C4A78A6B */

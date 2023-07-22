@@ -16,7 +16,7 @@
 #define TOTAL_TIME_HOUR_INDEX  1
 #define TOTAL_TIME_MINUE_INDEX 2
 
-extern volatile uint8_t wifiStart;  // 0=waiting, 1=not start, 2=start
+extern volatile bool wifiStart;
 
 void display_init();
 // void test_screen();
@@ -24,6 +24,7 @@ void input_screen();
 void ask_for_wifi_enable_msgbox();
 void monitor_screen();
 
+/*it is decrecated*/
 void closeWifiBox();
 
 /*----------function prototype only use in AGIS_Display.h (private)----------*/
