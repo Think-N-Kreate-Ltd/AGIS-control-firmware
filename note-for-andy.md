@@ -25,7 +25,9 @@
      - ~~can run bt tft more than 1 times~~
  - INA219
      - check the value(with motor), seems strange sometimes
- - remember to add the sd card back finally
+ - other (warning)
+     - Bus already started in Master Mode
+     - WM_NOTEMP
 
 =======================================================
 # LVGI note
