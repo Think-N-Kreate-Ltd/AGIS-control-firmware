@@ -2,6 +2,8 @@
 #include <AGIS_Commons.h>
 #include <AGIS_Utilities.h>
 
+#define ARRAYLENGTH 25
+
 Adafruit_INA219 ina219;
 
 volatile float current_mA;
@@ -44,8 +46,8 @@ void ina219SetUp() {
 // }
 
 void getIna219Data() {
-  for (int x=0; x<5; x++) { // collect data with 5 times 1 set
-    vTaskDelay(40);         // wait for I2C response
+  for (int x=0; x<ARRAYLENGTH; x++) { // collect data with 5 times 1 set
+    vTaskDelay(30);         // wait for I2C response
 
     // get the data from INA219
     current_mA = ina219.getCurrent_mA();
@@ -54,12 +56,12 @@ void getIna219Data() {
     power_mW = ina219.getPower_mW();
 
     // calculate the average current in mA
-    static float current[5] = {0, 0, 0, 0, 0};  // save data with 5 times 1 set
+    static float current[ARRAYLENGTH];  // save data with `ARRAYLENGTH` times 1 set
     static float total_current;
     total_current -= current[x];  // delete the value 5 times before
     current[x] = current_mA;
     total_current += current[x];  // update the total value
-    avgCurrent_mA = total_current/5;  // calculate the average value
+    avgCurrent_mA = total_current/ARRAYLENGTH;  // calculate the average value
 
     // print to LCD (debug use)
     // lcd.setCursor(2,1);   // Move cursor to character 2 on line 1

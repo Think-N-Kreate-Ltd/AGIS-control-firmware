@@ -21,7 +21,8 @@
      - when click `F2` but not input filled in, do sth?
      - place the wifibox text in center
      - cannot press the `F2` when msgbox is here
-     - `*` do the enter? or pause the infusion
+     - ~~`*` do the enter? or pause the infusion <- both done~~
+     - ~~can run bt tft more than 1 times~~
  - INA219
      - check the value(with motor), seems strange sometimes
  - remember to add the sd card back finally
