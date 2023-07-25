@@ -21,7 +21,7 @@ void oledSetUp() {
 #ifdef OLED_I2C
   // Pins have been set in INA219 setup already
   // Wire.setPins(I2C_SDA, I2C_SCL);
-  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C, true, false)) {
     ESP_LOGE(OLED_TAG, "SSD1306 allocation failed");
     return;
   } else {
