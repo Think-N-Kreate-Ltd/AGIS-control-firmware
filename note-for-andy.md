@@ -24,10 +24,10 @@
      - ~~`*` do the enter? or pause the infusion <- both done~~
      - ~~can run bt tft more than 1 times~~
  - INA219
-     - check the value(with motor), seems strange sometimes
+     - ~~check the value(with motor)~~, seems strange sometimes
  - other (warning)
-     - Bus already started in Master Mode
-     - WM_NOTEMP
+     - ~~Bus already started in Master Mode~~
+     - WM_NOTEMP <- cannot remove it, as it is hardcoded in the code
 
 =======================================================
 # LVGI note

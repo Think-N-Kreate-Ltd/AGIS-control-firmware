@@ -16,6 +16,7 @@ volatile bool wifiStart = NULL;
 // seems no method to reset the event state (`lv_obj_remove_event_cb` have problem and cannot use)
 bool enterClicked;
 // the state of the msgbox, true=in msgbox. for switching the use of key `L` `R`
+// also use for preventing msgbox pop up twice
 bool inMsgbox;
 // the state of the screen, true=input screen, false=monitor screen
 bool screenState = true;
@@ -448,7 +449,8 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
     }
     else if (key == 'G') {
       /*not to pop up the message box if input missed or in monitor screen*/
-      if (allInputs && screenState) {
+      /*also avoid pop up the msgbox twice*/
+      if (allInputs && screenState && !inMsgbox) {
         /*pop up a message box to confirm*/
         confirm_msgbox();
       } else {

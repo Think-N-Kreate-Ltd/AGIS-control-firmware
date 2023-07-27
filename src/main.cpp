@@ -418,10 +418,10 @@ void setup() {
   timerAlarmEnable(Timer0_cfg);            // start the interrupt
 
   // setup for timer1
-  Timer1_cfg = timerBegin(1, 80, true);    // Prescaler = 80
+  Timer1_cfg = timerBegin(1, 400, true);    // Prescaler = 400
   timerAttachInterrupt(Timer1_cfg, &autoControlISR,
                        false);             // call the function autoControlISR()
-  timerAlarmWrite(Timer1_cfg, 1000, true); // Time = 80*1000/80,000,000 = 1ms
+  timerAlarmWrite(Timer1_cfg, 1000, true); // Time = 400*1000/80,000,000 = 5ms
   timerAlarmEnable(Timer1_cfg);            // start the interrupt
 
   /*Initialize TFT display, LVGL*/
