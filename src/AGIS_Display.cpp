@@ -228,8 +228,8 @@ void confirm_msgbox() {
   lv_obj_set_width(confirm_box, 125);
 
   /*make the background a little bit grey*/
-  lv_obj_set_style_bg_opa(screenMain, LV_OPA_70, 0);
-  lv_obj_set_style_bg_color(screenMain, lv_palette_main(LV_PALETTE_GREY), 0);
+  // lv_obj_set_style_bg_opa(screenMain, LV_OPA_70, 0);
+  // lv_obj_set_style_bg_color(screenMain, lv_palette_main(LV_PALETTE_GREY), 0);
 
   inMsgbox = true;
 }
@@ -376,6 +376,10 @@ static void confirmbox_event_cb(lv_event_t * event) {
       lv_group_focus_freeze(grp, false);
       inMsgbox = false;
 
+      /*set the background color back, not suggested to do by remove style*/
+      // lv_obj_set_style_bg_opa(screenMain, LV_OPA_100, 0);
+      // lv_obj_set_style_bg_color(screenMain, lv_color_hex(0xacacac), LV_PART_MAIN);
+
       if(txt == "No") {
         /*go back to input screen*/
         lv_group_focus_obj(screenMain);
@@ -384,7 +388,7 @@ static void confirmbox_event_cb(lv_event_t * event) {
         /*Submit verified inputs to autoControl*/
         targetVTBI = keypadInput[0];
         targetTotalTime = keypadInput[1]*3600 + keypadInput[2]*60;
-        targetDripRate = targetVTBI * dropFactor / (keypadInput[1]*60 + keypadInput[2]);
+        // targetDripRate = targetVTBI * dropFactor / (keypadInput[1]*60 + keypadInput[2]);
         targetNumDrops = targetVTBI * dropFactor;
         /*go to monitor screen, and start infusion*/
         lv_disp_load_scr(screenMonitor);
@@ -392,10 +396,6 @@ static void confirmbox_event_cb(lv_event_t * event) {
         screenState = false;
       } else {/*I don't know how to go to this condition*/}
     }
-
-    /*set the background color back, not suggested to do by remove style*/
-    lv_obj_set_style_bg_opa(screenMain, LV_OPA_100, 0);
-    lv_obj_set_style_bg_color(screenMain, lv_color_hex(0xacacac), LV_PART_MAIN);
   }
 }
 
