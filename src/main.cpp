@@ -168,10 +168,8 @@ void IRAM_ATTR dropSensorISR() {
         // mark this as starting time of infusion
         infusionStartTime = millis();
       }
-      if (infusionState != infusionState_t::IN_PROGRESS) {
-        // TODO: when click "Set and Run" button on the website again to
-        // start another infusion, infusionState should be IN_PROGRESS but
-        // somehow it is STARTED
+      if (infusionState == infusionState_t::NOT_STARTED) {
+        // TODO: need to define when will reset to not started after infusion completed
         infusionState = infusionState_t::STARTED; // droping has started
       }
 
@@ -262,7 +260,8 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
   }
 
   // Check if infusion has completed or not
-  if (numDrops >= targetNumDrops) {
+  // acceptable for exceeding 3 drops
+  if ((numDrops >= targetNumDrops) && (numDrops <= (targetNumDrops+3))) {
     infusionState = infusionState_t::ALARM_COMPLETED;
 
     // disable autoControlISR()
@@ -483,7 +482,7 @@ void setup() {
     // ONLY uncomment while testing, and also comment homingRollerClamp()
     // delay(2000);
     // homingCompleted = true;
-    // enableAutoControl = false;
+    enableAutoControl = false;
     if (homingCompleted) {
       Serial.println("homing completed, can move the motor now");
     }
