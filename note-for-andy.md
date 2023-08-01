@@ -17,6 +17,7 @@
      - ~~remove volume when drop factor is not known~~
      - ~~get the accurate volume~~
      - solve the problem about cannot start auto-con when state=started
+     - solve the problem about can only start auto-con when last value get is DF
      - find the reason why need 100s to init
  - lvgl:
      - background color for comfirm msgbox

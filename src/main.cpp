@@ -387,8 +387,8 @@ void IRAM_ATTR motorControlISR() {
     infusionInit();
 
     // override the ENTER button to enable autoControl()
-    enableAutoControl = true;
     infusionState = infusionState_t::NOT_STARTED;
+    enableAutoControl = true;
 
     // enable logging task
     enableLogging = true;
@@ -679,7 +679,7 @@ void infusionInit() {
   //    (3) infusedTime
   //    Add more if necessary
   numDrops = 0;
-  infusedVolume_x100 = 0;
+  // infusedVolume_x100 = 0;
   infusedTime = 0;
 
   homingCompleted = false;  // if not set, the infusion cannot be stopped
@@ -737,7 +737,6 @@ void tftDisplay(void * arg) {
   vTaskDelay(20);  // avoid CPU crashing
   ask_for_wifi_enable_msgbox();
   monitor_screen();
-  // test_screen();
 
   for(;;) {
     lv_timer_handler(); // Should be call periodically

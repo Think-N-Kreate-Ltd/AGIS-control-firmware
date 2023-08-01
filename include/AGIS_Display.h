@@ -17,6 +17,7 @@
 #define TOTAL_TIME_MINUE_INDEX 2
 
 extern volatile bool wifiStart;
+extern bool keypadInfusionConfirmed;
 
 void display_init();
 // void test_screen();

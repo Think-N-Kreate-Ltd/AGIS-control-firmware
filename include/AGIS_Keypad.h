@@ -9,6 +9,5 @@
 
 extern Keypad keypad;
 // extern bool keypad_inputs_valid;
-extern bool keypadInfusionConfirmed;
 
 #endif /* C22DF5A3_1D91_414B_92DD_A70F1FBB8647 */

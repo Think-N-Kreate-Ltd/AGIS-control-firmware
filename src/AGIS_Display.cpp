@@ -394,6 +394,8 @@ static void confirmbox_event_cb(lv_event_t * event) {
         lv_disp_load_scr(screenMonitor);
         keypadInfusionConfirmed = true;
         screenState = false;
+        /*avoid carshing. In fact, it is better to reduce the workload on INT*/
+        vTaskDelay(100);
       } else {/*I don't know how to go to this condition*/}
     }
   }
