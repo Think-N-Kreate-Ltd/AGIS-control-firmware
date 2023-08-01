@@ -18,19 +18,19 @@ const char *getInfusionState(infusionState_t state) {
   }
 }
 
-const char *getMotorState(motorState_t state) {
-  switch (state) {
-  case motorState_t::UP:
-    return "UP";
-  case motorState_t::DOWN:
-    return "DOWN";
-  case motorState_t::OFF:
-    return "OFF";
-  default:
-    return "Undefined motor state";
-    break;
-  }
-}
+// const char *getMotorState(motorState_t state) {
+//   switch (state) {
+//   case motorState_t::UP:
+//     return "UP";
+//   case motorState_t::DOWN:
+//     return "DOWN";
+//   case motorState_t::OFF:
+//     return "OFF";
+//   default:
+//     return "Undefined motor state";
+//     break;
+//   }
+// }
 
 const char *getButtonState(buttonState_t state) {
   switch (state) {

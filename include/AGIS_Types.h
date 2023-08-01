@@ -1,7 +1,7 @@
 #ifndef EA655F7D_5387_4B55_B11C_DB866F12DCC6
 #define EA655F7D_5387_4B55_B11C_DB866F12DCC6
 
-enum class motorState_t { UP, DOWN, OFF };
+// enum class motorState_t { UP, DOWN, OFF };
 enum class buttonState_t { UP, DOWN, ENTER, IDLE };
 extern buttonState_t buttonState;
 

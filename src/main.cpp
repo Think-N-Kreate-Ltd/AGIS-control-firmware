@@ -39,7 +39,7 @@ TaskHandle_t xHandle = NULL;
 #define MOTOR_CTRL_PIN_2 16 // Motorl Control Board PWM 2
 #define PWM_PIN          4  // input pin for the potentiometer
 
-motorState_t motorState = motorState_t::OFF;
+// motorState_t motorState = motorState_t::OFF;
 buttonState_t buttonState = buttonState_t::IDLE;
 
 // Initially, infusionState is NOT_STARTED
@@ -509,7 +509,7 @@ void motorOnUp() {
     analogWrite(MOTOR_CTRL_PIN_1, (PWMValue / 16)); // PWMValue: 0->4095
     analogWrite(MOTOR_CTRL_PIN_2, 0);
 
-    motorState = motorState_t::UP;
+    // motorState = motorState_t::UP;
   }
   else { // touched
     motorOff();
@@ -526,7 +526,7 @@ void motorOnDown() {
     analogWrite(MOTOR_CTRL_PIN_2, (PWMValue / 16)); // PWMValue: 0->4095
     analogWrite(MOTOR_CTRL_PIN_1, 0);
 
-    motorState = motorState_t::DOWN;
+    // motorState = motorState_t::DOWN;
   }
   else { // touched
     motorOff();
@@ -537,7 +537,7 @@ void motorOff() {
   analogWrite(MOTOR_CTRL_PIN_1, 0);
   analogWrite(MOTOR_CTRL_PIN_2, 0);
 
-  motorState = motorState_t::OFF;
+  // motorState = motorState_t::OFF;
 }
 
 void alert(String x) {}
@@ -658,7 +658,7 @@ void homingRollerClamp() {
     analogWrite(MOTOR_CTRL_PIN_2, (PWMValue / 16)); // PWMValue: 0->4095
     analogWrite(MOTOR_CTRL_PIN_1, 0);
 
-    motorState = motorState_t::DOWN;
+    // motorState = motorState_t::DOWN;
   }
   else { // touched
     motorOff();

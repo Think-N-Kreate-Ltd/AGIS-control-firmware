@@ -20,7 +20,7 @@
      - ~~wifibox timeout close problem~~
      - when click `F2` but not input filled in, do sth?
      - place the wifibox text in center
-     - cannot press the `F2` when msgbox is here
+     - ~~cannot press the `F2` when msgbox is here~~
      - ~~`*` do the enter? or pause the infusion <- both done~~
      - ~~can run bt tft more than 1 times~~
  - INA219
