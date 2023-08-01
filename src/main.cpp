@@ -68,13 +68,13 @@ volatile unsigned int dripRatePeak = 1;   // drip rate at the position when 1st 
                                           // set to 1 to avoid zero division
 
 // var for timer2 interrupt
-int PWMValue = 0; // PWM value to control the speed of motor
+volatile int PWMValue = 0; // PWM value to control the speed of motor
 
-ezButton button_UP(3);         // create ezButton object that attach to pin 6;
-ezButton button_ENTER(8);      // create ezButton object that attach to pin 7;
-ezButton button_DOWN(46);      // create ezButton object that attach to pin 8;
-ezButton limitSwitch_Up(37);   // create ezButton object that attach to pin 7;
-ezButton limitSwitch_Down(38); // create ezButton object that attach to pin 7;
+// ezButton button_UP(3);         // create ezButton object that attach to pin 3;
+// ezButton button_ENTER(8);      // create ezButton object that attach to pin 8;
+// ezButton button_DOWN(46);      // create ezButton object that attach to pin 46;
+ezButton limitSwitch_Up(37);   // create ezButton object that attach to pin 37;
+ezButton limitSwitch_Down(38); // create ezButton object that attach to pin 38;
 ezButton dropSensor(DROP_SENSOR_PIN);     // create ezButton object that attach to pin 36;
 
 // state that shows the condition of auto control
@@ -147,6 +147,10 @@ void IRAM_ATTR dropSensorISR() {
   static int lastTime;     // var to record the last value of the calling time
   static int lastDropTime; // var to record the time of last drop
 
+  // use a var to store accurate value of volume
+  // 60 is selected because it is the LCM of all drop factor option
+  static int volume_x60 = 0;
+
   // in fact, the interrupt will only be called when state change
   // just one more protection to prevent calling twice when state doesn't change
   int dropSensorState = dropSensor.getStateRaw();
@@ -167,6 +171,7 @@ void IRAM_ATTR dropSensorISR() {
 
         // mark this as starting time of infusion
         infusionStartTime = millis();
+        volume_x60 = 0;
       }
       if (infusionState == infusionState_t::NOT_STARTED) {
         // TODO: need to define when will reset to not started after infusion completed
@@ -181,9 +186,10 @@ void IRAM_ATTR dropSensorISR() {
       // NOTE: Since we cannot do floating point calculation in interrupt,
       // we multiply the actual infused volume by 100 times to perform the integer calculation
       // Later when we need to display, divide it by 100 to get actual value.
-      if (dropFactor != UINT_MAX) {
-        // BUG: with some dropFactor, the division will return less accurate result
-        infusedVolume_x100 += (100 / dropFactor);
+      if ((dropFactor == 10) || (dropFactor == 15)
+          || (dropFactor == 20) || (dropFactor == 60)) {
+        volume_x60 += (60 / dropFactor);
+        infusedVolume_x100 = (100 * volume_x60 / 60);
       }
 
       // if infusion has completed but we still detect drop,
