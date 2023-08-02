@@ -46,24 +46,16 @@ buttonState_t buttonState = buttonState_t::IDLE;
 infusionState_t infusionState = infusionState_t::NOT_STARTED;
 
 // var for EXT interrupt (sensor)
-volatile unsigned int numDrops = 0;   // for counting the number of drops within 15s
-volatile unsigned int dripRate = 0;   // for calculating the drip rate
+volatile unsigned int numDrops = 0;     // for counting the number of drops within 15s
+volatile unsigned int dripRate = 0;     // for calculating the drip rate
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
-volatile bool turnOnLed = false;      // state for LED, true when need to turn on
+volatile bool turnOnLed = false;        // state for LED, true when need to turn on
+volatile unsigned int dripRatePeak = 1; // drip rate at the position when 1st drop is detected
 
 // var for timer1 interrupt
 volatile unsigned int infusedVolume_x100 = 0;  // 100 times larger than actual value, unit: mL
 volatile unsigned int infusedTime = 0;         // unit: seconds
 volatile unsigned long infusionStartTime = 0;
-
-// volatile unsigned int dripRateSamplingCount = 0;  // use for drip rate sampling
-// volatile unsigned int numDropsInterval = 0;  // number of drops in 15 seconds
-volatile unsigned int autoControlCount = 0;  // use for regulating frequency of motor is on
-volatile unsigned int autoControlOnTime = 0;  // use for regulating frequency of motor is on
-volatile unsigned int autoControlTotalTime = 0; // to change `autoControlTotalTime` based on `dripRateDifference`
-int dripRateDifference = 0; 
-volatile unsigned int dripRatePeak = 1;   // drip rate at the position when 1st drop is detected,
-                                          // set to 1 to avoid zero division
 
 // var for timer2 interrupt
 volatile int PWMValue = 0; // PWM value to control the speed of motor
@@ -86,7 +78,6 @@ volatile bool enableAutoControl = false; // to enable AutoControl() or not
 
 volatile bool enableLogging = false;     // true when (start) doing logging
 volatile bool firstDropDetected = false; // to check when we receive the 1st drop
-volatile bool autoControlOnPeriod = false;
 bool homingCompleted = false;   // true when lower limit switch is activated
 
 // To reduce the sensitive of autoControlISR()
@@ -202,6 +193,12 @@ void IRAM_ATTR dropSensorISR() {
 }
 
 void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
+
+  static bool motorOnPeriod = false;          // true = motor should move, false = motor should stop
+  static unsigned int recordTime = millis();  // var to measure the time interval
+  static unsigned int motorOnTime = 0;        // var to store the time that motor should move
+  static unsigned int motorInterval = 0;      // var to store the stop time of the motor
+
   // Checking for no drop for 20s
   static int timeWithNoDrop = millis();
   int dropSensorState = dropSensor.getStateRaw();
@@ -251,13 +248,12 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
   //   3. targetDripRate is set on the website by user
   //   4. infusion is not completed, i.e. infusionState != infusionState_t::ALARM_COMPLETED
 
-  autoControlCount++;
   if (firstDropDetected) {
-    // on for 50 ms, off for 950 ms
-    autoControlOnPeriod = autoControlCount <= autoControlOnTime;
+    // on for `motorOnTime` ms, off for `motorInterval` ms
+    motorOnPeriod = (millis()-recordTime) <= motorOnTime;
   }
   else {
-    autoControlOnPeriod = true;  // no limitation on motor on period
+    motorOnPeriod = true;  // no limitation on motor on period
   }
 
   // Check if infusion has completed or not
@@ -276,7 +272,7 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
     }
   }
 
-  if (enableAutoControl && autoControlOnPeriod && (targetDripRate != 0) &&
+  if (enableAutoControl && motorOnPeriod && (targetDripRate != 0) &&
       (infusionState != infusionState_t::ALARM_COMPLETED)) {
 
     // if currently SLOWER than set value -> speed up, i.e. move up
@@ -304,21 +300,21 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
   }
 
   // reset this for the next autoControlISR()
-  dripRateDifference = dripRate - targetDripRate;
-  if (abs(dripRateDifference) <= 10) {
-    autoControlTotalTime = AUTO_CONTROL_TOTAL_TIME_NORMAL;
+  int difference = abs(long(dripRate - targetDripRate));
+  if (difference <= 10) {
+    motorInterval = AUTO_CONTROL_TOTAL_TIME_NORMAL;
   }
   else {
-    autoControlTotalTime = AUTO_CONTROL_TOTAL_TIME_FAST;
+    motorInterval = AUTO_CONTROL_TOTAL_TIME_FAST;
   }
 
-  if (autoControlCount >= autoControlTotalTime) {   // reset count every `autoControlTotalTime`
-    autoControlCount = 0;
+  if ((millis()-recordTime) >= motorInterval) {   // reset count every `motorInterval`
+    recordTime = millis();
 
-    // calculate new autoControlOnTime based on the absolute difference
+    // calculate new motorOnTime based on the absolute difference
     // between dripRate and targetDripRate
-    autoControlOnTime =
-        max(abs(dripRateDifference) * AUTO_CONTROL_ON_TIME_MAX / dripRatePeak,
+    motorOnTime =
+        max(difference * AUTO_CONTROL_ON_TIME_MAX / dripRatePeak,
             (unsigned int)AUTO_CONTROL_ON_TIME_MIN);
   }
 }
