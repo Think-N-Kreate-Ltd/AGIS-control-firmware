@@ -55,8 +55,6 @@ volatile bool turnOnLed = false;      // state for LED, true when need to turn o
 volatile unsigned int infusedVolume_x100 = 0;  // 100 times larger than actual value, unit: mL
 volatile unsigned int infusedTime = 0;         // unit: seconds
 volatile unsigned long infusionStartTime = 0;
-// NOTE: var for quick fix the problem for doing demo only
-// volatile bool lockInfusionStartTime = false;
 
 // volatile unsigned int dripRateSamplingCount = 0;  // use for drip rate sampling
 // volatile unsigned int numDropsInterval = 0;  // number of drops in 15 seconds
@@ -171,7 +169,6 @@ void IRAM_ATTR dropSensorISR() {
         infusedVolume_x100 = volumeCount(true); // NOTE: this is not needed as it has been reseted already
       }
       if (infusionState == infusionState_t::NOT_STARTED) {
-        // TODO: need to define when will reset to not started after infusion completed
         infusionState = infusionState_t::STARTED; // droping has started
       }
 
@@ -228,10 +225,7 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
       // infusion is still in progress but we cannot detect drops for 20s,
       // something must be wrong, sound the alarm
       if (infusionState == infusionState_t::IN_PROGRESS) {
-        infusionState = infusionState_t::ALARM_STOPPED;
-
-      // NOTE: prevent infusion time goto 0
-      // lockInfusionStartTime = true;
+        infusionState = infusionState_t::ALARM_STOPPED; // In fact, state will go to stopped if paused
       }
     }
   } else {
