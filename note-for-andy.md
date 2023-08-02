@@ -11,14 +11,15 @@
 
  - main:
      - move all function protype to header file
-     - check and test for `no drop 20s`
-     - reset value for tft after finish once, or use a button to do
+     - ~~check and test for `no drop 20s`~~
+     - ~~reset value for tft after finish once and pass 20s, or use a button to do~~
      - ~~enter state = exceeded~~
      - ~~remove volume when drop factor is not known~~
      - ~~get the accurate volume~~
      - solve the problem about cannot start auto-con when state=started
-     - solve the problem about can only start auto-con when last value get is DF
-     - find the reason why need 100s to init
+     - ~~solve the problem about can only start auto-con when last value get is DF~~
+     - ~~find the reason why need 100s to init <= is beacuse the time is using counting~~
+     - ~~use calculation to measure 20s~~
  - lvgl:
      - background color for comfirm msgbox
      - ~~monitor screen update data~~

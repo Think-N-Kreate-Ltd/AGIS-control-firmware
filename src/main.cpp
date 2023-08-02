@@ -124,6 +124,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
 void sendInfusionMonitoringDataWs();
 void homingRollerClamp();
 void infusionInit();
+int volumeCount(bool reset = false);
 void loggingData(void * parameter);
 void getI2CData(void * arg);
 void tftDisplay(void * arg);
@@ -147,10 +148,6 @@ void IRAM_ATTR dropSensorISR() {
   static int lastTime;     // var to record the last value of the calling time
   static int lastDropTime; // var to record the time of last drop
 
-  // use a var to store accurate value of volume
-  // 60 is selected because it is the LCM of all drop factor option
-  static int volume_x60 = 0;
-
   // in fact, the interrupt will only be called when state change
   // just one more protection to prevent calling twice when state doesn't change
   int dropSensorState = dropSensor.getStateRaw();
@@ -171,7 +168,7 @@ void IRAM_ATTR dropSensorISR() {
 
         // mark this as starting time of infusion
         infusionStartTime = millis();
-        volume_x60 = 0;
+        infusedVolume_x100 = volumeCount(true); // NOTE: this is not needed as it has been reseted already
       }
       if (infusionState == infusionState_t::NOT_STARTED) {
         // TODO: need to define when will reset to not started after infusion completed
@@ -188,8 +185,7 @@ void IRAM_ATTR dropSensorISR() {
       // Later when we need to display, divide it by 100 to get actual value.
       if ((dropFactor == 10) || (dropFactor == 15)
           || (dropFactor == 20) || (dropFactor == 60)) {
-        volume_x60 += (60 / dropFactor);
-        infusedVolume_x100 = (100 * volume_x60 / 60);
+        infusedVolume_x100 = volumeCount();
       }
 
       // if infusion has completed but we still detect drop,
@@ -210,19 +206,24 @@ void IRAM_ATTR dropSensorISR() {
 
 void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
   // Checking for no drop for 20s
-  static int timeWithNoDrop;
+  static int timeWithNoDrop = millis();
   int dropSensorState = dropSensor.getStateRaw();
   if (dropSensorState == 0) {
-    timeWithNoDrop++;
-    if (timeWithNoDrop >= 20000) {
+    if ((millis() - timeWithNoDrop) >= 20000) {
       // reset these values
       firstDropDetected = false;
       timeBtw2Drops = UINT_MAX;
 
       if ((infusionState == infusionState_t::ALARM_COMPLETED) || 
-          (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED)) {
-            infusionState = infusionState_t::NOT_STARTED;
-          }
+          (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED) || 
+          (infusionState == infusionState_t::STARTED)) {
+        // reset value on display as the last infusion is finished
+        infusionState = infusionState_t::NOT_STARTED;
+        infusedTime = 0;
+        infusionStartTime = millis(); // prevent there is one more calculation for `infusedTime`
+        numDrops = 0;
+        infusedVolume_x100 = volumeCount(true);
+      }
 
       // infusion is still in progress but we cannot detect drops for 20s,
       // something must be wrong, sound the alarm
@@ -234,7 +235,7 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
       }
     }
   } else {
-    timeWithNoDrop = 0;
+    timeWithNoDrop = millis();
   }
 
   // get latest value of dripRate
@@ -367,6 +368,7 @@ void IRAM_ATTR motorControlISR() {
       infusionInit();
       enableAutoControl = false;
       enableLogging = false;
+      firstDropDetected = false;
 
       // stop droping and mark as complete
       infusionState = infusionState_t::ALARM_COMPLETED;
@@ -379,22 +381,6 @@ void IRAM_ATTR motorControlISR() {
   if (buttonState == buttonState_t::IDLE && pressing) {  // it will only run once each time
     motorOff();
     pressing = false;
-  }
-
-  // Handle keypad
-  if (keypadInfusionConfirmed) {
-    ESP_LOGI(KEYPAD_TAG, "Keypad inputs confirmed");
-    infusionInit();
-
-    // override the ENTER button to enable autoControl()
-    infusionState = infusionState_t::NOT_STARTED;
-    enableAutoControl = true;
-
-    // enable logging task
-    enableLogging = true;
-
-    // make sure this if statement runs only once
-    keypadInfusionConfirmed = false;
   }
 }
 
@@ -416,10 +402,10 @@ void setup() {
   attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
 
   // setup for timer0
-  Timer0_cfg = timerBegin(0, 400, true);    // prescaler = 400
+  Timer0_cfg = timerBegin(0, 800, true);    // prescaler = 800
   timerAttachInterrupt(Timer0_cfg, &motorControlISR,
                        false);             // call the function motorcontrol()
-  timerAlarmWrite(Timer0_cfg, 1000, true); // time = 400*1000/80,000,000 = 5ms
+  timerAlarmWrite(Timer0_cfg, 1000, true); // time = 800*1000/80,000,000 = 10ms
   timerAlarmEnable(Timer0_cfg);            // start the interrupt
 
   // setup for timer1
@@ -611,8 +597,10 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
           infusionInit();
 
           // override the ENTER button to enable autoControl()
-          enableAutoControl = true;
+          // seems useless already as it will go to in pregress directly
           infusionState = infusionState_t::NOT_STARTED;
+          enableAutoControl = true;
+          firstDropDetected = false;  // to reset the firstdrop data before
 
           enableLogging = true;
         }
@@ -683,6 +671,19 @@ void infusionInit() {
   infusedTime = 0;
 
   homingCompleted = false;  // if not set, the infusion cannot be stopped
+}
+
+// to calculate and store the accurate volume
+// default perimeter is false, change to true to reset volume
+int volumeCount(bool reset) {
+  static int volume_x60 = 0;
+  if (reset) {
+    volume_x60 = 0;
+  } else {
+    volume_x60 += (60 / dropFactor);
+  }
+  // return the volume which is used for display
+  return 100 * volume_x60 / 60;
 }
 
 void loggingData(void * parameter) {
@@ -855,7 +856,25 @@ void otherLittleWorks(void * arg) {
       vTaskDelay(50);
     }
 
-    while (!turnOnLed) {
+    // Handle keypad
+    if (keypadInfusionConfirmed) {
+      ESP_LOGI(KEYPAD_TAG, "Keypad inputs confirmed");
+      infusionInit();
+
+      // override the ENTER button to enable autoControl()
+      // seems useless already as it will go to in pregress directly
+      infusionState = infusionState_t::NOT_STARTED;
+      enableAutoControl = true;
+      firstDropDetected = false;  // to reset the firstdrop data before
+
+      // enable logging task
+      enableLogging = true;
+
+      // make sure this if statement runs only once
+      keypadInfusionConfirmed = false;
+    }
+
+    while (!turnOnLed && !keypadInfusionConfirmed) {
       if (digitalRead(SENSOR_LED_PIN) == LOW) {
         digitalWrite(SENSOR_LED_PIN, HIGH);  // reversed because the LED is pull up
       }

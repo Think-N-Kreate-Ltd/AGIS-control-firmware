@@ -385,16 +385,19 @@ static void confirmbox_event_cb(lv_event_t * event) {
         lv_group_focus_obj(screenMain);
         lv_obj_scroll_to(screenMain, 0, 0, LV_ANIM_OFF);
       } else if (txt == "Yes") {
+        Serial.print(txt);
         /*Submit verified inputs to autoControl*/
         targetVTBI = keypadInput[0];
         targetTotalTime = keypadInput[1]*3600 + keypadInput[2]*60;
         // targetDripRate = targetVTBI * dropFactor / (keypadInput[1]*60 + keypadInput[2]);
         targetNumDrops = targetVTBI * dropFactor;
+        Serial.print(", drop factor=");
         /*go to monitor screen, and start infusion*/
         lv_disp_load_scr(screenMonitor);
         keypadInfusionConfirmed = true;
         screenState = false;
         /*avoid carshing. In fact, it is better to reduce the workload on INT*/
+        Serial.println(dropFactor);
         vTaskDelay(100);
       } else {/*I don't know how to go to this condition*/}
     }
