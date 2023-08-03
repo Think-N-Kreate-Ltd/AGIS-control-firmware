@@ -49,7 +49,7 @@ infusionState_t infusionState = infusionState_t::NOT_STARTED;
 volatile unsigned int numDrops = 0;     // for counting the number of drops within 15s
 volatile unsigned int dripRate = 0;     // for calculating the drip rate
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
-volatile bool turnOnLed = false;        // state for LED, true when need to turn on
+volatile char turnOnLed = 'F';          // state for LED, 'T'=true(should blink), 'F'=false(should dark), 'W'=waiting(not blinked yet, but drop leave the sensor region)
 volatile unsigned int dripRatePeak = 1; // drip rate at the position when 1st drop is detected
 
 // var for timer1 interrupt
@@ -146,7 +146,7 @@ void IRAM_ATTR dropSensorISR() {
     // disable for `DROP_DEBOUNCE_TIME` after called
     if ((dropSensorState == 1) && 
         ((millis()-lastTime)>=DROP_DEBOUNCE_TIME)) {
-      turnOnLed = true; // turn on LED on drop sensor on task
+      turnOnLed = 'T'; // turn on LED on drop sensor on task
 
       lastTime = millis();
 
@@ -155,9 +155,12 @@ void IRAM_ATTR dropSensorISR() {
         firstDropDetected = true;
         lastDropTime = -9999; // prevent timeBtw2Drops become inf
 
-        // mark this as starting time of infusion
-        infusionStartTime = millis();
-        infusedVolume_x100 = volumeCount(true); // NOTE: this is not needed as it has been reseted already
+        if (infusionState != infusionState_t::ALARM_STOPPED) {
+          // STOPPED is a special state which note that the condition is paused, but still in progress
+          // mark this as starting time of infusion
+          infusionStartTime = millis();
+          infusedVolume_x100 = volumeCount(true); // NOTE: this is not needed as it has been reseted already
+        }
       }
       if (infusionState == infusionState_t::NOT_STARTED) {
         infusionState = infusionState_t::STARTED; // droping has started
@@ -187,7 +190,7 @@ void IRAM_ATTR dropSensorISR() {
         dripRatePeak = max(dripRatePeak, dripRate);
       }
     } else if (dropSensorState == 0) {
-      turnOnLed = false; // turn off LED on drop sensor on task
+      turnOnLed = 'W'; // send that the drop leave the sensor region
     }
   } 
 }
@@ -203,7 +206,8 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
   static int timeWithNoDrop = millis();
   int dropSensorState = dropSensor.getStateRaw();
   if (dropSensorState == 0) {
-    if ((millis() - timeWithNoDrop) >= 20000) {
+    if (((millis() - timeWithNoDrop) >= 20000)
+        && firstDropDetected) { // so that the time measurement will start after detect drop
       // reset these values
       firstDropDetected = false;
       timeBtw2Drops = UINT_MAX;
@@ -266,10 +270,10 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
 
     // TODO: sound the alarm
   }
-  else {
-    if (enableAutoControl) {
-      infusionState = infusionState_t::IN_PROGRESS;
-    }
+  else if (enableAutoControl && (infusionState != infusionState_t::ALARM_STOPPED)) {
+    // TODO: better to write the state only when state change, instead of update frequently
+    // UPDATE: this should be useless now, remove it later
+    infusionState = infusionState_t::IN_PROGRESS;
   }
 
   if (enableAutoControl && motorOnPeriod && (targetDripRate != 0) &&
@@ -588,7 +592,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
 
           // override the ENTER button to enable autoControl()
           // seems useless already as it will go to in pregress directly
-          infusionState = infusionState_t::NOT_STARTED;
+          infusionState = infusionState_t::IN_PROGRESS;
           enableAutoControl = true;
           firstDropDetected = false;  // to reset the firstdrop data before
 
@@ -656,9 +660,10 @@ void infusionInit() {
   //    (2) infusedVolume_x100
   //    (3) infusedTime
   //    Add more if necessary
-  numDrops = 0;
-  // infusedVolume_x100 = 0;
   infusedTime = 0;
+  infusionStartTime = millis(); // prevent there is one more calculation for `infusedTime`
+  numDrops = 0;
+  infusedVolume_x100 = volumeCount(true);
 
   homingCompleted = false;  // if not set, the infusion cannot be stopped
 }
@@ -841,9 +846,13 @@ void enableWifi(void * arg) {
 void otherLittleWorks(void * arg) {
   for(;;) {
     // toggle LED
-    if (turnOnLed) {
+    if (turnOnLed == 'T') {
       digitalWrite(SENSOR_LED_PIN, LOW);     // reversed because the LED is pull up
-      vTaskDelay(50);
+      vTaskDelay(10);
+    } else if (turnOnLed == 'W') {
+      digitalWrite(SENSOR_LED_PIN, LOW);     // reversed because the LED is pull up
+      turnOnLed = 'F';  // must change the state first
+      vTaskDelay(50);   // the state can change back to T/W when blocking here
     }
 
     // Handle keypad
@@ -853,7 +862,7 @@ void otherLittleWorks(void * arg) {
 
       // override the ENTER button to enable autoControl()
       // seems useless already as it will go to in pregress directly
-      infusionState = infusionState_t::NOT_STARTED;
+      infusionState = infusionState_t::IN_PROGRESS;
       enableAutoControl = true;
       firstDropDetected = false;  // to reset the firstdrop data before
 
@@ -864,11 +873,17 @@ void otherLittleWorks(void * arg) {
       keypadInfusionConfirmed = false;
     }
 
-    while (!turnOnLed && !keypadInfusionConfirmed) {
+    // NOTE: if there are more and more jobs in the future, may create a new bool var to hold this condition
+    while ((turnOnLed == 'F') && !keypadInfusionConfirmed) {
       if (digitalRead(SENSOR_LED_PIN) == LOW) {
         digitalWrite(SENSOR_LED_PIN, HIGH);  // reversed because the LED is pull up
       }
-      // free the CPU
+      // NOTE: this delay may block the true signal. thus, a waiting state is added to ensure the LED will blink
+      // we can change the state to false only when blinking is finished, 
+      // however, blink will miss if another drop is sensed when LED is ON
+      // we can also remove or reduce the delay to a extreme small number to remove the waiting state
+      // however, the program will do this task in an extreme tiny interval
+      // TODO: use a function to let the program go back to check state again(?)
       vTaskDelay(50);
     }
   }

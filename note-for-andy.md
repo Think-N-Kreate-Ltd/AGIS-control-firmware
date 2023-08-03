@@ -20,6 +20,7 @@
      - ~~solve the problem about can only start auto-con when last value get is DF~~
      - ~~find the reason why need 100s to init <= is beacuse the time is using counting~~
      - ~~use calculation to measure 20s~~
+     - try to reset and connect to wifi
  - lvgl:
      - background color for comfirm msgbox
      - ~~monitor screen update data~~
