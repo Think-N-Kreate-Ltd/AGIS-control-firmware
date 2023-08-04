@@ -1,14 +1,21 @@
 # AGIS-control-firmware
 
 ## Description
-This is the firmware for AGIS control board.
+- This is the firmware for AGIS control board.
+- wifi ssid:AutoConnectAP, password:password.
+- go to http://<IPAddress>/update for OTA update
+- upload firmware.bin for main, spiffs.bin for SPIFFS files
+- GPIO36 -> EXT interrupt for reading sensor data
+- timer0 -> INT interrupt for read sensor & time measure
+- timer1 -> INT interrupt for auto control
 
 ## Keypad key functions:
 + number keys 0->9: numbers for input fields
++ `#`: backspace for input
 + `Ent`: confirm each input field
 + arrows UP and DOWN: motor move up or down
 + arrows Left and Right: navigate between input fields / bottons
-+ `*`: the enter button in motor control
++ `*`: pause / resume / complusory complete
 + `F1`: toggle between input screen and monitor screen
 + `F2`: start infusion after all input fields are confirmed
 + `Esc`: reset program, equivalent to reset button
@@ -18,8 +25,8 @@ This is the firmware for AGIS control board.
 + INA219: 0x40
 
 ## Wiring
-
-- OLED & INA219 display wiring:
+- I2C wiring,
+- including OLED display & INA219:
 
 | **OLED pin** | **ESP32 devkit pin** |
 |:------------:|:--------------------:|
@@ -58,8 +65,11 @@ This is the firmware for AGIS control board.
 + PlatformIO extension in VS Code
 
 ## How to build
++ if using OTA, should use keypad to enable wifi first
++ go to http://`IPAddress`/update for OTA update
++ build to get the .bin file and upload by OTA
 
-## IMPORTANT: make sure below conditions satisfy before making PR
+## IMPORTANT: make sure below conditions satisfy before making PR <- OUTDATED
 + Physical switch can control the motor with/without automatic control. i.e. highest priority
 + Automatic control can be issued from the website multiple times
 + Can download the log file after infusion has completed
@@ -67,14 +77,47 @@ This is the firmware for AGIS control board.
 + Can use keypad to fill in inputs and start automatic control
 + Display can show monitoring information during infusion
 
-## Best practices when writing software:
-+ Use `log` instead of `Serial.printf()`. Logging makes debugging a lot easier.
+## UPDATE on the above important
+As there are too many things should work with now, there are too many conditions should satisfy right now. However, it will spend too much time for testing. Thus, only satisfy conditions which related to the changed code is fine. See below for details.
+- INA219:
+  - check the log file, can get all data expected
+- SD logging:
+  - connect to serial monitor, see logging initialized & data logging done
+  - make sure error on file.open have not appear
+  - pause and resume the infusion once while auto controlling
+  - make sure the log file can get all expected data, including paused and resume
+  - can download log file (don't need to test, cause that function should not be touched)
+- Auto control / motor control / drop sensor:
+  - remove the sensor for 20s, ensure the state go to stopped and have not reset values
+  - can pause / resume / complete the infusion by `*`
+  - can control the motor when infusion paused (also before start, but don't need to test it)
+  - can reset all values and state go to not started after no drop 20s (not including the case when doing auto control and completed by `*`)
+  - after that, it can run the second time
+  - ensure it can go to all state
+- Enable wifi:
+  - connect to serial monitor, see homing completed & old directory removed
+  - can open the webpage
+- TFT display:
+  - can switch the screen
+  - can move the motor before start auto control
+  - able the start the infusion, which include
+    1. show target Drip rate on msgbox
+    2. directly go to monitor screen after press `Yes`
+    3. the motor start move
+  - can switch back to input screen while auto controlling
+  - monitor screen can update data before auto controlling
+- Other little works:
+  - the LED on sensor can blink / turn on, also in infusion
+  - start the infusion and the state can change to in progress
 
-  Different level of verbosity can be set from this line in `platformio.ini` file:
-  ```
-  -D CORE_DEBUG_LEVEL=5  ; 1: Error, 2: Warning, 3: Info, 4: Debug, 5: Verbose
-  ```
-+ Group functions and variables related to a feature into the same source/header file
+Also, remember to test the newly added function
+
+## Best practices when writing software:
++ `log` for long term debugging will be better, while `print` is better on finding reason of unexpected result
++ Try to use `static` more. Instead of using global var, it is more clear, and is an effective way to reduce the var name size
++ Group the vars and put them in a suitable place. Also, add some description on vars and functions plz!
++ Don't play LVGL before understanding how to use it
++ ONLY update the state whenever it changes (don't frequently update). Otherwise, it is hard to find out the reason when unexpected result occur
 
 ## Troubleshooting
 Q: example issue
