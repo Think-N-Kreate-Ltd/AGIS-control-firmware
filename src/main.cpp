@@ -155,11 +155,14 @@ void IRAM_ATTR dropSensorISR() {
         firstDropDetected = true;
         lastDropTime = -9999; // prevent timeBtw2Drops become inf
 
-        if (infusionState != infusionState_t::ALARM_STOPPED) {
-          // STOPPED is a special state which note that the condition is paused, but still in progress
+        if ((infusionState != infusionState_t::PAUSED) && (infusionState != infusionState_t::ALARM_STOPPED)) {
+          // STOPPED and PAUSED are special states which note that the condition is stopped/paused, but still in progress
           // mark this as starting time of infusion
           infusionStartTime = millis();
           infusedVolume_x100 = volumeCount(true); // NOTE: this is not needed as it has been reseted already
+        } else {
+          /*if I add the state change to in progress here, the `enter` key would lead to an unwanted result
+            maybe add a new state call `paused` which use for enter key would be better*/
         }
       }
       if (infusionState == infusionState_t::NOT_STARTED) {
@@ -226,7 +229,7 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
       // infusion is still in progress but we cannot detect drops for 20s,
       // something must be wrong, sound the alarm
       if (infusionState == infusionState_t::IN_PROGRESS) {
-        infusionState = infusionState_t::ALARM_STOPPED; // In fact, state will go to stopped if paused
+        infusionState = infusionState_t::ALARM_STOPPED;
       }
     }
   } else {
@@ -270,9 +273,7 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
 
     // TODO: sound the alarm
   }
-  else if (enableAutoControl && (infusionState != infusionState_t::ALARM_STOPPED)) {
-    // TODO: better to write the state only when state change, instead of update frequently
-    // UPDATE: this should be useless now, remove it later
+  else if (enableAutoControl && firstDropDetected) {
     infusionState = infusionState_t::IN_PROGRESS;
   }
 
@@ -348,7 +349,7 @@ void IRAM_ATTR motorControlISR() {
   if (buttonState == buttonState_t::ENTER && !pressing) {
     // pause / resume the infusion
     if (enableAutoControl) {
-      infusionState = infusionState_t::ALARM_STOPPED;
+      infusionState = infusionState_t::PAUSED;
     } else {
       infusionState = infusionState_t::IN_PROGRESS;
     }
@@ -357,7 +358,7 @@ void IRAM_ATTR motorControlISR() {
     // if press it twice within 500ms, reset the infusion
     static int recordTime;
     if ((millis()-recordTime)<500 && ((infusionState == infusionState_t::IN_PROGRESS) 
-        || (infusionState == infusionState_t::ALARM_STOPPED))) {
+        || (infusionState == infusionState_t::PAUSED))) {
       // reset the value
       infusionInit();
       enableAutoControl = false;
@@ -692,7 +693,8 @@ void loggingData(void * parameter) {
       ESP_LOGI(DATA_LOGGING_TAG, "Logging initialized");
       
       // after create file, do data logging
-      while (infusionState == infusionState_t::IN_PROGRESS) {
+      while ((infusionState == infusionState_t::IN_PROGRESS) || 
+            (infusionState == infusionState_t::ALARM_STOPPED))  {
         logData();
       }
 

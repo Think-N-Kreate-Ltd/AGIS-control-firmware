@@ -10,6 +10,7 @@ enum class infusionState_t {
   NOT_STARTED,           // when the board is powered on and no drops detected
   STARTED,               // as soon as drops are detected
   IN_PROGRESS,           // when infusion is started by user and not completed yet
+  PAUSED,                // when infusion is paused by keypay key `*`
   ALARM_COMPLETED,       // when infusion has completed, i.e. infusedVolume_x100 reaches the target volume
   ALARM_STOPPED,         // when infusion stopped unexpectly, it's likely to have a problem
   ALARM_VOLUME_EXCEEDED  // when infusion has completed but we still detect drops

@@ -166,7 +166,7 @@ void logData() {
 
   vTaskDelay(999); // wait for next data logging
 
-  while (infusionState == infusionState_t::ALARM_STOPPED) {
+  while (infusionState == infusionState_t::PAUSED) {
     // lock the function in here when infusion is paused
     file.printf("%u, infusion paused\n", infusedTime);
     vTaskDelay(1000);

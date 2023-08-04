@@ -8,6 +8,8 @@ const char *getInfusionState(infusionState_t state) {
     return "STARTED";
   case infusionState_t::IN_PROGRESS:
     return "IN_PROGRESS";
+  case infusionState_t::PAUSED:
+    return "PAUSED";
   case infusionState_t::ALARM_COMPLETED:
     return "ALARM_COMPLETED";
   case infusionState_t::ALARM_STOPPED:
