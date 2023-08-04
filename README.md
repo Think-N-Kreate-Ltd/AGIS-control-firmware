@@ -119,6 +119,17 @@ Also, remember to test the newly added function
 + Don't play LVGL before understanding how to use it
 + ONLY update the state whenever it changes (don't frequently update). Otherwise, it is hard to find out the reason when unexpected result occur
 
+## Warning and modified library
++ `FS.h` -> Rename `FILE_READ` to `FS_FILE_READ` ...etc to solve the redefine warning
++ `AsyncElegantOTA.h` -> L4 commented, that warning is to remind not to use `.loop()` only
++ `WiFiManger` -> No Need, just keep it
+  - That warning is because S3 cannot use temp sensor before
+  - In idf can enable temp sensor. However, in ide, it is just a hardcode warning
+  - Can comment that line but i think the next update version of the library will remove it.
++ the below modify is not that important and usually, it will not be seen, can just ignore them
+  - `lv_obj.c` -> add `const` on L143
+  - `lv_tabview.c` & `lv_checkbox` -> also about const, give up fixing it
+
 ## Troubleshooting
 Q: example issue
 
