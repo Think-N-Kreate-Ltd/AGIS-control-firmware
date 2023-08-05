@@ -105,6 +105,7 @@ void ask_for_wifi_enable_msgbox() {
   lv_obj_set_align(wifi_box, LV_ALIGN_CENTER);
   /*set the size to use 99% area, which can avoid `detected modifying dirty areas in render`*/
   lv_obj_set_size(wifi_box, lv_pct(99), lv_pct(99));
+  // lv_obj_set_layout(wifi_box, LV_LAYOUT_GRID);
 
   /*there is no auto close in master version(8) of lvgl
   should close in other function, 
@@ -217,7 +218,7 @@ void confirm_msgbox() {
   static const char * btns[] = {"Back", "Yes", ""};
   char DR_buf[25];
   sprintf(DR_buf, "Drip Rate: %d", targetDripRate);
-  lv_obj_t * confirm_box = lv_msgbox_create(screenMain, DR_buf, "Confirm To Run?", btns, false);
+  lv_obj_t * confirm_box = lv_msgbox_create(screenMain, DR_buf, "Confirm To Run?\n", btns, false);
   lv_obj_add_event_cb(confirm_box, confirmbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
   lv_group_focus_obj(lv_msgbox_get_btns(confirm_box));
   lv_obj_add_state(lv_msgbox_get_btns(confirm_box), LV_STATE_FOCUS_KEY);
@@ -226,7 +227,7 @@ void confirm_msgbox() {
   /*set the position*/
   lv_obj_align(confirm_box, LV_ALIGN_CENTER, 0, 0);
   // lv_obj_set_width(confirm_box, 125);
-  lv_obj_set_size(confirm_box, lv_pct(60), lv_pct(60));
+  lv_obj_set_size(confirm_box, lv_pct(60), lv_pct(50));
 
   /*make the background a little bit grey*/
   // lv_obj_set_style_bg_opa(screenMain, LV_OPA_70, 0);
@@ -246,7 +247,7 @@ void remind_input_msgbox() {
   /*set the position*/
   lv_obj_align(confirm_box, LV_ALIGN_CENTER, 0, 0);
   // lv_obj_set_width(confirm_box, 125);
-  lv_obj_set_size(confirm_box, lv_pct(60), lv_pct(60));
+  lv_obj_set_size(confirm_box, lv_pct(50), lv_pct(40));
 
   /*make the background a little bit grey*/
   // lv_obj_set_style_bg_opa(screenMain, LV_OPA_70, 0);
