@@ -182,9 +182,17 @@ void IRAM_ATTR dropSensorISR() {
         infusedVolume_x100 = volumeCount();
       }
 
-      // if infusion has completed but we still detect drop,
-      // something must be wrong. Need to sound the alarm.
-      if (infusionState == infusionState_t::ALARM_COMPLETED) {
+      // Check if infusion has completed or not
+      // acceptable for exceeding 1 drops (error)
+      if ((numDrops >= targetNumDrops) && (numDrops <= (targetNumDrops+1))) {
+        infusionState = infusionState_t::ALARM_COMPLETED;
+
+        // disable autoControlISR()
+        enableAutoControl = false;
+
+      } else if ((infusionState == infusionState_t::ALARM_COMPLETED) && homingCompleted) {
+        // when infusion has completed but we still detect drop
+        // when finish infusion, it will go homing first, that time may also have drops
         infusionState = infusionState_t::ALARM_VOLUME_EXCEEDED;
       }
 
@@ -263,17 +271,8 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
     motorOnPeriod = true;  // no limitation on motor on period
   }
 
-  // Check if infusion has completed or not
-  // acceptable for exceeding 3 drops
-  if ((numDrops >= targetNumDrops) && (numDrops <= (targetNumDrops+3))) {
-    infusionState = infusionState_t::ALARM_COMPLETED;
-
-    // disable autoControlISR()
-    enableAutoControl = false;
-
-    // TODO: sound the alarm
-  }
-  else if (enableAutoControl && firstDropDetected) {
+  if (enableAutoControl && firstDropDetected) {
+    // change the state from stopped back to in pregress
     infusionState = infusionState_t::IN_PROGRESS;
   }
 

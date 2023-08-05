@@ -127,7 +127,7 @@ Also, remember to test the newly added function
   - In idf can enable temp sensor. However, in ide, it is just a hardcode warning
   - Can comment that line but i think the next update version of the library will remove it.
 + the below modify is not that important and usually, it will not be seen, can just ignore them
-  - `lv_obj.c` -> add `const` on L143
+  - `lv_obj.c` -> add `const` on L143 <- not fixed
   - `lv_tabview.c` & `lv_checkbox` -> also about const, give up fixing it
 
 ## Troubleshooting
