@@ -30,6 +30,7 @@ void closeWifiBox();
 
 /*----------function prototype only use in AGIS_Display.h (private)----------*/
 void confirm_msgbox();
+void remind_input_msgbox();
 
 void my_disp_flush( lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p );
 bool validate_keypad_inputs();

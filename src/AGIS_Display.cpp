@@ -214,7 +214,7 @@ void input_screen() {
 }
 
 void confirm_msgbox() {
-  static const char * btns[] = {"No", "Yes", ""};
+  static const char * btns[] = {"Back", "Yes", ""};
   char DR_buf[25];
   sprintf(DR_buf, "Drip Rate: %d", targetDripRate);
   lv_obj_t * confirm_box = lv_msgbox_create(screenMain, DR_buf, "Confirm To Run?", btns, false);
@@ -225,7 +225,28 @@ void confirm_msgbox() {
 
   /*set the position*/
   lv_obj_align(confirm_box, LV_ALIGN_CENTER, 0, 0);
-  lv_obj_set_width(confirm_box, 125);
+  // lv_obj_set_width(confirm_box, 125);
+  lv_obj_set_size(confirm_box, lv_pct(60), lv_pct(60));
+
+  /*make the background a little bit grey*/
+  // lv_obj_set_style_bg_opa(screenMain, LV_OPA_70, 0);
+  // lv_obj_set_style_bg_color(screenMain, lv_palette_main(LV_PALETTE_GREY), 0);
+
+  inMsgbox = true;
+}
+
+void remind_input_msgbox() {
+  static const char * btns[] = {"Back", ""};
+  lv_obj_t * confirm_box = lv_msgbox_create(screenMain, "Plz input all fields", NULL, btns, false);
+  lv_obj_add_event_cb(confirm_box, confirmbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+  lv_group_focus_obj(lv_msgbox_get_btns(confirm_box));
+  lv_obj_add_state(lv_msgbox_get_btns(confirm_box), LV_STATE_FOCUS_KEY);
+  lv_group_focus_freeze(grp, true);
+
+  /*set the position*/
+  lv_obj_align(confirm_box, LV_ALIGN_CENTER, 0, 0);
+  // lv_obj_set_width(confirm_box, 125);
+  lv_obj_set_size(confirm_box, lv_pct(60), lv_pct(60));
 
   /*make the background a little bit grey*/
   // lv_obj_set_style_bg_opa(screenMain, LV_OPA_70, 0);
@@ -332,6 +353,8 @@ static void textarea_event_cb(lv_event_t * event) {
     /*get the input and store it*/
     uint16_t i = lv_obj_get_index(ta);
     keypadInput[i] = atoi(lv_textarea_get_text(ta));
+    /*change the input text color*/
+    lv_obj_set_style_text_color(lv_obj_get_child(screenMain, i), lv_palette_main(LV_PALETTE_GREEN), 0);
 
     /*check for whether all inputs are filled*/
     allInputs = validate_keypad_inputs();
@@ -380,7 +403,7 @@ static void confirmbox_event_cb(lv_event_t * event) {
       // lv_obj_set_style_bg_opa(screenMain, LV_OPA_100, 0);
       // lv_obj_set_style_bg_color(screenMain, lv_color_hex(0xacacac), LV_PART_MAIN);
 
-      if(txt == "No") {
+      if(txt == "Back") {
         /*go back to input screen*/
         lv_group_focus_obj(screenMain);
         lv_obj_scroll_to(screenMain, 0, 0, LV_ANIM_OFF);
@@ -459,7 +482,8 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
         /*pop up a message box to confirm*/
         confirm_msgbox();
       } else {
-        /*nothing*/
+        /*pop up a message box to ask for inputs*/
+        remind_input_msgbox();
       }
     }
     else {
