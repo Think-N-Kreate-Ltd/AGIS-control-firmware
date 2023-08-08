@@ -216,9 +216,9 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
   // Checking for no drop for 20s
   static int timeWithNoDrop = millis();
   int dropSensorState = dropSensor.getStateRaw();
-  if (dropSensorState == 0) {
-    if (((millis() - timeWithNoDrop) >= 20000)
-        && firstDropDetected) { // so that the time measurement will start after detect drop
+  if ((dropSensorState == 0) && firstDropDetected) { 
+  // so that the time measurement will start after detect drop
+    if ((millis() - timeWithNoDrop) >= 20000) { 
       // reset these values
       firstDropDetected = false;
       timeBtw2Drops = UINT_MAX;
