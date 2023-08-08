@@ -345,11 +345,21 @@ void IRAM_ATTR motorControlISR() {
 
   // Use keypad `*` to pause / resume / reset the infusion
   // ensure it will only run once when holding the key
-  if (buttonState == buttonState_t::ENTER && !pressing) {
+  // when the data is not decided, it should not do anything (the first infusion must not start by this)
+  if (buttonState == buttonState_t::ENTER && !pressing 
+      && (targetDripRate != 0) && (targetNumDrops != UINT_MAX)) {
     // pause / resume the infusion
     if (enableAutoControl) {
       infusionState = infusionState_t::PAUSED;
     } else {
+      if ((infusionState == infusionState_t::NOT_STARTED) 
+          || (infusionState == infusionState_t::ALARM_COMPLETED)) {
+        // for the case that use `*` to start auto ctrl, not recommended to do so
+        // set all vars same as keypad infusion confirmed
+        infusionInit();
+        firstDropDetected = false;
+        enableLogging = true;
+      }
       infusionState = infusionState_t::IN_PROGRESS;
     }
     enableAutoControl = !enableAutoControl;
