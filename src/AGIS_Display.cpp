@@ -238,7 +238,7 @@ void confirm_msgbox() {
 
 void remind_input_msgbox() {
   static const char * btns[] = {"Back", ""};
-  lv_obj_t * confirm_box = lv_msgbox_create(screenMain, "Plz input all fields", NULL, btns, false);
+  lv_obj_t * confirm_box = lv_msgbox_create(screenMain, "Plz check all fields\n", NULL, btns, false);
   lv_obj_add_event_cb(confirm_box, confirmbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
   lv_group_focus_obj(lv_msgbox_get_btns(confirm_box));
   lv_obj_add_state(lv_msgbox_get_btns(confirm_box), LV_STATE_FOCUS_KEY);
@@ -247,7 +247,7 @@ void remind_input_msgbox() {
   /*set the position*/
   lv_obj_align(confirm_box, LV_ALIGN_CENTER, 0, 0);
   // lv_obj_set_width(confirm_box, 125);
-  lv_obj_set_size(confirm_box, lv_pct(50), lv_pct(40));
+  lv_obj_set_size(confirm_box, lv_pct(52), lv_pct(42));
 
   /*make the background a little bit grey*/
   // lv_obj_set_style_bg_opa(screenMain, LV_OPA_70, 0);
@@ -481,8 +481,13 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
       /*not to pop up the message box if input missed or in monitor screen*/
       /*also avoid pop up the msgbox twice*/
       if (allInputs && screenState && !inMsgbox) {
-        /*pop up a message box to confirm*/
-        confirm_msgbox();
+        if ((targetDripRate >= 20) && (targetDripRate <= 400)) {
+          /*pop up a message box to confirm*/
+          confirm_msgbox();
+        } else {
+          /*pop up a message box to alarm the input is so strange*/
+          remind_input_msgbox();
+        }
       } else {
         /*pop up a message box to ask for inputs*/
         remind_input_msgbox();
