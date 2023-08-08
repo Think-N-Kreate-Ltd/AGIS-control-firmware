@@ -23,7 +23,7 @@ bool screenState = true;
 // check for whether all text area are filled
 bool allInputs = false;
 // an array to store the option of drip factor
-uint8_t dripFactor[4] = {10, 15, 20, 60};
+// uint8_t dripFactor[4] = {10, 15, 20, 60};
 // an array to store keypad input, 0=VTBI, 1=timeHr, 2=timeMin
 int32_t keypadInput[3] = {-1, -1, -1};
 

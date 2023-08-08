@@ -46,11 +46,12 @@ buttonState_t buttonState = buttonState_t::IDLE;
 infusionState_t infusionState = infusionState_t::NOT_STARTED;
 
 // var for EXT interrupt (sensor)
-volatile unsigned int numDrops = 0;     // for counting the number of drops within 15s
-volatile unsigned int dripRate = 0;     // for calculating the drip rate
+volatile unsigned int numDrops = 0;       // for counting the number of drops within 15s
+volatile unsigned int dripRate = 0;       // for calculating the drip rate
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
-volatile char turnOnLed = 'F';          // state for LED, 'T'=true(should blink), 'F'=false(should dark), 'W'=waiting(not blinked yet, but drop leave the sensor region)
-volatile unsigned int dripRatePeak = 1; // drip rate at the position when 1st drop is detected
+volatile char turnOnLed = 'F';            // state for LED, 'T'=true(should blink), 'F'=false(should dark), 'W'=waiting(not blinked yet, but drop leave the sensor region)
+volatile unsigned int dripRatePeak = 1;   // drip rate at the position when 1st drop is detected
+uint8_t dripFactor[4] = {10, 15, 20, 60}; // an array to store the option of drip factor
 
 // var for timer1 interrupt
 volatile unsigned int infusedVolume_x100 = 0;  // 100 times larger than actual value, unit: mL
@@ -177,9 +178,10 @@ void IRAM_ATTR dropSensorISR() {
       // NOTE: Since we cannot do floating point calculation in interrupt,
       // we multiply the actual infused volume by 100 times to perform the integer calculation
       // Later when we need to display, divide it by 100 to get actual value.
-      if ((dropFactor == 10) || (dropFactor == 15)
-          || (dropFactor == 20) || (dropFactor == 60)) {
-        infusedVolume_x100 = volumeCount();
+      for (int i=0; i<sizeof(dripFactor); i++) {
+        if (dropFactor == dripFactor[i]) {
+          infusedVolume_x100 = volumeCount();
+        }
       }
 
       // Check if infusion has completed or not
