@@ -375,7 +375,8 @@ static void wifibox_event_cb(lv_event_t * event) {
       inMsgbox = false;
       /*go back to input screen*/
       lv_disp_load_scr(screenMain);
-      lv_group_focus_obj(screenMain);
+      /*start from looking at top VTBI input field*/
+      lv_group_focus_obj(lv_obj_get_child(screenMain, VTBI_INDEX));
 
       if(txt == "No") {
         /*not to enable wifi*/
@@ -522,7 +523,7 @@ void closeWifiBox() {
   vTaskDelay(50);
   // lv_obj_del(screenWifi);      /*cannot delete any object*/
   lv_disp_load_scr(screenMain);   /*go back to input screen*/
-  lv_group_focus_obj(screenMain); /*focus to input field*/
+  lv_group_focus_obj(lv_obj_get_child(screenMain, VTBI_INDEX)); /*focus to input field*/
   enterClicked = false;
   inMsgbox = false;
   // pthread_mutex_unlock(&lvgl_mutex);
