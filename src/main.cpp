@@ -354,8 +354,8 @@ void IRAM_ATTR motorControlISR() {
     if (enableAutoControl) {
       infusionState = infusionState_t::PAUSED;
     } else {
-      if ((infusionState == infusionState_t::NOT_STARTED) 
-          || (infusionState == infusionState_t::ALARM_COMPLETED)) {
+      if ((infusionState == infusionState_t::NOT_STARTED) || (infusionState == infusionState_t::STARTED)
+          || (infusionState == infusionState_t::ALARM_COMPLETED) || (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED)) {
         // for the case that use `*` to start auto ctrl, not recommended to do so
         // set all vars same as keypad infusion confirmed
         infusionInit();
@@ -371,7 +371,8 @@ void IRAM_ATTR motorControlISR() {
     if ((millis()-recordTime)<500 && ((infusionState == infusionState_t::IN_PROGRESS) 
         || (infusionState == infusionState_t::PAUSED))) {
       // reset the value
-      infusionInit();
+      // infusionInit();
+      homingCompleted = false;
       enableAutoControl = false;
       enableLogging = false;
       firstDropDetected = false;
