@@ -34,7 +34,6 @@ void remind_input_msgbox();
 
 void my_disp_flush( lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p );
 bool validate_keypad_inputs();
-// int32_t calculate_drip_rate(int32_t volume, int32_t time, int32_t dropFactor);
 /*set the textarea with coordinate x and y*/
 void set_textarea(lv_obj_t *& testarea_object, uint16_t id, lv_coord_t x, lv_coord_t y);
 static void radiobutton_create(lv_obj_t * parent, const char * txt);
