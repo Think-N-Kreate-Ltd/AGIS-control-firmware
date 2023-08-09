@@ -509,14 +509,17 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
   }
 }
 
-// update the data on display every 500ms
+/*update the data on display every 500ms*/
 void infusion_monitoring_cb(lv_timer_t * timer) {
-  // infusion_monitoring_data_handle_t monitor_data;
-  lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 0, 1, "%d", numDrops);
-  lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 1, 1, "%d", dripRate);
-  lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 2, 1, "%d.%02d", infusedVolume_x100/100, infusedVolume_x100%100);
-  lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 3, 1, "%02d:%02d:%02d", infusedTime/3600, infusedTime%3600/60, infusedTime%60);
-  lv_table_set_cell_value(lv_obj_get_child(screenMonitor, 0), 4, 1, getInfusionState(infusionState));
+  if (infusionState == infusionState_t::NOT_STARTED) {
+    /*do nothing here, stop the screen*/
+  } else {
+    lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 0, 1, "%d", numDrops);
+    lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 1, 1, "%d", dripRate);
+    lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 2, 1, "%d.%02d", infusedVolume_x100/100, infusedVolume_x100%100);
+    lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 3, 1, "%02d:%02d:%02d", infusedTime/3600, infusedTime%3600/60, infusedTime%60);
+    lv_table_set_cell_value(lv_obj_get_child(screenMonitor, 0), 4, 1, getInfusionState(infusionState));
+  }
 }
 
 /*it is decrecated*/
