@@ -1,161 +1,165 @@
+/**
+ * Try to avoid calling LVGL functions from interrupt handlers
+ * LVGL is also thread-unsafe / task-unsafe (unsafe on multitasking)
+ * If need to use real tasks or threads, need a lock before and after lvgl function
+ * (check here https://docs.lvgl.io/master/porting/os.html)
+ * HOWEVER, sleep is also so harmful
+ * (check here https://stackoverflow.com/questions/8815895/why-is-thread-sleep-so-harmful)
+ * thus, I avoid use of it and there are many limitations, it's normal to feel strange on some parts
+*/
+
 #include <AGIS_Display.h>
-#include <AGIS_Commons.h>
-#include <AGIS_Utilities.h>
 
-/*TFT_eSPI variables*/
-TFT_eSPI tft_display = TFT_eSPI();
+// state for checking the wifibox, false=not enable
+volatile bool wifiStart = NULL;
+// a special state to lock the event change
+// seems no method to reset the event state (`lv_obj_remove_event_cb` have problem and cannot use)
+bool enterClicked;
+// the state of the msgbox, true=in msgbox. for switching the use of key `L` `R`
+// also use for preventing msgbox pop up twice
+bool inMsgbox;
+// the state of the screen, true=input screen, false=monitor screen
+bool screenState = true;
+// check for whether all text area are filled
+bool allInputs = false;
+// an array to store the option of drip factor
+// uint8_t dripFactor[4] = {10, 15, 20, 60};
+// an array to store keypad input, 0=VTBI, 1=timeHr, 2=timeMin
+int32_t keypadInput[3] = {-1, -1, -1};
 
-/*LVGL variables*/
-lv_disp_draw_buf_t draw_buf;
-lv_color_t color_buf[ TFT_WIDTH * TFT_HEIGHT / 5 ];
+static lv_disp_draw_buf_t disp_buf;
+static lv_color_t buf[TFT_WIDTH * TFT_HEIGHT / 10];
 
-lv_obj_t * input_scr = NULL;
-lv_obj_t * monitor_scr = NULL;
-lv_indev_t * keypad_indev;
-lv_group_t * input_grp;
-lv_obj_t * derivedDripRateValue_label;
-lv_obj_t * infusion_monitoring_table = NULL;
+TFT_eSPI tft = TFT_eSPI();
 
+lv_group_t * grp;           /*a group to group all keypad evented object*/
+lv_obj_t * screenWifi;      /*a screen object which hold wifi msgbox object*/
+lv_obj_t * screenMain;      /*a screen object which will hold all other objects for input*/
+lv_obj_t * screenMonitor;   /*a screen object which will hold all other objects for data display*/
+lv_indev_t * keypad_indev;  /*a driver in LVGL and save the created input device object*/
+
+/*var for radio button*/
 static lv_style_t style_radio;
 static lv_style_t style_radio_chk;
-static uint32_t active_radiobtn_id = 0;
-
-/*Parsed user input variables*/
-int32_t keypad_VTBI = -1;
-int32_t keypad_totalTimeHour = -1;
-int32_t keypad_totalTimeMinute = -1;
-int32_t keypad_targetDripRate = -1;
-int32_t keypad_dropFactor = -1;
-
-// TODO: reset this to false when new infusion process is issued
-bool keypad_inputs_valid = false;
-
-/*Infusion monitoring variables*/
-lv_timer_t * infusion_monitoring_timer;
-infusion_monitoring_data_handle_t infusion_monitoring_data_handle;
+static uint32_t active_index_1 = 0;
 
 void display_init() {
-  /*TFT display setup*/
-  tft_display.init();
-  tft_display.setRotation(1);  // view display horizontally
+  tft.begin();
+  tft.setRotation(1);        // Landscape orientation
 
-  /*Initialize LVGL*/
   lv_init();
-  lv_disp_draw_buf_init( &draw_buf, color_buf, NULL, TFT_WIDTH * TFT_HEIGHT / 5 );
+  lv_disp_draw_buf_init(&disp_buf, buf, NULL, TFT_WIDTH * TFT_HEIGHT / 10);
 
-  /*Initialize LVGL display driver*/
+  /*Initialize the display driver*/
   static lv_disp_drv_t disp_drv;
-  lv_disp_drv_init( &disp_drv );
-  /*Change the following line to your display resolution*/
-  disp_drv.hor_res = TFT_HEIGHT;  // flipped since we use horizontal view
+  lv_disp_drv_init(&disp_drv);
+  disp_drv.hor_res = TFT_HEIGHT;  /*flipped since we use horizontal view*/
   disp_drv.ver_res = TFT_WIDTH;
   disp_drv.flush_cb = my_disp_flush;
-  disp_drv.draw_buf = &draw_buf;
-  lv_disp_drv_register( &disp_drv );
+  disp_drv.draw_buf = &disp_buf;
+  lv_disp_drv_register(&disp_drv);
 
-  /*Inittialize LVGL screens*/
-  input_scr = lv_obj_create(NULL);
-
-  /*Initialize LVGL input devices, i.e. keypad*/
-  static lv_indev_drv_t keypad_drv;  // This needs to be static or global variable
-  lv_indev_drv_init(&keypad_drv);
-  keypad_drv.type = LV_INDEV_TYPE_KEYPAD;
-  keypad_drv.read_cb = keypad_read;
+  /*Initialize the input device driver, e.g. keypad, touch screen*/
+  static lv_indev_drv_t indev_drv;
+  lv_indev_drv_init(&indev_drv);
+  indev_drv.type = LV_INDEV_TYPE_KEYPAD;
+  indev_drv.read_cb = keypad_read;  // function of reading data from keypad
   /*Register the driver in LVGL and save the created input device object*/
-  keypad_indev = lv_indev_drv_register(&keypad_drv);
+  keypad_indev = lv_indev_drv_register(&indev_drv);
+  /*set group*/
+  grp = lv_group_create();
+  lv_group_set_default(grp);  /*let the object create added to this group*/
+  lv_indev_set_group(keypad_indev, grp);
 
-  /*Init LVGL groups*/
-  input_grp = lv_group_create();
-  lv_indev_set_group(keypad_indev, input_grp);
-
-  /*Register LVGL timers*/
-  infusion_monitoring_data_handle.numDrops_p = &numDrops;
-  infusion_monitoring_data_handle.dripRate_p = &dripRate;
-  infusion_monitoring_data_handle.infusedVolume_p = &infusedVolume_x100;
-  infusion_monitoring_data_handle.infusedTime_p = &infusedTime;
-  infusion_monitoring_data_handle.infusionState_p = &infusionState;
   // Call every 500ms
-  infusion_monitoring_timer = lv_timer_create(infusion_monitoring_cb, 500, NULL);
+  lv_timer_t * infusion_monitoring_timer = lv_timer_create(infusion_monitoring_cb, 500, NULL);
 }
 
-/* Display flushing */
-void my_disp_flush( lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p ) {
-    uint32_t w = ( area->x2 - area->x1 + 1 );
-    uint32_t h = ( area->y2 - area->y1 + 1 );
+/*writes color information from the “color_p” pointer to the needed “area”*/
+void my_disp_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p)
+{
+  uint32_t w = (area->x2 - area->x1 + 1);
+  uint32_t h = (area->y2 - area->y1 + 1);
 
-    tft_display.startWrite();
-    tft_display.setAddrWindow( area->x1, area->y1, w, h );
-    tft_display.pushColors( ( uint16_t * )&color_p->full, w * h, true );
-    tft_display.endWrite();
+  tft.startWrite();
+  tft.setAddrWindow(area->x1, area->y1, w, h);
+  tft.pushColors(( uint16_t * )&color_p->full, w * h, true);
+  tft.endWrite();
 
-    lv_disp_flush_ready( disp );
+  lv_disp_flush_ready(disp_drv);
 }
 
-void input_screen(void) {
-  /*Change the active screen's background color*/
-  lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0xacacac), LV_PART_MAIN);
+void ask_for_wifi_enable_msgbox() {
+  /*now use a new screen obj to hold msgbox to avoid text overlap*/
+  screenWifi = lv_obj_create(NULL);
 
-  /*Text area for `VTBI_ta`*/
-  lv_obj_t * VTBI_ta = lv_textarea_create(lv_scr_act());
-  lv_textarea_set_one_line(VTBI_ta, true);
-  lv_obj_align(VTBI_ta, LV_ALIGN_TOP_LEFT, 5, 25);
-  lv_obj_set_width(VTBI_ta, 80);
-  lv_textarea_set_placeholder_text(VTBI_ta, "Pls input");
-  static int lv_VTBI_id = LV_VTBI_ID;
-  lv_obj_set_user_data(VTBI_ta, &lv_VTBI_id);
-  lv_obj_add_event_cb(VTBI_ta, textarea_event_handler, LV_EVENT_ALL, VTBI_ta);
-  lv_group_add_obj(input_grp, VTBI_ta);
+  static const char * btns[] = {"Yes", "No", ""};
+  lv_obj_t * wifi_box = lv_msgbox_create(screenWifi, "Enable WiFi?", NULL, btns, false);
+  lv_obj_add_event_cb(wifi_box, wifibox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+  lv_group_focus_obj(lv_msgbox_get_btns(wifi_box));
+  lv_obj_add_state(lv_msgbox_get_btns(wifi_box), LV_STATE_FOCUS_KEY);
+  // lv_group_add_obj(grp, wifi_box);
+  lv_group_focus_freeze(grp, true);
 
-  /*Labels for `VTBI_ta`*/
-  lv_obj_t * VTBI_label = lv_label_create(lv_scr_act());
-  lv_label_set_text(VTBI_label, "VTBI:");
-  lv_obj_align_to(VTBI_label, VTBI_ta, LV_ALIGN_OUT_TOP_LEFT, 0, -5);
+  /*set the position*/
+  lv_obj_set_align(wifi_box, LV_ALIGN_CENTER);
+  /*set the size to use 99% area, which can avoid `detected modifying dirty areas in render`*/
+  lv_obj_set_size(wifi_box, lv_pct(99), lv_pct(99));
+  // lv_obj_set_layout(wifi_box, LV_LAYOUT_GRID);
 
-  lv_obj_t * mL_label = lv_label_create(lv_scr_act());
+  /*there is no auto close in master version(8) of lvgl
+  should close in other function, 
+  thus, need to get the object `wifi_box` outside this function, 
+  and a state to check whether the msgbox is closed*/
+  // lv_obj_move_to_index(wifi_box, 1);  // should less then the total no. of child
+
+  lv_disp_load_scr(screenWifi);
+  inMsgbox = true;
+}
+
+void input_screen() {
+  /*a screen object which will hold all other objects*/
+  screenMain = lv_obj_create(NULL);
+
+  /*Text area for VTBI_target*/
+  lv_obj_t * VTBI_target = lv_textarea_create(screenMain);
+  set_textarea(VTBI_target, VTBI_INDEX, 5, 25);
+
+  /*label for VTBI_target*/
+  lv_obj_t * vtbi_label = lv_label_create(screenMain);
+  lv_label_set_text(vtbi_label, "VTBI:");
+  lv_obj_align_to(vtbi_label, VTBI_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);
+
+  lv_obj_t * mL_label = lv_label_create(screenMain);
   lv_label_set_text(mL_label, "mL");
-  lv_obj_align_to(mL_label, VTBI_ta, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
+  lv_obj_align_to(mL_label, VTBI_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
 
-  /*Text area for `totalTimeHour_ta`*/
-  lv_obj_t * totalTimeHour_ta = lv_textarea_create(lv_scr_act());
-  lv_textarea_set_one_line(totalTimeHour_ta, true);
-  lv_obj_align_to(totalTimeHour_ta, VTBI_ta, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 30); // vertical text area spacing
-  lv_obj_set_width(totalTimeHour_ta, 80);
-  lv_textarea_set_placeholder_text(totalTimeHour_ta, "Pls input");
-  static int lv_totalTimeHour_id = LV_TOTAL_TIME_HOUR_ID;
-  lv_obj_set_user_data(totalTimeHour_ta, &lv_totalTimeHour_id);
-  lv_obj_add_event_cb(totalTimeHour_ta, textarea_event_handler, LV_EVENT_ALL, totalTimeHour_ta);
-  lv_group_add_obj(input_grp, totalTimeHour_ta);
+  /*Text area for timeHr_target*/
+  lv_obj_t * timeHr_target = lv_textarea_create(screenMain);
+  set_textarea(timeHr_target, TOTAL_TIME_HOUR_INDEX, 5, 91);
 
-  /*Labels for `totalTimeHour_ta`*/
-  lv_obj_t * totalTime_label = lv_label_create(lv_scr_act());
-  lv_label_set_text(totalTime_label, "Total time:");
-  lv_obj_align_to(totalTime_label, totalTimeHour_ta, LV_ALIGN_OUT_TOP_LEFT, 0, -5);
+  /*label for timeHr_target*/
+  lv_obj_t * timeHr_label = lv_label_create(screenMain);
+  lv_label_set_text(timeHr_label, "Total time:");
+  lv_obj_align_to(timeHr_label, timeHr_target, LV_ALIGN_OUT_TOP_LEFT, 0, -5);
 
-  lv_obj_t * totalTimeHour_label = lv_label_create(lv_scr_act());
-  lv_label_set_text(totalTimeHour_label, "hours");
-  lv_obj_align_to(totalTimeHour_label, totalTimeHour_ta, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
+  lv_obj_t * hr_label = lv_label_create(screenMain);
+  lv_label_set_text(hr_label, "hours");
+  lv_obj_align_to(hr_label, timeHr_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
 
-  /*Text area for `totalTimeMinute_ta`*/
-  lv_obj_t * totalTimeMinute_ta = lv_textarea_create(lv_scr_act());
-  lv_textarea_set_one_line(totalTimeMinute_ta, true);
-  lv_obj_align_to(totalTimeMinute_ta, totalTimeHour_label, LV_ALIGN_OUT_RIGHT_MID, 20, 0); // horizontal text area spacing
-  lv_obj_set_width(totalTimeMinute_ta, 80);
-  lv_textarea_set_placeholder_text(totalTimeMinute_ta, "Pls input");
-  static int lv_totalTimeMinute_id = LV_TOTAL_TIME_MINUE_ID;
-  lv_obj_set_user_data(totalTimeMinute_ta, &lv_totalTimeMinute_id);
-  lv_obj_add_event_cb(totalTimeMinute_ta, textarea_event_handler, LV_EVENT_ALL, totalTimeMinute_ta);
-  lv_group_add_obj(input_grp, totalTimeMinute_ta);
+  /*Text area for timeMin_target*/
+  lv_obj_t * timeMin_target = lv_textarea_create(screenMain);
+  set_textarea(timeMin_target, TOTAL_TIME_MINUE_INDEX, 160, 91);
 
-  /*Labels for `totalTimeMinute_ta`*/
-  lv_obj_t * totalTimeMinute_label = lv_label_create(lv_scr_act());
-  lv_label_set_text(totalTimeMinute_label, "minutes");
-  lv_obj_align_to(totalTimeMinute_label, totalTimeMinute_ta, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
+  /*label for timeMin_target*/
+  lv_obj_t * min_label = lv_label_create(screenMain);
+  lv_label_set_text(min_label, "minutes");
+  lv_obj_align_to(min_label, timeMin_target, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
 
-  /*Radio buttons for drop factor*/
   /* The idea is to enable `LV_OBJ_FLAG_EVENT_BUBBLE` on checkboxes and process the
-    * `LV_EVENT_CLICKED` on the container.
-    * A variable is passed as event user data where the index of the active
-    * radiobutton is saved */
+   * `LV_EVENT_CLICKED` on the container.
+   * A variable is passed as event user data where the index of the active
+   * radiobutton is saved */
 
   lv_style_init(&style_radio);
   lv_style_set_radius(&style_radio, LV_RADIUS_CIRCLE);
@@ -163,127 +167,166 @@ void input_screen(void) {
   lv_style_init(&style_radio_chk);
   lv_style_set_bg_img_src(&style_radio_chk, NULL);
 
-  /*Grid of radio buttons*/
-  lv_obj_t * dropFactor_cont = lv_obj_create(lv_scr_act());
-  static lv_coord_t col_dsc[] = {130, 130, LV_GRID_TEMPLATE_LAST};
-  static lv_coord_t row_dsc[] = {20, 20, LV_GRID_TEMPLATE_LAST};
+  char buf[16];
 
-  lv_obj_set_style_grid_column_dsc_array(dropFactor_cont, col_dsc, 0);
-  lv_obj_set_style_grid_row_dsc_array(dropFactor_cont, row_dsc, 0);
-  lv_obj_set_size(dropFactor_cont, lv_pct(95), lv_pct(32));
-  lv_obj_align_to(dropFactor_cont, totalTimeHour_ta, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 30);
-  lv_obj_set_layout(dropFactor_cont, LV_LAYOUT_GRID);
+  lv_obj_t * cont1 = lv_obj_create(screenMain);
+  lv_obj_set_flex_flow(cont1, LV_FLEX_FLOW_COLUMN_WRAP);
+  lv_obj_set_size(cont1, lv_pct(96), lv_pct(33));
+  lv_obj_align(cont1, LV_ALIGN_OUT_TOP_LEFT, 5, 157);
+  lv_obj_add_event_cb(cont1, radio_event_handler, LV_EVENT_CLICKED, &active_index_1);
 
-  uint32_t i;
-  char text_buf[32];
-  for(i = 0; i < 4; i++) {
-
-    switch (i) {
-    case 0:
-      lv_snprintf(text_buf, sizeof(text_buf), "10 drops/mL");
-      break;
-    case 1:
-      lv_snprintf(text_buf, sizeof(text_buf), "15 drops/mL");
-      break;
-    case 2:
-      lv_snprintf(text_buf, sizeof(text_buf), "20 drops/mL");
-      break;
-    case 3:
-      lv_snprintf(text_buf, sizeof(text_buf), "60 drops/mL");
-      break;
-    default:
-      break;
-    }
-
-    radiobutton_create(dropFactor_cont, text_buf, i);
+  /*add radio button*/
+  for(int i=0; i<sizeof(dripFactor); i++) {
+    lv_snprintf(buf, 16, "%d drops/mL  ", dripFactor[i]);
+    radiobutton_create(cont1, buf);
   }
 
-  /*Labels for `dropFactor_cont`*/
-  lv_obj_t * dropFactor_label = lv_label_create(lv_scr_act());
-  lv_label_set_text(dropFactor_label, "Drop factor:");
-  lv_obj_align_to(dropFactor_label, dropFactor_cont, LV_ALIGN_OUT_TOP_LEFT, 0, -5);
-  lv_obj_add_event_cb(dropFactor_cont, radio_event_handler, LV_EVENT_CLICKED, &active_radiobtn_id);
+  /*label for drop factor*/
+  lv_obj_t * drop_factor_label = lv_label_create(screenMain);
+  lv_label_set_text(drop_factor_label, "Drop Factor:");
+  lv_obj_align_to(drop_factor_label, cont1, LV_ALIGN_OUT_TOP_LEFT, 0, -5);
 
-  /*Widget to show derived drip rate*/
-  lv_obj_t * derivedDripRate_cont;
-  derivedDripRate_cont = lv_obj_create(lv_scr_act());
-  lv_obj_set_style_border_color(derivedDripRate_cont, lv_color_hex(0x5b5b5b), LV_PART_MAIN);
-  lv_obj_set_style_radius(derivedDripRate_cont, 0x00, LV_PART_MAIN);
-  lv_obj_set_size(derivedDripRate_cont, 180, 70);
-  lv_obj_align(derivedDripRate_cont, LV_ALIGN_TOP_RIGHT, -5, 5);
+  /*set background color*/
+  lv_obj_set_style_bg_opa(screenMain, LV_OPA_100, 0);
+  lv_obj_set_style_bg_color(screenMain, lv_color_hex(0xacacac), LV_PART_MAIN);
 
-  /*label*/
-  lv_obj_t * derivedDripRate_label = lv_label_create(lv_scr_act());
-  lv_label_set_text(derivedDripRate_label, "Drip rate (drops/min): ");
-  lv_obj_align_to(derivedDripRate_label, derivedDripRate_cont, LV_ALIGN_TOP_LEFT, -5, 0);
+  /*Widget for showing derived drip rate*/
+  lv_obj_t * DRWidget = lv_obj_create(screenMain);
+  lv_obj_set_style_border_color(DRWidget, lv_color_hex(0x5b5b5b), LV_PART_MAIN);
+  lv_obj_set_style_radius(DRWidget, 0x00, LV_PART_MAIN);
+  lv_obj_set_size(DRWidget, 183, 70);
+  lv_obj_align(DRWidget, LV_ALIGN_TOP_RIGHT, -7, 7);
 
-  derivedDripRateValue_label = lv_label_create(lv_scr_act());
-  lv_label_set_text(derivedDripRateValue_label, "Please fill in all inputs");
-  lv_obj_set_style_text_color(derivedDripRateValue_label, lv_color_hex(0xcc0000), LV_PART_MAIN);
-  lv_obj_align_to(derivedDripRateValue_label, derivedDripRate_label, LV_ALIGN_LEFT_MID, 0, 20);
+  /*label for derived drip rate widget*/
+  lv_obj_t * DR_label1 = lv_label_create(DRWidget);
+  lv_label_set_text(DR_label1, "Drip rate (drops/min):");
+  lv_obj_align_to(DR_label1, DRWidget, LV_ALIGN_TOP_LEFT, -5, 0);
+
+  lv_obj_t * DR_label2 = lv_label_create(DRWidget);
+  lv_label_set_text(DR_label2, "Please fill in all inputs");
+  lv_obj_set_style_text_color(DR_label2, lv_color_hex(0xcc0000), LV_PART_MAIN);
+  lv_obj_align_to(DR_label2, DR_label1, LV_ALIGN_LEFT_MID, 0, 20);
+  /*as we need to change the text of this label, we need to set index*/
+  lv_obj_move_to_index(DRWidget, 5);
+  /*don't need to set for `DR_label2` as it must be 1*/
+
+  /*Loads the main screen*/
+  // lv_disp_load_scr(screenMain);
 }
 
-static void textarea_event_handler(lv_event_t * event) {
-  // NOTE: do not print anything inside this function
-  if(event->code == LV_EVENT_KEY && lv_indev_get_key(keypad_indev) == LV_KEY_ENTER) {
-    lv_obj_t * ta = lv_event_get_target(event);
+void confirm_msgbox() {
+  static const char * btns[] = {"Back", "Yes", ""};
+  char DR_buf[25];
+  sprintf(DR_buf, "Drip Rate: %d", targetDripRate);
+  lv_obj_t * confirm_box = lv_msgbox_create(screenMain, DR_buf, "Confirm To Run?\n", btns, false);
+  lv_obj_add_event_cb(confirm_box, confirmbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+  lv_group_focus_obj(lv_msgbox_get_btns(confirm_box));
+  lv_obj_add_state(lv_msgbox_get_btns(confirm_box), LV_STATE_FOCUS_KEY);
+  lv_group_focus_freeze(grp, true);
 
-    // Parse the inputted data
-    const char * data_buf = NULL;
-    data_buf = lv_textarea_get_text(ta);
+  /*set the position*/
+  lv_obj_align(confirm_box, LV_ALIGN_CENTER, 0, 0);
+  // lv_obj_set_width(confirm_box, 125);
+  lv_obj_set_size(confirm_box, lv_pct(60), lv_pct(50));
 
-    // Identify which input
-    static int32_t * selected_input;
-    int ta_id = *(int *) lv_obj_get_user_data(ta);
-    if (ta_id == LV_VTBI_ID) {
-      selected_input = &keypad_VTBI;
-    }
-    else if (ta_id == LV_TOTAL_TIME_HOUR_ID) {
-      selected_input = &keypad_totalTimeHour;
-    }
-    else if (ta_id == LV_TOTAL_TIME_MINUE_ID) {
-      selected_input = &keypad_totalTimeMinute;
-    }
+  /*make the background a little bit grey*/
+  // lv_obj_set_style_bg_opa(screenMain, LV_OPA_70, 0);
+  // lv_obj_set_style_bg_color(screenMain, lv_palette_main(LV_PALETTE_GREY), 0);
 
-    if (*data_buf) {  // only parse when we receive input
-      *selected_input = atoi(data_buf);
-    }
-    else {
-      // reset value of that input
-      *selected_input = -1;
-    }
+  inMsgbox = true;
+}
 
-    // Stop cursor blinking
-    lv_obj_clear_state(ta, LV_STATE_FOCUSED);
+void remind_input_msgbox() {
+  static const char * btns[] = {"Back", ""};
+  lv_obj_t * confirm_box = lv_msgbox_create(screenMain, "Plz check all fields\n", NULL, btns, false);
+  lv_obj_add_event_cb(confirm_box, confirmbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+  lv_group_focus_obj(lv_msgbox_get_btns(confirm_box));
+  lv_obj_add_state(lv_msgbox_get_btns(confirm_box), LV_STATE_FOCUS_KEY);
+  lv_group_focus_freeze(grp, true);
 
-    // Call the function to validate keypad inputs
-    keypad_inputs_valid = validate_keypad_inputs();
+  /*set the position*/
+  lv_obj_align(confirm_box, LV_ALIGN_CENTER, 0, 0);
+  // lv_obj_set_width(confirm_box, 125);
+  lv_obj_set_size(confirm_box, lv_pct(52), lv_pct(42));
+
+  /*make the background a little bit grey*/
+  // lv_obj_set_style_bg_opa(screenMain, LV_OPA_70, 0);
+  // lv_obj_set_style_bg_color(screenMain, lv_palette_main(LV_PALETTE_GREY), 0);
+
+  inMsgbox = true;
+}
+
+void monitor_screen() {
+  /*a screen object which will hold all other objects */
+  screenMonitor = lv_obj_create(NULL);
+
+  /*as it is just create after `screenMinitor`, the index must be 0*/
+  lv_obj_t * table = lv_table_create(screenMonitor);
+
+  lv_obj_align(table, LV_ALIGN_CENTER, 0, 0);
+  // lv_obj_set_style_border_color(table, lv_color_hex(0x5b5b5b), LV_PART_MAIN);
+  lv_obj_set_style_border_opa(table, LV_OPA_TRANSP, LV_PART_MAIN);
+  lv_obj_set_style_line_color(table, lv_color_hex(0x5b5b5b), LV_PART_MAIN);
+  lv_table_set_col_width(table, 0, 180);
+  // lv_obj_set_height(table, 200);
+
+  /*Fill the first column*/
+  lv_table_set_cell_value(table, 0, 0, "No. of drops:");
+  lv_table_set_cell_value(table, 1, 0, "Drip rate (drops/min):");
+  lv_table_set_cell_value(table, 2, 0, "Infused volume (mL):");
+  lv_table_set_cell_value(table, 3, 0, "Infused time:");
+  lv_table_set_cell_value(table, 4, 0, "Infusion state:");
+
+  /*Fill the second column*/
+  for (int i=0; i<5; i++) {
+    lv_table_set_cell_value(table, i, 1, "Not started");
   }
+
+  /*Add an event callback to to apply some custom drawing*/
+  // lv_obj_add_event(table, draw_part_event_cb, LV_EVENT_DRAW_PART_BEGIN, NULL);
 }
 
-static void radiobutton_create(lv_obj_t * parent, const char * txt, uint32_t i) {
+/*set the testarea with coordinate x and y*/
+void set_textarea(lv_obj_t *& parent, uint16_t index, lv_coord_t x, lv_coord_t y) {
+  lv_textarea_set_one_line(parent, true);
+  lv_textarea_set_max_length(parent, 5);
+  lv_obj_align(parent, LV_ALIGN_TOP_LEFT, x, y);
+  lv_obj_set_width(parent, 80); /*Note: width=80, height=36*/
+  lv_textarea_set_placeholder_text(parent, "Pls input");
+  /*in fact, if we create all textarea obj first, then we don't need to set index*/
+  lv_obj_move_to_index(parent, index);
+  lv_obj_add_event_cb(parent, textarea_event_cb, LV_EVENT_ALL, parent);
+
+  // /*set style for boarder*/
+  // static lv_style_t style;
+  //   lv_style_init(&style);
+
+  // /*Set a background color and a radius*/
+  // lv_style_set_radius(&style, 10);
+  // lv_style_set_bg_opa(&style, LV_OPA_COVER);
+  // lv_style_set_bg_color(&style, lv_palette_lighten(LV_PALETTE_GREY, 1));
+
+  // /*Add border to the bottom+right*/
+  // lv_style_set_border_color(&style, lv_palette_main(LV_PALETTE_BLUE));
+  // lv_style_set_border_width(&style, 5);
+  // lv_style_set_border_opa(&style, LV_OPA_50);
+  // lv_style_set_border_side(&style, LV_BORDER_SIDE_FULL);
+
+  // lv_obj_add_style(parent, &style, 0);
+}
+
+static void radiobutton_create(lv_obj_t * parent, const char * txt) {
   lv_obj_t * obj = lv_checkbox_create(parent);
   lv_checkbox_set_text(obj, txt);
   lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE);
   lv_obj_add_style(obj, &style_radio, LV_PART_INDICATOR);
   lv_obj_add_style(obj, &style_radio_chk, LV_PART_INDICATOR | LV_STATE_CHECKED);
-  lv_style_set_pad_all(&style_radio, LV_STATE_DEFAULT);
-
-  // obj = lv_checkbox_create(dropFactor_cont);
-  /*Stretch the cell horizontally and vertically too
-  *Set span to 1 to make the cell 1 column/row sized*/
-  uint8_t col = i % 2;
-  uint8_t row = i / 2;
-  lv_obj_set_grid_cell(obj, LV_GRID_ALIGN_SPACE_EVENLY, col, 1,
-                        LV_GRID_ALIGN_SPACE_EVENLY, row, 1);
-  lv_group_add_obj(input_grp, obj);
 }
 
-static void radio_event_handler(lv_event_t * event) {
-  // NOTE: do not print anything inside this function
-  uint32_t * active_id = (uint32_t *)lv_event_get_user_data(event);
-  lv_obj_t * cont = lv_event_get_current_target(event);
-  lv_obj_t * act_cb = lv_event_get_target(event);
+static void radio_event_handler(lv_event_t * e) {
+  uint32_t * active_id = (uint32_t *)lv_event_get_user_data(e);
+  lv_obj_t * cont = lv_event_get_current_target(e);
+  lv_obj_t * act_cb = lv_event_get_target(e);
   lv_obj_t * old_cb = lv_obj_get_child(cont, *active_id);
 
   /*Do nothing if the container was clicked*/
@@ -292,230 +335,232 @@ static void radio_event_handler(lv_event_t * event) {
   lv_obj_clear_state(old_cb, LV_STATE_CHECKED);   /*Uncheck the previous radio button*/
   lv_obj_add_state(act_cb, LV_STATE_CHECKED);     /*Uncheck the current radio button*/
 
-  *active_id = lv_obj_get_index(act_cb);
+  *active_id = lv_obj_get_index(act_cb);          /*I don't know what it is use for*/
+  uint16_t i = lv_obj_get_index(act_cb);          /*get the index if button*/
+  dropFactor = dripFactor[i];                     /*store the drip factor selected*/
 
-  // Parse selected radio button
-  if (*active_id == LV_DROP_FACTOR_10_ID) {
-    keypad_dropFactor = 10;
-  }
-  else if (*active_id == LV_DROP_FACTOR_15_ID) {
-    keypad_dropFactor = 15;
-  }
-  else if (*active_id == LV_DROP_FACTOR_20_ID) {
-    keypad_dropFactor = 20;
-  }
-  else if (*active_id == LV_DROP_FACTOR_60_ID) {
-    keypad_dropFactor = 60;
-  }
-  
-  // Call the function to validate keypad inputs
-  keypad_inputs_valid = validate_keypad_inputs();
+  /*check for whether all inputs are filled*/
+  allInputs = validate_keypad_inputs();
 }
 
-void monitor_screen() {
-  /*Use labels*/
-  // lv_obj_t *numOfDrops_label = lv_label_create(lv_scr_act());
-  // lv_label_set_text(numOfDrops_label, "No. of drops:");
-  // lv_obj_align(numOfDrops_label, LV_ALIGN_TOP_LEFT, 0, 0 );
+static void textarea_event_cb(lv_event_t * event) {  
+  lv_event_code_t code = lv_event_get_code(event);
+  lv_obj_t * ta = lv_event_get_target(event);
 
-  // lv_obj_t *dripRate_label = lv_label_create(lv_scr_act());
-  // lv_label_set_text(dripRate_label, "Drip rate (drops/min):");
-  // lv_obj_align_to(dripRate_label, numOfDrops_label, LV_ALIGN_TOP_LEFT, 0, 20);
+  if (code == LV_EVENT_CLICKED || code == LV_EVENT_FOCUSED) {
+    /*when text area is clicked*/
+    /*do nothing*/
+  } else if (code == LV_EVENT_READY) {
+    /*get the input and store it*/
+    uint16_t i = lv_obj_get_index(ta);
+    keypadInput[i] = atoi(lv_textarea_get_text(ta));
+    /*change the input text color*/
+    lv_obj_set_style_text_color(lv_obj_get_child(screenMain, i), lv_palette_main(LV_PALETTE_GREEN), 0);
 
-  // lv_obj_t *infusedVolume_label = lv_label_create(lv_scr_act());
-  // lv_label_set_text(infusedVolume_label, "Infused volume (mL):");
-  // lv_obj_align_to(infusedVolume_label,dripRate_label, LV_ALIGN_TOP_LEFT, 0, 20);
-
-  /*Use table*/
-  infusion_monitoring_table = lv_table_create(lv_scr_act());
-  lv_table_set_col_cnt(infusion_monitoring_table, 2);
-  lv_table_set_row_cnt(infusion_monitoring_table, 5);
-  lv_obj_align(infusion_monitoring_table, LV_ALIGN_CENTER, 0, 0);
-  // lv_obj_set_style_border_color(infusion_monitoring_table, lv_color_hex(0x5b5b5b), LV_PART_MAIN);
-  lv_obj_set_style_border_opa(infusion_monitoring_table, LV_OPA_TRANSP, LV_PART_MAIN);
-  lv_obj_set_style_line_color(infusion_monitoring_table, lv_color_hex(0x5b5b5b), LV_PART_MAIN);
-  lv_table_set_col_width(infusion_monitoring_table, 0, 180);
-
-  /*Fill the first column*/
-  lv_table_set_cell_value(infusion_monitoring_table, 0, 0, "No. of drops:");
-  lv_table_set_cell_value(infusion_monitoring_table, 1, 0, "Drip rate (drops/min):");
-  lv_table_set_cell_value(infusion_monitoring_table, 2, 0, "Infused volume (mL):");
-  lv_table_set_cell_value(infusion_monitoring_table, 3, 0, "Infused time:");
-  lv_table_set_cell_value(infusion_monitoring_table, 4, 0, "Infusion state:");
-
-  /*Fill the second column*/
-  lv_table_set_cell_value(infusion_monitoring_table, 0, 1, "Not started");
-  lv_table_set_cell_value(infusion_monitoring_table, 1, 1, "Not started");
-  lv_table_set_cell_value(infusion_monitoring_table, 2, 1, "Not started");
-  lv_table_set_cell_value(infusion_monitoring_table, 3, 1, "Not started");
-  lv_table_set_cell_value(infusion_monitoring_table, 4, 1, "Not started");
-
+    /*check for whether all inputs are filled*/
+    allInputs = validate_keypad_inputs();
+  }
 }
 
-static void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
-  // NOTE: do not print anything inside this function
-  uint32_t key = keypad.getKey();
+static void wifibox_event_cb(lv_event_t * event) {
+  lv_event_code_t code = lv_event_get_code(event);
+  lv_obj_t * confirm_box = lv_event_get_current_target(event);
+
+  if(code == LV_EVENT_VALUE_CHANGED && enterClicked) { /*is sent by the buttons if one of them is clicked*/
+    const char * txt = lv_msgbox_get_active_btn_text(confirm_box);  /*get the button value*/
+    if(txt){
+      /*close the msgbox*/
+      lv_msgbox_close(confirm_box); 
+      lv_group_focus_freeze(grp, false);
+      inMsgbox = false;
+      /*go back to input screen*/
+      lv_disp_load_scr(screenMain);
+      /*start from looking at top VTBI input field*/
+      lv_group_focus_obj(lv_obj_get_child(screenMain, VTBI_INDEX));
+
+      if(txt == "No") {
+        /*not to enable wifi*/
+        wifiStart = false;
+      } else if (txt == "Yes") {
+        /*start wifi & web page enable*/
+        wifiStart = true;
+      } else {/*I don't know how to go to this condition*/}
+    }
+  }
+}
+
+static void confirmbox_event_cb(lv_event_t * event) {
+  lv_event_code_t code = lv_event_get_code(event);
+  lv_obj_t * confirm_box = lv_event_get_current_target(event);
+
+  if(code == LV_EVENT_VALUE_CHANGED && enterClicked) { /*is sent by the buttons if one of them is clicked*/
+    const char * txt = lv_msgbox_get_active_btn_text(confirm_box);  /*get the button value*/
+    if(txt){
+      /*close the msgbox*/
+      lv_msgbox_close(confirm_box); 
+      lv_group_focus_freeze(grp, false);
+      inMsgbox = false;
+
+      /*set the background color back, not suggested to do by remove style*/
+      // lv_obj_set_style_bg_opa(screenMain, LV_OPA_100, 0);
+      // lv_obj_set_style_bg_color(screenMain, lv_color_hex(0xacacac), LV_PART_MAIN);
+
+      if(txt == "Back") {
+        /*go back to input screen*/
+        lv_group_focus_obj(screenMain);
+        lv_obj_scroll_to(screenMain, 0, 0, LV_ANIM_OFF);
+      } else if (txt == "Yes") {
+        Serial.print(txt);
+        /*Submit verified inputs to autoControl*/
+        targetVTBI = keypadInput[0];
+        targetTotalTime = keypadInput[1]*3600 + keypadInput[2]*60;
+        // targetDripRate = targetVTBI * dropFactor / (keypadInput[1]*60 + keypadInput[2]);
+        targetNumDrops = targetVTBI * dropFactor;
+        Serial.print(", drop factor=");
+        /*go to monitor screen, and start infusion*/
+        lv_disp_load_scr(screenMonitor);
+        keypadInfusionConfirmed = true;
+        screenState = false;
+        /*avoid carshing. In fact, it is better to reduce the workload on INT*/
+        Serial.println(dropFactor);
+        vTaskDelay(100);
+      } else {/*I don't know how to go to this condition*/}
+    }
+  }
+}
+
+void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
+  uint8_t key = keypad.getKey();
   if(key) {
+    Serial.write(key);
     if (key == 'E') {
       data->key = LV_KEY_ENTER;
+      enterClicked = true;
     }
     else if (key == 'C') {
-      data->key = LV_KEY_ESC;
+      // data->key = LV_KEY_ESC;
+      // software reset:
+      esp_restart();
     }
     else if (key == 'L') {
-      data->key = LV_KEY_LEFT;
+      if (inMsgbox) {
+        data->key = LV_KEY_LEFT;
+      } else {
+        data->key = LV_KEY_PREV;
+      }
     }
     else if (key == 'R') {
-      data->key = LV_KEY_RIGHT;
+      if (inMsgbox) {
+        data->key = LV_KEY_RIGHT;
+      } else {
+        data->key = LV_KEY_NEXT;
+      }
     }
     else if (key == 'U') {
-      data->key = LV_KEY_PREV;
+      buttonState = buttonState_t::UP;
     }
     else if (key == 'D') {
-      data->key = LV_KEY_NEXT;
+      buttonState = buttonState_t::DOWN;
     }
     else if (key == '#') {
       data->key = LV_KEY_BACKSPACE;
     }
     else if (key == '*') {
-      data->key = LV_KEY_DEL;
+      buttonState = buttonState_t::ENTER;
     }
     else if (key == 'F') {
-      // TODO: toggle between input screen and monitoring screen
+      /*convert the screen*/
+      if (screenState) {
+        lv_disp_load_scr(screenMonitor);
+      } else {
+        lv_disp_load_scr(screenMain);
+      }
+      screenState = !screenState;
     }
     else if (key == 'G') {
-      // check for validity of inputs
-      // if valid, set the flag variable to true
-      // the variable will be checked in motorControlISR() timer interrupt
-      if (keypad_inputs_valid) {
-
-        /*Switch to the monitoring screen*/
-        if (monitor_scr == NULL) {
-          monitor_scr = lv_obj_create(NULL);
-          lv_scr_load(monitor_scr);
-          monitor_screen();
+      /*not to pop up the message box if input missed or in monitor screen*/
+      /*also avoid pop up the msgbox twice*/
+      if (allInputs && screenState && !inMsgbox) {
+        if ((targetDripRate >= 20) && (targetDripRate <= 400)) {
+          /*pop up a message box to confirm*/
+          confirm_msgbox();
+        } else {
+          /*pop up a message box to alarm the input is so strange*/
+          remind_input_msgbox();
         }
-
-        // TODO: check how to properly delete unused screen?
-        if (input_scr != NULL) {
-          lv_obj_del(input_scr);
-          input_scr = NULL;
-        }
-
-        /*Submit verified inputs to autoControl*/
-        targetVTBI = (unsigned int)keypad_VTBI;
-        targetDripRate = (unsigned int)keypad_targetDripRate; 
-        targetTotalTime = keypad_totalTimeHour * 3600 +
-                          keypad_totalTimeMinute * 60;
-        dropFactor = (unsigned int )keypad_dropFactor; 
-        targetNumDrops = targetVTBI / (1.0f / keypad_dropFactor); // TODO: use rounded function
-
-        /*Finally, send the signal to start autoControl*/
-        keypadInfusionConfirmed = true;
+      } else {
+        /*pop up a message box to ask for inputs*/
+        remind_input_msgbox();
       }
     }
-    else if (key == 'C') {  // when ESC is pressed
-      // TODO: depending on context, e.g. pause infusion
-    }
     else {
-      data->key = key;// possible BUG due to conversion from char to uint32_t
+      data->key = key;  /*should not enter here*/
     }
 
     data->state = LV_INDEV_STATE_PRESSED;
   }
-  else {
+  else if (keypad.getState() == 0) {  // when keypad pressing is released
     data->state = LV_INDEV_STATE_RELEASED;
+    enterClicked = false;
+    // stop the motor control
+    if (buttonState != buttonState_t::IDLE) {
+      buttonState = buttonState_t::IDLE;
+    }
   }
 }
 
-// #if LV_USE_LOG != 0
-// /* Serial debugging */
-// void my_print( lv_log_level_t level, const char * buf )
-// {
-//     LV_UNUSED(level);
-//     Serial.flush();
-// }
-// #endif
-
-// Check if all inputs are provided,
-// and satisfy the requirements
-bool validate_keypad_inputs() {
-  if ((keypad_VTBI != -1) &&
-      (keypad_totalTimeHour != -1) &&
-      (keypad_totalTimeMinute != -1) &&
-      (keypad_dropFactor != -1)) {
-    
-    // TODO: some checks to verify that inputs are valid
-
-    keypad_targetDripRate = calculate_drip_rate(
-        keypad_VTBI, keypad_totalTimeHour * 60 + keypad_totalTimeMinute,
-        keypad_dropFactor);
-
-    // Update text on the display
-    char buf[20];
-    sprintf(buf, "%d", keypad_targetDripRate);
-    lv_obj_set_style_text_color(derivedDripRateValue_label, lv_color_hex(0x40ce00), LV_PART_MAIN);
-    lv_label_set_text(derivedDripRateValue_label, buf);
-
-    return true;
-  }
-  else {
-    lv_obj_set_style_text_color(derivedDripRateValue_label, lv_color_hex(0xcc0000), LV_PART_MAIN);
-    lv_label_set_text(derivedDripRateValue_label, "Please fill in all inputs");
-    return false;
-  }
-}
-
-/**
- * Calculate the drip rate based on the inputs, rounded to the nearest integer
- * @param volume Volume to be infused, in mL
- * @param time Time of infusion, in minutes
- * @param dropFactor Drop factor of the tubbing set
- * @return Calculated drip rate, in drops/min
- */
-int32_t calculate_drip_rate(int32_t volume, int32_t time, int32_t dropFactor) {
-  int32_t numerator = volume * dropFactor;
-  int32_t denominator = time;
-
-  return (numerator + denominator / 2) / denominator;
-}
-
-/**
- * The callback used to update the infusion monitoring data
- * @param timer The pointer to the calling LVGL timer 
- */
+/*update the data on display every 500ms*/
 void infusion_monitoring_cb(lv_timer_t * timer) {
-
-  if (infusion_monitoring_table != NULL) {
-    /*Update LVGL table cells*/
-    char numDrops_buf[20];
-    sprintf(numDrops_buf, "%d", *(infusion_monitoring_data_handle.numDrops_p));
-    lv_table_set_cell_value(infusion_monitoring_table, 0, 1, numDrops_buf);
-
-    char dripRate_buf[20];
-    sprintf(dripRate_buf, "%d", *(infusion_monitoring_data_handle.dripRate_p));
-    lv_table_set_cell_value(infusion_monitoring_table, 1, 1, dripRate_buf);
-
-    // since `infusedVolume_x100` is 100 times larger than actual value in mL,
-    // we need to divide by 100 before display
-    char infusedVolume_buf[20];
-    sprintf(infusedVolume_buf, "%.2f", *(infusion_monitoring_data_handle.infusedVolume_p) / 100.0f);
-    lv_table_set_cell_value(infusion_monitoring_table, 2, 1, infusedVolume_buf);
-
-    char infusedTime_buf[20];
-    // Convert the infused time from seconds to HH:MM:SS format
-    unsigned long sec;
-    uint16_t h, m, s;
-    sec = *(infusion_monitoring_data_handle.infusedTime_p);
-    h = sec / 3600;
-    m = (sec - (h * 3600)) / 60;
-    s = sec - (h * 3600) - (m * 60);
-
-    sprintf(infusedTime_buf, "%02d:%02d:%02d", h, m, s);
-    lv_table_set_cell_value(infusion_monitoring_table, 3, 1, infusedTime_buf);
-
-    const char *infusionState_buf =
-        getInfusionState(*(infusion_monitoring_data_handle.infusionState_p));
-    lv_table_set_cell_value(infusion_monitoring_table, 4, 1, infusionState_buf);
+  if (infusionState == infusionState_t::NOT_STARTED) {
+    /*do nothing here, stop the screen*/
+  } else {
+    lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 0, 1, "%d", numDrops);
+    lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 1, 1, "%d", dripRate);
+    lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 2, 1, "%d.%02d", infusedVolume_x100/100, infusedVolume_x100%100);
+    lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 3, 1, "%02d:%02d:%02d", infusedTime/3600, infusedTime%3600/60, infusedTime%60);
+    lv_table_set_cell_value(lv_obj_get_child(screenMonitor, 0), 4, 1, getInfusionState(infusionState));
   }
+}
+
+/*it is decrecated*/
+void closeWifiBox() {
+  // static pthread_mutex_t lvgl_mutex;
+  // pthread_mutex_lock(&lvgl_mutex);
+  vTaskDelay(50);
+  lv_msgbox_close(lv_obj_get_child(screenWifi, 0)); /*close wifi box*/
+  vTaskDelay(50);
+  // lv_obj_del(screenWifi);      /*cannot delete any object*/
+  lv_disp_load_scr(screenMain);   /*go back to input screen*/
+  lv_group_focus_obj(lv_obj_get_child(screenMain, VTBI_INDEX)); /*focus to input field*/
+  enterClicked = false;
+  inMsgbox = false;
+  // pthread_mutex_unlock(&lvgl_mutex);
+  vTaskDelay(50);                 /*avoid crashing, 30 should be enough*/
+}
+
+bool validate_keypad_inputs() {
+  bool state = true;
+  for (int i=0; i<3; i++){
+    if (keypadInput[i] == -1) {
+      state = false;
+    }
+  }
+  if (dropFactor > 100) {
+    state = false;
+  }
+
+  if (state) {
+    /*Submit verified inputs to autoControl*/
+    // targetVTBI = keypadInput[0];
+    // targetTotalTime = keypadInput[1]*3600 + keypadInput[2]*60;
+    targetDripRate = keypadInput[0] * dropFactor / (keypadInput[1]*60 + keypadInput[2]);
+    // targetNumDrops = targetVTBI / dropFactor;
+
+    /*set the text on top right widget*/
+    lv_obj_set_style_text_color(lv_obj_get_child(lv_obj_get_child(screenMain, 5), 1), 
+                                lv_color_hex(0x40ce00), LV_PART_MAIN);
+    lv_label_set_text_fmt(lv_obj_get_child(lv_obj_get_child(screenMain, 5), 1), 
+                          "Drip Rate: %d", targetDripRate);
+  }
+  return state;
 }

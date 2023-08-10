@@ -25,6 +25,7 @@ const infusionState_t = Object.freeze({
     NOT_STARTED: "NOT_STARTED",
     STARTED: "STARTED",
     IN_PROGRESS: "IN_PROGRESS",
+    PAUSED: "PAUSED",
     ALARM_COMPLETED: "ALARM_COMPLETED",
     ALARM_STOPPED: "ALARM_STOPPED",
     ALARM_VOLUME_EXCEEDED: "ALARM_VOLUME_EXCEEDED"
@@ -104,6 +105,13 @@ function onWsMessage(event) {
         else if (infusionState === infusionState_t.IN_PROGRESS) {
             document.getElementById("infusion_state_value").style.color = "blue"
             document.getElementById("infusion_state_value").innerHTML = "In progress";
+
+            document.getElementById("download_infusion_data_btn").disabled = true;
+        }
+
+        else if (infusionState === infusionState_t.PAUSED) {
+            document.getElementById("infusion_state_value").style.color = "blue"
+            document.getElementById("infusion_state_value").innerHTML = "paused";
 
             document.getElementById("download_infusion_data_btn").disabled = true;
         }
