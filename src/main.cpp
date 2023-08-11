@@ -389,7 +389,7 @@ void IRAM_ATTR motorControlISR() {
       homingCompleted = false;
       enableAutoControl = false;
       enableLogging = false;
-      firstDropDetected = false;
+      // firstDropDetected = false;
 
       // stop droping and mark as complete
       infusionState = infusionState_t::ALARM_COMPLETED;

@@ -37,3 +37,4 @@
     - when placing the DR calculation to EXT INT, the time of calculation have not change much but the coverage reduce a lot, which helps to improve the program efficiency, with the same outcomes.
     - the reduction mainly comes from remove the redundant & unnecessary update (when infusion not started yet, and repeated calculation)
     - PROBLEM: one other extra problem discoverd is: complete by `*` cause the infusion state cannot go back to not started. it should because of `firstDropDected` is reset to false, which blocks to meet the condition to do no drop 20s
+    - fixed by keeping the `firstDropDected` as true
