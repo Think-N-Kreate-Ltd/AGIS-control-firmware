@@ -3,6 +3,9 @@
 
 #include <AGIS_Types.h>
 
+extern volatile int testCount;
+extern volatile long testTime;
+
 extern volatile unsigned int numDrops;
 extern volatile unsigned int dripRate;
 extern volatile unsigned int infusedVolume_x100;

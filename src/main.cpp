@@ -33,6 +33,9 @@
 
 TaskHandle_t xHandle = NULL;
 
+volatile int testCount = 0;
+volatile long testTime = 0;
+
 #define DROP_SENSOR_PIN  36 // input pin for geting output from sensor
 #define SENSOR_LED_PIN   35 // output pin to sensor for toggling LED
 #define MOTOR_CTRL_PIN_1 15 // Motorl Control Board PWM 1
@@ -174,6 +177,13 @@ void IRAM_ATTR dropSensorISR() {
       timeBtw2Drops = millis() - lastDropTime;
       lastDropTime = millis();
       numDrops++;
+      // get latest value of dripRate
+      // explain: dripRate = 60 seconds / time between 2 consecutive drops
+      // TODO: this needs to be done in timer interrupt (because of no drop 20s only?)
+      int rectime = micros();
+      dripRate = 60000 / timeBtw2Drops;
+      testTime += (micros() - rectime);
+      testCount++;
 
       // NOTE: Since we cannot do floating point calculation in interrupt,
       // we multiply the actual infused volume by 100 times to perform the integer calculation
@@ -224,6 +234,7 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
       // reset these values
       firstDropDetected = false;
       timeBtw2Drops = UINT_MAX;
+      dripRate = 0;
 
       if ((infusionState == infusionState_t::ALARM_COMPLETED) || 
           (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED) || 
@@ -246,10 +257,13 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
     timeWithNoDrop = millis();
   }
 
-  // get latest value of dripRate
-  // explain: dripRate = 60 seconds / time between 2 consecutive drops
-  // NOTE: this needs to be done in timer interrupt
-  dripRate = 60000 / timeBtw2Drops;
+  // // get latest value of dripRate
+  // // explain: dripRate = 60 seconds / time between 2 consecutive drops
+  // // TODO: this needs to be done in timer interrupt (because of no drop 20s only?)
+  // int rectime = micros();
+  // dripRate = 60000 / timeBtw2Drops;
+  // testTime += (micros() - rectime);
+  // testCount++;
 
   // get infusion time so far:
   if ((infusionState != infusionState_t::ALARM_COMPLETED) && firstDropDetected) {
