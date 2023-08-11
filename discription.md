@@ -38,3 +38,13 @@
     - the reduction mainly comes from remove the redundant & unnecessary update (when infusion not started yet, and repeated calculation)
     - PROBLEM: one other extra problem discoverd is: complete by `*` cause the infusion state cannot go back to not started. it should because of `firstDropDected` is reset to false, which blocks to meet the condition to do no drop 20s
     - fixed by keeping the `firstDropDected` as true
+
+2. ## RAM usage of `wm`
+    - only a task will use it but it is in the global
+    - also, it can also be deleted after wifi enabled
+    - both duration and scope is over used
+    - place at global: 
+        - RAM: 115904(35.4%), Flash: 1306653(39.1%)
+    - place at the used task:
+        - RAM: 115288(35.2%), Flash: 1306721(39.1%)
+    - we can clearly see that it is better to place it at task

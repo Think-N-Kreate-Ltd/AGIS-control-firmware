@@ -88,11 +88,6 @@ bool homingCompleted = false;   // true when lower limit switch is activated
 #define AUTO_CONTROL_TOTAL_TIME_NORMAL  1000  // 1000ms
 #define DROP_DEBOUNCE_TIME       10   // if two pulses are generated within 10ms, it must be detected as 1 drop
 
-// WiFiManager, Local intialization. Once its business is done, there is no need
-// to keep it around
-// TODO: try to move to setup
-WiFiManager wm;
-
 // create AsyncWebServer object on port 80
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
@@ -749,6 +744,8 @@ void enableWifi(void * arg) {
     vTaskDelay(2000);
     ESP_LOGD(WIFI_TAG, "waiting, or not enabled");
   }
+  // WiFiManager, Local intialization. Once its business is done, there is no need to keep it around
+  WiFiManager wm;
   
   // connect wifi
   WiFi.mode(WIFI_STA);  // wifi station mode
@@ -847,7 +844,7 @@ void otherLittleWorks(void * arg) {
       if (digitalRead(SENSOR_LED_PIN) == LOW) {
         digitalWrite(SENSOR_LED_PIN, HIGH);  // reversed because the LED is pull up
       }
-      
+
       vTaskDelay(50);
     }
   }
