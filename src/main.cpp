@@ -3,8 +3,8 @@
   go to http://<IPAddress>/update for OTA update
   upload firmware.bin for main, spiffs.bin for SPIFFS files
   GPIO36 -> EXT interrupt for reading sensor data
-  timer0 -> INT interrupt for read sensor & time measure
-  timer1 -> INT interrupt for auto control
+  timer0 -> INT interrupt for auto control
+  timer1 -> INT interrupt for motor control by keypad
 
   Problem will occur when homing and click "Set and Run" at the same time
 */
@@ -28,11 +28,12 @@
 #include <AGIS_Display.h>
 #include <AGIS_INA219.h>
 #include <AGIS_SD.h>
-// #include <AGIS_Logging.h>
 #include <esp_log.h>
 
+// NOTE: it is used for deleting task, but task delete is decrecated
 TaskHandle_t xHandle = NULL;
 
+// var use for testing
 volatile int testCount = 0;
 volatile long testTime = 0;
 
@@ -42,12 +43,6 @@ volatile long testTime = 0;
 #define MOTOR_CTRL_PIN_2 16 // Motorl Control Board PWM 2
 #define PWM_PIN          4  // input pin for the potentiometer
 
-// motorState_t motorState = motorState_t::OFF;
-buttonState_t buttonState = buttonState_t::IDLE;
-
-// Initially, infusionState is NOT_STARTED
-infusionState_t infusionState = infusionState_t::NOT_STARTED;
-
 // var for EXT interrupt (sensor)
 volatile unsigned int numDrops = 0;       // for counting the number of drops within 15s
 volatile unsigned int dripRate = 0;       // for calculating the drip rate
@@ -56,32 +51,32 @@ volatile char turnOnLed = 'F';            // state for LED, 'T'=true(should blin
 volatile unsigned int dripRatePeak = 1;   // drip rate at the position when 1st drop is detected
 uint8_t dripFactor[4] = {10, 15, 20, 60}; // an array to store the option of drip factor
 
-// var for timer1 interrupt
+// var for component debouncing
+ezButton limitSwitch_Up(37);   // create ezButton object that attach to pin 37;
+ezButton limitSwitch_Down(38); // create ezButton object that attach to pin 38;
+ezButton dropSensor(DROP_SENSOR_PIN);     // create ezButton object that attach to pin 36;
+// var for reading PWM value, for controlling motor
+volatile int PWMValue = 0; // PWM value to control the speed of motor
+
+// var for showing the input/target of auto control
+unsigned int targetDripRate = 0;     // the DR that the infusion should be
+unsigned int targetVTBI = 0;         // target total volume to be infused
+unsigned int targetTotalTime = 0;    // the time that the infusion should spend
+unsigned int targetNumDrops = UINT_MAX; // the number of drops that the infusion should give
+unsigned int dropFactor = UINT_MAX;  // init-ly at max to avoid divide by zero, unit: drops/mL
+
+// var for tracking the infusion
 volatile unsigned int infusedVolume_x100 = 0;  // 100 times larger than actual value, unit: mL
 volatile unsigned int infusedTime = 0;         // unit: seconds
 volatile unsigned long infusionStartTime = 0;
 
-// var for timer2 interrupt
-volatile int PWMValue = 0; // PWM value to control the speed of motor
-
-// ezButton button_UP(3);         // create ezButton object that attach to pin 3;
-// ezButton button_ENTER(8);      // create ezButton object that attach to pin 8;
-// ezButton button_DOWN(46);      // create ezButton object that attach to pin 46;
-ezButton limitSwitch_Up(37);   // create ezButton object that attach to pin 37;
-ezButton limitSwitch_Down(38); // create ezButton object that attach to pin 38;
-ezButton dropSensor(DROP_SENSOR_PIN);     // create ezButton object that attach to pin 36;
-
-// state that shows the condition of auto control
-unsigned int targetDripRate = 0; 
-unsigned int targetVTBI = 0;   // target total volume to be infused
-unsigned int targetTotalTime = 0;   // target total time to be infused
-unsigned int targetNumDrops = UINT_MAX;    // used for stopping infusion when complete
-unsigned int dropFactor = UINT_MAX;  // to avoid divide by zero, unit: drops/mL
-
+// main state that check the infusion and will pass between files
 volatile bool enableAutoControl = false; // to enable AutoControl() or not
-
 volatile bool enableLogging = false;     // true when (start) doing logging
 volatile bool firstDropDetected = false; // to check when we receive the 1st drop
+buttonState_t buttonState = buttonState_t::IDLE;
+infusionState_t infusionState = infusionState_t::NOT_STARTED;
+// TODO: refactor this var
 bool homingCompleted = false;   // true when lower limit switch is activated
 
 // To reduce the sensitive of autoControlISR()
@@ -95,16 +90,13 @@ bool homingCompleted = false;   // true when lower limit switch is activated
 
 // WiFiManager, Local intialization. Once its business is done, there is no need
 // to keep it around
+// TODO: try to move to setup
 WiFiManager wm;
 
 // create AsyncWebServer object on port 80
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 // TODO: use websocket for communication
-
-// REPLACE WITH YOUR NETWORK CREDENTIALS  // for hard-coding the wifi
-// const char* ssid = "REPLACE_WITH_YOUR_SSID";
-// const char* password = "REPLACE_WITH_YOUR_PASSWORD";
 
 // Function prototypes
 void motorOnUp();
@@ -169,6 +161,7 @@ void IRAM_ATTR dropSensorISR() {
             maybe add a new state call `paused` which use for enter key would be better*/
         }
       }
+
       if (infusionState == infusionState_t::NOT_STARTED) {
         infusionState = infusionState_t::STARTED; // droping has started
       }
@@ -177,13 +170,7 @@ void IRAM_ATTR dropSensorISR() {
       timeBtw2Drops = millis() - lastDropTime;
       lastDropTime = millis();
       numDrops++;
-      // get latest value of dripRate
-      // explain: dripRate = 60 seconds / time between 2 consecutive drops
-      // TODO: this needs to be done in timer interrupt (because of no drop 20s only?)
-      int rectime = micros();
       dripRate = 60000 / timeBtw2Drops;
-      testTime += (micros() - rectime);
-      testCount++;
 
       // NOTE: Since we cannot do floating point calculation in interrupt,
       // we multiply the actual infused volume by 100 times to perform the integer calculation
@@ -199,7 +186,7 @@ void IRAM_ATTR dropSensorISR() {
       if ((numDrops >= targetNumDrops) && (numDrops <= (targetNumDrops+1))) {
         infusionState = infusionState_t::ALARM_COMPLETED;
 
-        // disable autoControlISR()
+        // disable auto ctrl
         enableAutoControl = false;
 
       } else if ((infusionState == infusionState_t::ALARM_COMPLETED) && homingCompleted) {
@@ -212,7 +199,7 @@ void IRAM_ATTR dropSensorISR() {
       if (firstDropDetected) {
         dripRatePeak = max(dripRatePeak, dripRate);
       }
-    } else if (dropSensorState == 0) {
+    } else if (dropSensorState == 0) {  // TODO: this condition checking seems useless (just use else is enough)
       turnOnLed = 'W'; // send that the drop leave the sensor region
     }
   } 
@@ -227,7 +214,7 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
 
   // Checking for no drop for 20s
   static int timeWithNoDrop = millis();
-  int dropSensorState = dropSensor.getStateRaw();
+  int dropSensorState = dropSensor.getStateRaw(); // TODO: test whether it is redundant
   if ((dropSensorState == 0) && firstDropDetected) { 
   // so that the time measurement will start after detect drop
     if ((millis() - timeWithNoDrop) >= 20000) { 
@@ -257,59 +244,44 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
     timeWithNoDrop = millis();
   }
 
-  // // get latest value of dripRate
-  // // explain: dripRate = 60 seconds / time between 2 consecutive drops
-  // // TODO: this needs to be done in timer interrupt (because of no drop 20s only?)
-  // int rectime = micros();
-  // dripRate = 60000 / timeBtw2Drops;
-  // testTime += (micros() - rectime);
-  // testCount++;
-
   // get infusion time so far:
+  // TODO: seems redundant
   if ((infusionState != infusionState_t::ALARM_COMPLETED) && firstDropDetected) {
     infusedTime = (millis() - infusionStartTime) / 1000;  // in seconds
-  } 
-  // else if ((infusionState != infusionState_t::IN_PROGRESS) && !firstDropDetected) {
-  //   // reset the infused time before the second infusion
-  //   infusionStartTime = millis();
-  // }
-
-  // Only run autoControlISR() when the following conditions satisfy:
-  //   1. button_ENTER is pressed, or command is sent from website
-  //   3. targetDripRate is set on the website by user
-  //   4. infusion is not completed, i.e. infusionState != infusionState_t::ALARM_COMPLETED
-
-  if (firstDropDetected) {
-    // on for `motorOnTime` ms, off for `motorInterval` ms
-    motorOnPeriod = (millis()-recordTime) <= motorOnTime;
-  }
-  else {
-    motorOnPeriod = true;  // no limitation on motor on period
   }
 
+  // TODO: seems redundant to check many times, can move to EXT INT?
   if (enableAutoControl && firstDropDetected) {
     // change the state from stopped back to in pregress
     infusionState = infusionState_t::IN_PROGRESS;
   }
 
+  // belows are the auto ctrl of the motor
+
+  // set the value of `motorOnPeriod`
+  if (firstDropDetected) {
+    // on for `motorOnTime` ms, off for `motorInterval` ms
+    motorOnPeriod = (millis()-recordTime) <= motorOnTime;
+  } else {  // before the first drop, move quickly to find the init position
+    motorOnPeriod = true;  // move freely, no interval
+  }
+
   if (enableAutoControl && motorOnPeriod && (targetDripRate != 0) &&
       (infusionState != infusionState_t::ALARM_COMPLETED)) {
-
     // if currently SLOWER than set value -> speed up, i.e. move up
     if (dripRate < (targetDripRate - AUTO_CONTROL_ALLOW_RANGE)) {
       motorOnUp();
     }
-
     // if currently FASTER than set value -> slow down, i.e. move down
     else if (dripRate > (targetDripRate + AUTO_CONTROL_ALLOW_RANGE)) {
       motorOnDown();
     }
-
     // otherwise, current drip rate is in allowed range -> stop motor
     else {
       motorOff();
     }
-  } else {
+  } else {  
+    // TODO: check that if the condition before is really in needed, may move to task?
     if ((infusionState == infusionState_t::ALARM_COMPLETED) && !homingCompleted) {
     // homing the roller clamp, i.e. move it down to completely closed position
       homingRollerClamp();
@@ -319,7 +291,7 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
     }
   }
 
-  // reset this for the next autoControlISR()
+  // find the interval to next motor period
   int difference = abs(long(dripRate - targetDripRate));
   if (difference <= 10) {
     motorInterval = AUTO_CONTROL_TOTAL_TIME_NORMAL;
@@ -340,11 +312,6 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
 }
 
 void IRAM_ATTR motorControlISR() {
-  // Read buttons and switches state
-  // button_UP.loop();        // MUST call the loop() function first
-  // button_ENTER.loop();     // MUST call the loop() function first
-  // button_DOWN.loop();      // MUST call the loop() function first
-
   static bool pressing = false;  // check for the key is pressing or not
 
   // Use keypad `U` to manually move up
@@ -423,17 +390,17 @@ void setup() {
   attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
 
   // setup for timer0
-  Timer0_cfg = timerBegin(0, 800, true);    // prescaler = 800
-  timerAttachInterrupt(Timer0_cfg, &motorControlISR,
-                       false);             // call the function motorcontrol()
-  timerAlarmWrite(Timer0_cfg, 1000, true); // time = 800*1000/80,000,000 = 10ms
+  Timer0_cfg = timerBegin(0, 400, true);    // prescaler = 400
+  timerAttachInterrupt(Timer0_cfg, &autoControlISR,
+                       false);             // call the function autoControlISR()
+  timerAlarmWrite(Timer0_cfg, 1000, true); // time = 400*1000/80,000,000 = 5ms
   timerAlarmEnable(Timer0_cfg);            // start the interrupt
 
   // setup for timer1
-  Timer1_cfg = timerBegin(1, 400, true);    // Prescaler = 400
-  timerAttachInterrupt(Timer1_cfg, &autoControlISR,
-                       false);             // call the function autoControlISR()
-  timerAlarmWrite(Timer1_cfg, 1000, true); // Time = 400*1000/80,000,000 = 5ms
+  Timer1_cfg = timerBegin(1, 800, true);    // Prescaler = 800
+  timerAttachInterrupt(Timer1_cfg, &motorControlISR,
+                       false);             // call the function motorcontrol()
+  timerAlarmWrite(Timer1_cfg, 1000, true); // Time = 800*1000/80,000,000 = 10ms
   timerAlarmEnable(Timer1_cfg);            // start the interrupt
 
   /*Initialize TFT display, LVGL*/
@@ -502,14 +469,7 @@ void setup() {
   }
 }
 
-void loop() {
-  // DEBUG:
-  // Serial.printf(
-  //     "dripRate: %u \ttarget_drip_rate: %u \tmotor_state: %s\n",
-  //     dripRate, targetDripRate, getMotorState(motorState));
-
-  // Serial.printf("%s\n", getInfusionState(infusionState));
-}
+void loop() {}
 
 void motorOnUp() {
   limitSwitch_Up.loop();   // MUST call the loop() function first
@@ -520,8 +480,6 @@ void motorOnUp() {
 
     analogWrite(MOTOR_CTRL_PIN_1, (PWMValue / 16)); // PWMValue: 0->4095
     analogWrite(MOTOR_CTRL_PIN_2, 0);
-
-    // motorState = motorState_t::UP;
   }
   else { // touched
     motorOff();
@@ -537,8 +495,6 @@ void motorOnDown() {
 
     analogWrite(MOTOR_CTRL_PIN_2, (PWMValue / 16)); // PWMValue: 0->4095
     analogWrite(MOTOR_CTRL_PIN_1, 0);
-
-    // motorState = motorState_t::DOWN;
   }
   else { // touched
     motorOff();
@@ -548,10 +504,9 @@ void motorOnDown() {
 void motorOff() {
   analogWrite(MOTOR_CTRL_PIN_1, 0);
   analogWrite(MOTOR_CTRL_PIN_2, 0);
-
-  // motorState = motorState_t::OFF;
 }
 
+// TODO: remove it(?)
 void alert(String x) {}
 
 void initWebSocket() {
@@ -735,15 +690,6 @@ void loggingData(void * parameter) {
       useSdCard(false);
     }
 
-    // while ((infusionState == infusionState_t::ALARM_COMPLETED) && !finishLogging) {
-    //   // free the CPU when finish infusion
-    //   vTaskDelay(500);
-    // }
-    // while ((infusionState == infusionState_t::NOT_STARTED) && !enableLogging) {
-    //   // free the CPU when reset the infusion
-    //   vTaskDelay(500);
-    // }
-
     vTaskDelay(500);
   }
 }
@@ -796,6 +742,7 @@ void oledDisplay(void * arg) {
   }
 }
 
+// TODO: see how to play with it
 void enableWifi(void * arg) {
   while (!wifiStart) {
     // waiting for response, for loop forever if no enable wifi
@@ -842,13 +789,7 @@ void enableWifi(void * arg) {
     request->send(LittleFS, "/index.html", String(), false);
   });
 
-  // server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-  //   request->send(SD, "/web_server/index.html", String(), false);
-  // });
-
   server.serveStatic("/", LittleFS, "/");
-
-  // server.serveStatic("/", SD, "/web_server/");
 
   // force download file
   server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -906,12 +847,7 @@ void otherLittleWorks(void * arg) {
       if (digitalRead(SENSOR_LED_PIN) == LOW) {
         digitalWrite(SENSOR_LED_PIN, HIGH);  // reversed because the LED is pull up
       }
-      // NOTE: this delay may block the true signal. thus, a waiting state is added to ensure the LED will blink
-      // we can change the state to false only when blinking is finished, 
-      // however, blink will miss if another drop is sensed when LED is ON
-      // we can also remove or reduce the delay to a extreme small number to remove the waiting state
-      // however, the program will do this task in an extreme tiny interval
-      // TODO: use a function to let the program go back to check state again(?)
+      
       vTaskDelay(50);
     }
   }

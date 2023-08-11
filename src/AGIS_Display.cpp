@@ -514,6 +514,7 @@ void infusion_monitoring_cb(lv_timer_t * timer) {
   if (infusionState == infusionState_t::NOT_STARTED) {
     /*do nothing here, stop the screen*/
   } else {
+    // lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 0, 1, "%d, %d", testCount, testTime);
     lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 0, 1, "%d", numDrops);
     lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 1, 1, "%d", dripRate);
     lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 2, 1, "%d.%02d", infusedVolume_x100/100, infusedVolume_x100%100);

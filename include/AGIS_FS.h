@@ -1,6 +1,8 @@
 #ifndef B14E07C5_5834_48DE_94E2_DBA019FA913A
 #define B14E07C5_5834_48DE_94E2_DBA019FA913A
 
+/*this header is decrecated*/
+
 #include <LittleFS.h>
 #include "FS.h"
 #include "SD.h"

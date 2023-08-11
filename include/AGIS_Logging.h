@@ -1,6 +1,8 @@
 #ifndef A1C4896B_56AC_4143_8399_314B2B770C3B
 #define A1C4896B_56AC_4143_8399_314B2B770C3B
 
+/*this header is decrecated*/
+
 // static const char* DATA_LOGGING_TAG = "DATA_LOGGING";
 // static const char* KEYPAD_TAG = "KEYPAD";
 // static const char* WEBSOCKET_TAG = "WEBSOCKET";

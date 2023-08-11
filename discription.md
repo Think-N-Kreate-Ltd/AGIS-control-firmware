@@ -1,7 +1,7 @@
     This branch is used for checking the statement & condition coverage
     Also, will make a quick fix and mark them down here
 
-1. ## the `dripRate` (drip rate, DR) calaulation seems doing too much and redundant
+1. ## the `dripRate` (drip rate, DR) calculation seems doing too much and redundant
     - measure the total time and count of calling DR calculation
     - under below condition
         - drip factor = 20 (in normal case)
@@ -16,9 +16,9 @@
         - count from 43XX to 65387 (~61000), XXXX to 61642(micros)
         - time = 5min
         - volume = 72.95 (drops = 1459)
-        - by calaulation, we have: 0.94ms/loop
+        - by calculation, we have: 0.94ms/loop
     - it is claerly to see that it calculates DR too many times, which is redundant. As a result, the time spend on calculation is also wasted
-    - on the other hand, some there are also some unnessary calaulation, such as when infusion is not started and completed.
+    - on the other hand, some there are also some unnessary calculation, such as when infusion is not started and completed.
     - one other extra problem discoverd is: complete by `*` cause the infusion state cannot go back to not started
     - ## solve:
     - move the DR calculation to EXT INT, to only do calculation when sense a drop
