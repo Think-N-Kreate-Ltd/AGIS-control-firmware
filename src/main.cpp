@@ -47,7 +47,6 @@ volatile long testTime = 0;
 volatile unsigned int numDrops = 0;       // for counting the number of drops within 15s
 volatile unsigned int dripRate = 0;       // for calculating the drip rate
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
-volatile char turnOnLed = 'F';            // state for LED, 'T'=true(should blink), 'F'=false(should dark), 'W'=waiting(not blinked yet, but drop leave the sensor region)
 volatile unsigned int dripRatePeak = 1;   // drip rate at the position when 1st drop is detected
 uint8_t dripFactor[4] = {10, 15, 20, 60}; // an array to store the option of drip factor
 
@@ -71,6 +70,7 @@ volatile unsigned int infusedTime = 0;         // unit: seconds
 volatile unsigned long infusionStartTime = 0;
 
 // main state that check the infusion and will pass between files
+volatile char dropState = 'F';           // stating the condition of drop, 'T'=true(have drop currently), 'F'=false(for telling sensor LED should dark), 'W'=waiting(Sensor LED not blinked yet, but drop leave the sensor region)
 volatile bool enableAutoControl = false; // to enable AutoControl() or not
 volatile bool enableLogging = false;     // true when (start) doing logging
 volatile bool firstDropDetected = false; // to check when we receive the 1st drop
@@ -137,7 +137,7 @@ void IRAM_ATTR dropSensorISR() {
     // disable for `DROP_DEBOUNCE_TIME` after called
     if ((dropSensorState == 1) && 
         ((millis()-lastTime)>=DROP_DEBOUNCE_TIME)) {
-      turnOnLed = 'T'; // turn on LED on drop sensor on task
+      dropState = 'T'; // turn on LED on drop sensor on task
 
       lastTime = millis();
 
@@ -195,7 +195,7 @@ void IRAM_ATTR dropSensorISR() {
         dripRatePeak = max(dripRatePeak, dripRate);
       }
     } else if (dropSensorState == 0) {  // TODO: this condition checking seems useless (just use else is enough)
-      turnOnLed = 'W'; // send that the drop leave the sensor region
+      dropState = 'W'; // send that the drop leave the sensor region
     }
   } 
 }
@@ -440,7 +440,7 @@ void setup() {
               24,             // task priority, 0-24, 24 highest priority
               &xHandle);      // task handle
 
-   // *Create a task for different kinds of little things
+  // *Create a task for different kinds of little things
   xTaskCreate(otherLittleWorks,                   // function that should be called
               "Different kinds of little things", // name of the task (debug use)
               4096,           // stack size
@@ -812,12 +812,12 @@ void enableWifi(void * arg) {
 void otherLittleWorks(void * arg) {
   for(;;) {
     // toggle LED
-    if (turnOnLed == 'T') {
+    if (dropState == 'T') {
       digitalWrite(SENSOR_LED_PIN, LOW);     // reversed because the LED is pull up
       vTaskDelay(10);
-    } else if (turnOnLed == 'W') {
+    } else if (dropState == 'W') {
       digitalWrite(SENSOR_LED_PIN, LOW);     // reversed because the LED is pull up
-      turnOnLed = 'F';  // must change the state first
+      dropState = 'F';  // must change the state first
       vTaskDelay(50);   // the state can change back to T/W when blocking here
     }
 
@@ -840,7 +840,7 @@ void otherLittleWorks(void * arg) {
     }
 
     // NOTE: if there are more and more jobs in the future, may create a new bool var to hold this condition
-    while ((turnOnLed == 'F') && !keypadInfusionConfirmed) {
+    while ((dropState == 'F') && !keypadInfusionConfirmed) {
       if (digitalRead(SENSOR_LED_PIN) == LOW) {
         digitalWrite(SENSOR_LED_PIN, HIGH);  // reversed because the LED is pull up
       }
