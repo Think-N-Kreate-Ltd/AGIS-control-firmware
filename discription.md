@@ -16,7 +16,7 @@
         - count from 43XX to 65387 (~61000), XXXX to 61642(micros)
         - time = 5min
         - volume = 72.95 (drops = 1459)
-        - by calculation, we have: 0.94ms/loop
+        - by calculation, we have: 0.94us/loop
     - it is claerly to see that it calculates DR too many times, which is redundant. As a result, the time spend on calculation is also wasted
     - on the other hand, some there are also some unnessary calculation, such as when infusion is not started and completed.
     - one other extra problem discoverd is: complete by `*` cause the infusion state cannot go back to not started
@@ -84,3 +84,22 @@
     - ## short conclude:
     - now use method(1), with no problem, and no extra RAM used
     - later may change to use method(2) for reducing the 20s condition checking coverage. As the logic need to change a lot, it is not done yet
+
+4. ## homing
+    - homing is using while loop to keep calling
+        - the only usage of frequently update is to check whether it touches the limited switch yet and stop it then
+        - the other part, including motor move down and read PWM is redundant
+    - measure the count under DR = 300 & homing once
+    - result:
+        - count: 657, 84044
+        - by calculation, we have: 127.92us/loop
+    - ## NOTE for solving:
+    - the state `homingCompleted` should not be removed, as it need to prevent the infusion state go to exceeded
+    - place at the task may be the best way, as `vTaskDelay()` can be used to reduce the loop count
+    - another minor adv is: do not need to check the condition in unecessary time (as it is in the timer INT), not important as checking the condition takes very tiny time
+    - ## solved result
+    - homing with normal finish & `*` -> works OK
+    - RAM: 115296(35.2%), Flash: 1306901(39.1%)
+    - count: 65, 84,152,732 <= how comes it can get 84s <= should because while loop time counting
+    - omit the time used, the count is reduced a lot, though some unnecessary is also counted
+    - it is also predictable that the time used also reduced (as the statement have no change)

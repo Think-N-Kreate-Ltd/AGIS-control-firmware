@@ -77,7 +77,7 @@ volatile bool firstDropDetected = false; // to check when we receive the 1st dro
 buttonState_t buttonState = buttonState_t::IDLE;
 infusionState_t infusionState = infusionState_t::NOT_STARTED;
 // TODO: refactor this var
-bool homingCompleted = false;   // true when lower limit switch is activated
+volatile bool homingCompleted = false;   // will directly go to homing when true
 
 // To reduce the sensitive of autoControlISR()
 // i.e. (targetDripRate +/-3) is good enough
@@ -102,7 +102,6 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
              AwsEventType type, void *arg, uint8_t *data, size_t len);
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
 void sendInfusionMonitoringDataWs();
-void homingRollerClamp();
 void infusionInit();
 int volumeCount(bool reset = false);
 void loggingData(void * parameter);
@@ -111,6 +110,7 @@ void tftDisplay(void * arg);
 void oledDisplay(void * arg);
 void enableWifi(void * arg);
 void otherLittleWorks(void * arg);
+void homingRollerClamp(void * arg);
 // void taskWifiDelete();
 
 // goto 404 not found when 404 not found
@@ -181,8 +181,9 @@ void IRAM_ATTR dropSensorISR() {
       if ((numDrops >= targetNumDrops) && (numDrops <= (targetNumDrops+1))) {
         infusionState = infusionState_t::ALARM_COMPLETED;
 
-        // disable auto ctrl
+        // finish auto ctrl
         enableAutoControl = false;
+        homingCompleted = false;
 
       } else if ((infusionState == infusionState_t::ALARM_COMPLETED) && homingCompleted) {
         // when infusion has completed but we still detect drop
@@ -194,7 +195,7 @@ void IRAM_ATTR dropSensorISR() {
       if (firstDropDetected) {
         dripRatePeak = max(dripRatePeak, dripRate);
       }
-    } else if (dropSensorState == 0) {  // TODO: this condition checking seems useless (just use else is enough)
+    } else if (dropSensorState == 0) {  // NOTE: may get into else while debouncing, so, just jeep the condition
       dropState = 'W'; // send that the drop leave the sensor region
     }
   } 
@@ -274,15 +275,8 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
     else {
       motorOff();
     }
-  } else {  
-    // TODO: check that if the condition before is really in needed, may move to task?
-    if ((infusionState == infusionState_t::ALARM_COMPLETED) && !homingCompleted) {
-    // homing the roller clamp, i.e. move it down to completely closed position
-      homingRollerClamp();
-    }
-    else if (enableAutoControl) {
-      motorOff();
-    }
+  } else if ((infusionState != infusionState_t::ALARM_COMPLETED) && enableAutoControl) {
+    motorOff();
   }
 
   // find the interval to next motor period
@@ -447,19 +441,17 @@ void setup() {
               0,              // task priority, 0-24, 24 highest priority
               NULL);          // task handle
 
-  // homing the roller clamp
-  while (!homingCompleted) {
-    //NOTE
-    homingRollerClamp();
+  // *Create a task for different kinds of little things
+  xTaskCreate(homingRollerClamp,      // function that should be called
+              "Homing roller clamp",  // name of the task (debug use)
+              4096,           // stack size
+              NULL,           // parameter to pass
+              0,              // task priority, 0-24, 24 highest priority
+              NULL);          // task handle
 
-    // problem will occur when homing and click "Set and Run" at the same time
-    // ONLY uncomment while testing, and also comment homingRollerClamp()
-    // delay(2000);
-    // homingCompleted = true;
-    enableAutoControl = false;
-    if (homingCompleted) {
-      Serial.println("homing completed, can move the motor now");
-    }
+
+  if (homingCompleted) {  // NOTE: only for debugging
+    Serial.println("homing completed, can move the motor now");
   }
 }
 
@@ -499,9 +491,6 @@ void motorOff() {
   analogWrite(MOTOR_CTRL_PIN_1, 0);
   analogWrite(MOTOR_CTRL_PIN_2, 0);
 }
-
-// TODO: remove it(?)
-void alert(String x) {}
 
 void initWebSocket() {
   ws.onEvent(onEvent);
@@ -609,27 +598,7 @@ void sendInfusionMonitoringDataWs() {
 
 // TODO: refactor: create a function to send json object as websocket message
 
-// Move down the roller clamp to completely closed position
-// Copied and modified from motorOnDown()
-void homingRollerClamp() {
-  limitSwitch_Down.loop();   // MUST call the loop() function first
-
-  if (limitSwitch_Down.getStateRaw() == 1) { // untouched
-    // Read PWM value
-    PWMValue = analogRead(PWM_PIN);
-
-    analogWrite(MOTOR_CTRL_PIN_2, (PWMValue / 16)); // PWMValue: 0->4095
-    analogWrite(MOTOR_CTRL_PIN_1, 0);
-
-    // motorState = motorState_t::DOWN;
-  }
-  else { // touched
-    motorOff();
-    homingCompleted = true;
-  }
-}
-
-void infusionInit() {
+void infusionInit() { // TODO: refactor it
   // Reset infusion parameters the first time button_ENTER is pressed.
   // Parameters need to be reset:
   //    (1) numDrops
@@ -640,8 +609,6 @@ void infusionInit() {
   infusionStartTime = millis(); // prevent there is one more calculation for `infusedTime`
   numDrops = 0;
   infusedVolume_x100 = volumeCount(true);
-
-  homingCompleted = false;  // if not set, the infusion cannot be stopped
 }
 
 // to calculate and store the accurate volume
@@ -680,7 +647,7 @@ void loggingData(void * parameter) {
     if ((infusionState == infusionState_t::ALARM_COMPLETED) && finishLogging) {
       endLogging();
       finishLogging = false;
-      enableLogging = false;
+      enableLogging = false;  // TODO: also do logging when homing
       useSdCard(false);
     }
 
@@ -846,6 +813,27 @@ void otherLittleWorks(void * arg) {
 
       vTaskDelay(50);
     }
+  }
+}
+
+void homingRollerClamp(void * arg) {
+  for(;;) {
+    if (limitSwitch_Down.getStateRaw() == 0) {  // touched
+      homingCompleted = true;
+      motorOff();
+    } else {
+      // Read PWM value
+      PWMValue = analogRead(PWM_PIN); // TODO: as it is doing homing, no need to read and directly set the highest value?
+
+      analogWrite(MOTOR_CTRL_PIN_2, (PWMValue / 16)); // PWMValue: 0->4095
+      analogWrite(MOTOR_CTRL_PIN_1, 0);
+    }
+
+    while (homingCompleted) {
+      vTaskDelay(200);
+    }
+
+    vTaskDelay(50);
   }
 }
 
