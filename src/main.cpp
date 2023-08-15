@@ -101,7 +101,7 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
              AwsEventType type, void *arg, uint8_t *data, size_t len);
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
 void sendInfusionMonitoringDataWs();
-void infusionInit();
+void resetValues();
 int volumeCount(bool reset = false);
 void loggingData(void * parameter);
 void getI2CData(void * arg);
@@ -324,7 +324,7 @@ void IRAM_ATTR motorControlISR() {
           || (infusionState == infusionState_t::ALARM_COMPLETED) || (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED)) {
         // for the case that use `*` to start auto ctrl, not recommended to do so
         // set all vars same as keypad infusion confirmed
-        infusionInit();
+        resetValues();
         firstDropDetected = false;
         enableLogging = true;
       }
@@ -548,7 +548,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       else if (doc.containsKey("COMMAND")) {
         // parse the command and execute
         if (doc["COMMAND"] == "ENABLE_AUTOCONTROL_WS") {
-          infusionInit();
+          resetValues();
 
           // override the ENTER button to enable autoControl()
           // seems useless already as it will go to in pregress directly
@@ -593,17 +593,16 @@ void sendInfusionMonitoringDataWs() {
 
 // TODO: refactor: create a function to send json object as websocket message
 
-void infusionInit() { // TODO: refactor it
-  // Reset infusion parameters the first time button_ENTER is pressed.
-  // Parameters need to be reset:
-  //    (1) numDrops
-  //    (2) infusedVolume_x100
-  //    (3) infusedTime
-  //    Add more if necessary
+// Reset infusion parameters
+void resetValues() {
   infusedTime = 0;
   infusionStartTime = millis(); // prevent there is one more calculation for `infusedTime`
   numDrops = 0;
   infusedVolume_x100 = volumeCount(true);
+  /**DR is not reseted as it cannot be 0 at start
+   * time between 2 drops is used for cal DR, and will not be displayed
+   * state is not going to be not started, but in-progress
+  */
 }
 
 // to calculate and store the accurate volume
@@ -789,7 +788,7 @@ void otherLittleWorks(void * arg) {
     // Handle keypad
     if (keypadInfusionConfirmed) {
       ESP_LOGI(KEYPAD_TAG, "Keypad inputs confirmed");
-      infusionInit();
+      resetValues();
 
       // override the ENTER button to enable autoControl()
       // seems useless already as it will go to in pregress directly
