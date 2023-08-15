@@ -77,7 +77,7 @@ volatile bool firstDropDetected = false; // to check when we receive the 1st dro
 buttonState_t buttonState = buttonState_t::IDLE;
 infusionState_t infusionState = infusionState_t::NOT_STARTED;
 // TODO: refactor this var
-volatile bool homingCompleted = false;   // will directly go to homing when true
+volatile bool motorHoming = true;   // will directly go to homing when true
 
 // To reduce the sensitive of autoControlISR()
 // i.e. (targetDripRate +/-3) is good enough
@@ -183,9 +183,9 @@ void IRAM_ATTR dropSensorISR() {
 
         // finish auto ctrl
         enableAutoControl = false;
-        homingCompleted = false;
+        motorHoming = true;
 
-      } else if ((infusionState == infusionState_t::ALARM_COMPLETED) && homingCompleted) {
+      } else if ((infusionState == infusionState_t::ALARM_COMPLETED) && !motorHoming) {
         // when infusion has completed but we still detect drop
         // when finish infusion, it will go homing first, that time may also have drops
         infusionState = infusionState_t::ALARM_VOLUME_EXCEEDED;
@@ -341,7 +341,7 @@ void IRAM_ATTR motorControlISR() {
         || (infusionState == infusionState_t::PAUSED))) {
       // reset the value
       // infusionInit();
-      homingCompleted = false;
+      motorHoming = true;
       enableAutoControl = false;
       enableLogging = false;
       // firstDropDetected = false;
@@ -450,7 +450,7 @@ void setup() {
               NULL);          // task handle
 
 
-  if (homingCompleted) {  // NOTE: only for debugging
+  if (!motorHoming) {  // NOTE: only for debugging
     Serial.println("homing completed, can move the motor now");
   }
 }
@@ -819,7 +819,7 @@ void otherLittleWorks(void * arg) {
 void homingRollerClamp(void * arg) {
   for(;;) {
     if (limitSwitch_Down.getStateRaw() == 0) {  // touched
-      homingCompleted = true;
+      motorHoming = false;
       motorOff();
     } else {
       // Read PWM value
@@ -829,7 +829,7 @@ void homingRollerClamp(void * arg) {
       analogWrite(MOTOR_CTRL_PIN_1, 0);
     }
 
-    while (homingCompleted) {
+    while (!motorHoming) {
       vTaskDelay(200);
     }
 
