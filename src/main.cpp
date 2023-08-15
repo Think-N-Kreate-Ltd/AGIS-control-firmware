@@ -701,7 +701,7 @@ void oledDisplay(void * arg) {
   }
 }
 
-// TODO: see how to play with it
+// TODO: see how to deal with it
 void enableWifi(void * arg) {
   while (!wifiStart) {
     // waiting for response, for loop forever if no enable wifi
