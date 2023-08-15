@@ -185,10 +185,13 @@ void IRAM_ATTR dropSensorISR() {
         enableAutoControl = false;
         motorHoming = true;
 
-      } else if ((infusionState == infusionState_t::ALARM_COMPLETED) && !motorHoming) {
+      } else if (!motorHoming) {
         // when infusion has completed but we still detect drop
         // when finish infusion, it will go homing first, that time may also have drops
-        infusionState = infusionState_t::ALARM_VOLUME_EXCEEDED;
+        int recordTime = millis();
+        if ((infusionState == infusionState_t::ALARM_COMPLETED) && ((millis()-recordTime)>200)) {
+          infusionState = infusionState_t::ALARM_VOLUME_EXCEEDED;
+        }
       }
 
       // get dripRatePeak, i.e. drip rate when 1st drop is detected
