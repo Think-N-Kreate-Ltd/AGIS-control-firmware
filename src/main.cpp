@@ -76,7 +76,6 @@ volatile bool enableLogging = false;     // true when (start) doing logging
 volatile bool firstDropDetected = false; // to check when we receive the 1st drop
 buttonState_t buttonState = buttonState_t::IDLE;
 infusionState_t infusionState = infusionState_t::NOT_STARTED;
-// TODO: refactor this var
 volatile bool motorHoming = true;   // will directly go to homing when true
 
 // To reduce the sensitive of autoControlISR()
@@ -825,10 +824,8 @@ void homingRollerClamp(void * arg) {
       motorHoming = false;
       motorOff();
     } else {
-      // Read PWM value
-      PWMValue = analogRead(PWM_PIN); // TODO: as it is doing homing, no need to read and directly set the highest value?
-
-      analogWrite(MOTOR_CTRL_PIN_2, (PWMValue / 16)); // PWMValue: 0->4095
+      // motor move down
+      analogWrite(MOTOR_CTRL_PIN_2, 191); // Value: 0->255
       analogWrite(MOTOR_CTRL_PIN_1, 0);
     }
 
