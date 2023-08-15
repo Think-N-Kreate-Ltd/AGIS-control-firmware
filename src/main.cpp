@@ -145,14 +145,16 @@ void IRAM_ATTR dropSensorISR() {
         firstDropDetected = true;
         lastDropTime = -9999; // prevent timeBtw2Drops become inf
 
-        if ((infusionState != infusionState_t::PAUSED) && (infusionState != infusionState_t::ALARM_STOPPED)) {
-          // STOPPED and PAUSED are special states which note that the condition is stopped/paused, but still in progress
-          // mark this as starting time of infusion
-          infusionStartTime = millis();
-          infusedVolume_x100 = volumeCount(true); // NOTE: this is not needed as it has been reseted already
-        } else {
-          /*if I add the state change to in progress here, the `enter` key would lead to an unwanted result
-            maybe add a new state call `paused` which use for enter key would be better*/
+        if ((infusionState != infusionState_t::PAUSED)) {
+          if (infusionState != infusionState_t::ALARM_STOPPED) {
+            // STOPPED and PAUSED are special states which note that the condition is stopped/paused, but still in progress
+            // mark this as starting time of infusion
+            infusionStartTime = millis();
+            infusedVolume_x100 = volumeCount(true); // NOTE: this is not needed as it has been reseted already
+          } else {
+            // change the state from stopped back to in pregress
+            infusionState = infusionState_t::IN_PROGRESS;
+          }
         }
       }
 
@@ -242,15 +244,8 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
   }
 
   // get infusion time so far:
-  // TODO: seems redundant
   if ((infusionState != infusionState_t::ALARM_COMPLETED) && firstDropDetected) {
     infusedTime = (millis() - infusionStartTime) / 1000;  // in seconds
-  }
-
-  // TODO: seems redundant to check many times, can move to EXT INT?
-  if (enableAutoControl && firstDropDetected) {
-    // change the state from stopped back to in pregress
-    infusionState = infusionState_t::IN_PROGRESS;
   }
 
   // belows are the auto ctrl of the motor

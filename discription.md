@@ -103,3 +103,43 @@
     - count: 65, 84,152,732 <= how comes it can get 84s <= should because while loop time counting
     - omit the time used, the count is reduced a lot, though some unnecessary is also counted
     - it is also predictable that the time used also reduced (as the statement have no change)
+
+5. ## the `IN_PROGRESS` state update
+- measure the total time and count of update the state, checking condition is not included
+    - under below condition
+        - drip factor = 20 (in normal case)
+        - target DR = 300 (normally will not exist this number)
+        - time = 5 mins
+        - volume = 75
+    - expected result:
+        - count = 5min * 60s * (1000/5) = 60000
+    - result:
+        - count: 60081, 35510
+        - time = 5min
+        - volume = 7510 (drops = 1502)
+        - by calculation, we have: 0.59us/loop
+        - RAM: 115288(35.2%), Flash: 1307025(39.1%)
+    - the only useful update is only when state change form stopped to in-progress, the other is just change from in-progress to in-progress. i.e. no change
+    - In fact, this infusion have not entered to stopped state, which means that all updates are redundant
+    - the time used is tiny, but it may cause unwanted update and lead to an unexpected result if there is update of the program in the future
+    - ## solve:
+    - modify the condition(only do when stopped) or place it outside timer INT(EXT INT)
+    - testing condition:
+        - same as above but
+        - when time=1min, take the sensor out for 20s and then put it back
+    - ecpexted result:
+        - after take the sensor out for 20s, state change to stopped
+        - count = 1 (after put the sensor back, +1), and state change to in-progress
+        - time = 5min+20s(sensor take out 20s)-2s(when place back, refind position, DR little bit high) = 5min18s
+    - result:
+        - count = 1, 1
+        - time = 5min19sec
+        - volume = 75.15 (drops = 1503)
+        - by calculation, we have: 1us/loop (not enough counting, can be omitted)
+        - RAM: 115288(35.2%), Flash: 1307005(39.1%)
+        - after take the sensor out and put it back, the result is same as expected
+    - ## short conclude: 
+    - the time for updating the state is not so important. It is because the time for one update is short, and the update will only be done when doing infusion.
+    - However, now the update cause no problem only because it is update from in-progress to in-progress, which are the same state. If we update the program and add more features in AGIS, there may be new state exists and it may be over-written to in-progress.
+    - the `infusionState` is an important state in the program, which will be used in many files and work as an condition. An unexpected stated and cause the program cannot work correctly and everything may goes wrong.
+    - ONLY UPDATE THE STATE WHENEVER IT NEEDS TO CHANGE
