@@ -345,8 +345,6 @@ void IRAM_ATTR motorControlISR() {
       // infusionInit();
       motorHoming = true;
       enableAutoControl = false;
-      enableLogging = false;
-      // firstDropDetected = false;
 
       // stop droping and mark as complete
       infusionState = infusionState_t::ALARM_COMPLETED;
@@ -647,9 +645,13 @@ void loggingData(void * parameter) {
 
     // only run once when finish
     if ((infusionState == infusionState_t::ALARM_COMPLETED) && finishLogging) {
+      while (motorHoming) {
+        // wait for homing complete to log the last data
+        vTaskDelay(200);
+      }
       endLogging();
       finishLogging = false;
-      enableLogging = false;  // TODO: also do logging when homing
+      enableLogging = false;
       useSdCard(false);
     }
 
