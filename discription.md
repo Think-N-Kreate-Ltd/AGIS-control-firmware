@@ -1,145 +1,47 @@
-    This branch is used for checking the statement & condition coverage
-    Also, will make a quick fix and mark them down here
+    This branch is used for developing the usage of upper limited SW
 
-1. ## the `dripRate` (drip rate, DR) calculation seems doing too much and redundant
-    - measure the total time and count of calling DR calculation
-    - under below condition
-        - drip factor = 20 (in normal case)
-        - target DR = 300 (normally will not exist this number)
-        - time = 5 mins
-        - volume = 75
-    - expected result:
-        - count = 5min * 60s * (1000/5) = 60000
-    - result: run out of water so have not finish
-        - another unexpected problem: counting before start infusion
-        - means that there are already redundand calculation
-        - count from 43XX to 65387 (~61000), XXXX to 61642(micros)
-        - time = 5min
-        - volume = 72.95 (drops = 1459)
-        - by calculation, we have: 0.94us/loop
-    - it is claerly to see that it calculates DR too many times, which is redundant. As a result, the time spend on calculation is also wasted
-    - on the other hand, some there are also some unnessary calculation, such as when infusion is not started and completed.
-    - one other extra problem discoverd is: complete by `*` cause the infusion state cannot go back to not started
-    - ## solve:
-    - move the DR calculation to EXT INT, to only do calculation when sense a drop
-    - add reset DR value when no drops 20s
-    - testing condition same as above
-    - ecpexted result:
-        - count = 1500 (drops number)
-        - time = 1500 * 0.94 = 1410
-    - result:
-        - count = 1504, 1334
-        - time = 4min59sec
-        - volume = 75.20 (drops = 1504)
-        - by calculation, we have: 0.89us/loop
-    - NOTE: no drop 20s works normally
-    - ## short conclude: 
-    - when placing the DR calculation to EXT INT, the time of calculation have not change much but the coverage reduce a lot, which helps to improve the program efficiency, with the same outcomes.
-    - the reduction mainly comes from remove the redundant & unnecessary update (when infusion not started yet, and repeated calculation)
-    - PROBLEM: one other extra problem discoverd is: complete by `*` cause the infusion state cannot go back to not started. it should because of `firstDropDected` is reset to false, which blocks to meet the condition to do no drop 20s
-    - fixed by keeping the `firstDropDected` as true
+## Note:
+- when the sensor sense no drop for 20s, auto-ctrl will do reposition
+- the motor will then moving up without interval until find a new drop
 
-2. ## RAM usage of `wm`
-    - only a task will use it but it is in the global
-    - also, it can also be deleted after wifi enabled
-    - both duration and scope is over used
-    - place at global: 
-        - RAM: 115904(35.4%), Flash: 1306653(39.1%)
-    - place at the used task:
-        - RAM: 115288(35.2%), Flash: 1306721(39.1%)
-    - we can clearly see that it is better to place it at task
+## problem: motor moving up non-stop
+- condition: 
+    - when the container have no field
+    - the sensor cannot sense a drop for 20
+    - do reposition
+    - keep moving up
+    - reach the highest point
+- details of problem:
+    - at this time, the roller clamp does not allow the motor to go up. However, the program keep supplying power to motor
+    - it is dangerous(destroy the motor), wasting power, and the sound is annoying
+- solve:
+    - add an obstacle to let the upper limited SW being touched at that time
+    - the program will stop the motor when limited SW is touched
 
-3. ## the `dropSensorState` (sensor OUT) get value seems doing too much and redundant
-    - measure the total time and count of getting sersor OUT
-    - under below condition
-        - drip factor = 20 (in normal case)
-        - target DR = 300 (normally will not exist this number)
-        - time = 5 mins
-        - volume = 75
-    - expected result:
-        - count = (5min * 60s +20s(completed to not started)) * (1000/5) = 64000
-    - result: run out of water so have not finish
-        - another unexpected problem: counting before start infusion
-        - means that there are already redundand calculation
-        - count from 51XX to 69808 (~64000), XXXX to 186895(micros)
-        - time = 4min59s
-        - volume = 75.15 (drops = 1503)
-        - by calculation, we have: 2.68us/loop
-        - RAM: 115296(35.2%), Flash: 1306821(39.1%)
-    - it is claerly to see that getting the value takes time, it is better to reduce it as much as possible, while the update dose too frequently
-    - on the other hand, some there are also some unnessary calculation, such as when infusion is not started and completed.
-    - ## solve:
-    1. move `dropSensorState` to global var, share the value in EXT INT
-        - will increase RAM use (but it is just a bool, very little use)
-            - update: can make use of `dropState`
-        - convenience and fast
-    2. move the statement no drop 20s to EXT INT, s.t. the state can be removed
-        - don't need to add en extra global var
-        - need to move statement, which may cause other problems, but can reduce the condition checking coverage
-        - EXT INT cannot check time frequently, need calculation for 20s, which may takes time
-        - need to pass the time to the task, takes more RAM than `dropSensorState`
-    - use method(1) currently
-        - result: the getting sensor OUT is removed, so counting is 0,0
-        - RAM: 115296(35.2%), Flash: 1306753(39.1%)
-    - ## short conclude:
-    - now use method(1), with no problem, and no extra RAM used
-    - later may change to use method(2) for reducing the 20s condition checking coverage. As the logic need to change a lot, it is not done yet
+## feature: add a new state `ALARM_OUT_OF_FIELD`
+- reach the state when the container running out of field
+    - no drop for 28s
+    - state = stopped (avoid it change from not started)
+    - touching the upper limited SW
+- do the following
+    - disable auto-ctrl
+    - homing
+    - change the state to out of field
+    - finish logging
 
-4. ## homing
-    - homing is using while loop to keep calling
-        - the only usage of frequently update is to check whether it touches the limited switch yet and stop it then
-        - the other part, including motor move down and read PWM is redundant
-    - measure the count under DR = 300 & homing once
-    - result:
-        - count: 657, 84044
-        - by calculation, we have: 127.92us/loop
-    - ## NOTE for solving:
-    - the state `homingCompleted` should not be removed, as it need to prevent the infusion state go to exceeded
-    - place at the task may be the best way, as `vTaskDelay()` can be used to reduce the loop count
-    - another minor adv is: do not need to check the condition in unecessary time (as it is in the timer INT), not important as checking the condition takes very tiny time
-    - ## solved result
-    - homing with normal finish & `*` -> works OK
-    - RAM: 115296(35.2%), Flash: 1306901(39.1%)
-    - count: 65, 84,152,732 <= how comes it can get 84s <= should because while loop time counting
-    - omit the time used, the count is reduced a lot, though some unnecessary is also counted
-    - it is also predictable that the time used also reduced (as the statement have no change)
-
-5. ## the `IN_PROGRESS` state update
-- measure the total time and count of update the state, checking condition is not included
-    - under below condition
-        - drip factor = 20 (in normal case)
-        - target DR = 300 (normally will not exist this number)
-        - time = 5 mins
-        - volume = 75
-    - expected result:
-        - count = 5min * 60s * (1000/5) = 60000
-    - result:
-        - count: 60081, 35510
-        - time = 5min
-        - volume = 7510 (drops = 1502)
-        - by calculation, we have: 0.59us/loop
-        - RAM: 115288(35.2%), Flash: 1307025(39.1%)
-    - the only useful update is only when state change form stopped to in-progress, the other is just change from in-progress to in-progress. i.e. no change
-    - In fact, this infusion have not entered to stopped state, which means that all updates are redundant
-    - the time used is tiny, but it may cause unwanted update and lead to an unexpected result if there is update of the program in the future
-    - ## solve:
-    - modify the condition(only do when stopped) or place it outside timer INT(EXT INT)
-    - testing condition:
-        - same as above but
-        - when time=1min, take the sensor out for 20s and then put it back
-    - ecpexted result:
-        - after take the sensor out for 20s, state change to stopped
-        - count = 1 (after put the sensor back, +1), and state change to in-progress
-        - time = 5min+20s(sensor take out 20s)-2s(when place back, refind position, DR little bit high) = 5min18s
-    - result:
-        - count = 1, 1
-        - time = 5min19sec
-        - volume = 75.15 (drops = 1503)
-        - by calculation, we have: 1us/loop (not enough counting, can be omitted)
-        - RAM: 115288(35.2%), Flash: 1307005(39.1%)
-        - after take the sensor out and put it back, the result is same as expected
-    - ## short conclude: 
-    - the time for updating the state is not so important. It is because the time for one update is short, and the update will only be done when doing infusion.
-    - However, now the update cause no problem only because it is update from in-progress to in-progress, which are the same state. If we update the program and add more features in AGIS, there may be new state exists and it may be over-written to in-progress.
-    - the `infusionState` is an important state in the program, which will be used in many files and work as an condition. An unexpected stated and cause the program cannot work correctly and everything may goes wrong.
-    - ONLY UPDATE THE STATE WHENEVER IT NEEDS TO CHANGE
+## bugfix: cannot enter state exceeded
+- condition:
+    - when infusion completed, it will do homing
+    - that time will also sense drops, not count then
+    - when the time after homing
+- details of bug:
+    - at this time, sense drop
+    - the value of volume and DR can change
+    - but the time and state have no change
+- reason:
+    - while state = completed, time will not update, is not a bug
+    - the condition millis()-recordTime>200 will never reach
+    - it is because the time has just recorded s.t. it will always be 0
+- solve:
+    - directly use the state `motorHoming` is not a fix, because there may still a drop after homing completed
+    - add a global var `homingCompletedTime` to get the time and +200ms as the condition
