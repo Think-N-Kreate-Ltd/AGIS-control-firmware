@@ -69,7 +69,7 @@ volatile unsigned int infusedVolume_x100 = 0;  // 100 times larger than actual v
 volatile unsigned int infusedTime = 0;         // unit: seconds
 volatile unsigned long infusionStartTime = 0;
 
-// main state that check the infusion and will pass between files
+// main state that check the infusion and commonly used
 volatile char dropState = 'F';           // stating the condition of drop, 'T'=true(have drop currently), 'F'=false(for telling sensor LED should dark), 'W'=waiting(Sensor LED not blinked yet, but drop leave the sensor region)
 volatile bool enableAutoControl = false; // to enable AutoControl() or not
 volatile bool enableLogging = false;     // true when (start) doing logging
@@ -77,6 +77,7 @@ volatile bool firstDropDetected = false; // to check when we receive the 1st dro
 buttonState_t buttonState = buttonState_t::IDLE;
 infusionState_t infusionState = infusionState_t::NOT_STARTED;
 volatile bool motorHoming = true;   // will directly go to homing when true
+volatile int homingCompletedTime;   // the time that homing completed 
 
 // To reduce the sensitive of autoControlISR()
 // i.e. (targetDripRate +/-3) is good enough
@@ -185,14 +186,11 @@ void IRAM_ATTR dropSensorISR() {
         // finish auto ctrl
         enableAutoControl = false;
         motorHoming = true;
-
-      } else if (!motorHoming) {
-        // when infusion has completed but we still detect drop
+      
+      } else if ((infusionState == infusionState_t::ALARM_COMPLETED) && ((millis() - homingCompletedTime) >= 200)) {
         // when finish infusion, it will go homing first, that time may also have drops
-        int recordTime = millis();
-        if ((infusionState == infusionState_t::ALARM_COMPLETED) && ((millis()-recordTime)>200)) {
-          infusionState = infusionState_t::ALARM_VOLUME_EXCEEDED;
-        }
+        // for those drop, should not let the state go to exceeded
+        infusionState = infusionState_t::ALARM_VOLUME_EXCEEDED;
       }
 
       // get dripRatePeak, i.e. drip rate when 1st drop is detected
@@ -238,6 +236,16 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
       if (infusionState == infusionState_t::IN_PROGRESS) {
         infusionState = infusionState_t::ALARM_STOPPED;
       }
+    }
+  } else if (infusionState == infusionState_t::ALARM_STOPPED) {
+    if ((limitSwitch_Up.getStateRaw() == 0) && ((millis() - timeWithNoDrop) >= 28000)) {
+      // reset the time to ensure that statement here will only run once
+      timeWithNoDrop = millis();
+      // stop and finish the infusion
+      motorHoming = true;
+      enableAutoControl = false;
+      infusionState = infusionState_t::ALARM_COMPLETED;
+      testCount++;
     }
   } else {
     timeWithNoDrop = millis();
@@ -443,11 +451,6 @@ void setup() {
               NULL,           // parameter to pass
               0,              // task priority, 0-24, 24 highest priority
               NULL);          // task handle
-
-
-  if (!motorHoming) {  // NOTE: only for debugging
-    Serial.println("homing completed, can move the motor now");
-  }
 }
 
 void loop() {}
@@ -819,6 +822,7 @@ void homingRollerClamp(void * arg) {
     if (limitSwitch_Down.getStateRaw() == 0) {  // touched
       motorHoming = false;
       motorOff();
+      homingCompletedTime = millis();
     } else {
       // motor move down
       analogWrite(MOTOR_CTRL_PIN_2, 191); // Value: 0->255
