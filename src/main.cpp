@@ -244,7 +244,7 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
       // stop and finish the infusion
       motorHoming = true;
       enableAutoControl = false;
-      infusionState = infusionState_t::ALARM_COMPLETED;
+      infusionState = infusionState_t::ALARM_COMPLETED; // TODO
       testCount++;
     }
   } else {
@@ -266,8 +266,7 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
     motorOnPeriod = true;  // move freely, no interval
   }
 
-  if (enableAutoControl && motorOnPeriod && (targetDripRate != 0) &&
-      (infusionState != infusionState_t::ALARM_COMPLETED)) {
+  if (enableAutoControl && motorOnPeriod && (targetDripRate != 0)) {
     // if currently SLOWER than set value -> speed up, i.e. move up
     if (dripRate < (targetDripRate - AUTO_CONTROL_ALLOW_RANGE)) {
       motorOnUp();
@@ -280,7 +279,7 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
     else {
       motorOff();
     }
-  } else if ((infusionState != infusionState_t::ALARM_COMPLETED) && enableAutoControl) {
+  } else if ( enableAutoControl) {
     motorOff();
   }
 
@@ -641,7 +640,17 @@ void loggingData(void * parameter) {
     }
 
     // only run once when finish
-    if ((infusionState == infusionState_t::ALARM_COMPLETED) && finishLogging) {
+    /**condition of state is not needed here because:
+     * 1. the state `finishLogging` will only change after condition enablelogging
+     *    where that condition will only satsify when auto-ctrl
+     * 2. under the condition, it will keep doing the while loop(logging)
+     *    as a result, it will not change the value of `finishLogging` until logging finish
+     * 3. `finishLogging` will change back to false after run statements once
+     * To conclude, `finishLogging` will only not be true when state is:
+     *              not started, started, in-progress, paused, stopped
+     *              thus, add state as a condition to check it is redundant
+    */
+    if (/*(infusionState == infusionState_t::ALARM_COMPLETED) &&*/ finishLogging) {
       while (motorHoming) {
         // wait for homing complete to log the last data
         vTaskDelay(200);
