@@ -289,7 +289,7 @@ void monitor_screen() {
 /*set the testarea with coordinate x and y*/
 void set_textarea(lv_obj_t *& parent, uint16_t index, lv_coord_t x, lv_coord_t y) {
   lv_textarea_set_one_line(parent, true);
-  lv_textarea_set_max_length(parent, 5);
+  lv_textarea_set_max_length(parent, 4);  /*Note: container volume commonly from 50ml to 3L*/
   lv_obj_align(parent, LV_ALIGN_TOP_LEFT, x, y);
   lv_obj_set_width(parent, 80); /*Note: width=80, height=36*/
   lv_textarea_set_placeholder_text(parent, "Pls input");

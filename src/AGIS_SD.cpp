@@ -164,7 +164,7 @@ void logData() {
 // log the last data(homing), and then close the file
 void endLogging() {
   // log the last data after homing, the timing is set in task
-  file.printf("%u, %u, %f, \ninfusion and homing completed", infusedTime, dripRate, infusedVolume_x100 / 100.0f);
+  file.printf("%u, %u, %f, \ninfusion and homing finished", infusedTime, dripRate, infusedVolume_x100 / 100.0f);
   // Close file and stop.
   file.close();
   ESP_LOGI(DATA_LOGGING_TAG, "Data logging done!");
