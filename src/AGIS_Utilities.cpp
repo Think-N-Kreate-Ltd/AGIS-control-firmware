@@ -16,8 +16,8 @@ const char *getInfusionState(infusionState_t state) {
     return "ALARM_STOPPED";
   case infusionState_t::ALARM_VOLUME_EXCEEDED:
     return "ALARM_EXCEEDED";
-  case infusionState_t::ALARM_OUT_OF_FIELD:
-    return "ALARM_OUT_OF_FIELD";
+  case infusionState_t::ALARM_OUT_OF_FLUID:
+    return "ALARM_OUT_OF_FLUID";
   default:
     return "Undefined infusion state";
     break;

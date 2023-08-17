@@ -9,7 +9,7 @@
 
 ## problem: motor moving up non-stop
 - condition: 
-    - when the container have no field
+    - when the container have no fluid
     - the sensor cannot sense a drop for 20
     - do reposition
     - keep moving up
@@ -21,15 +21,15 @@
     - add an obstacle to let the upper limited SW being touched at that time
     - the program will stop the motor when limited SW is touched
 
-## feature: add a new state `ALARM_OUT_OF_FIELD`
-- reach the state when the container running out of field
+## feature: add a new state `ALARM_OUT_OF_FLUID`
+- reach the state when the container running out of fluid
     - no drop for 28s
     - state = stopped (avoid it change from not started)
     - touching the upper limited SW
 - do the following
     - disable auto-ctrl
     - homing
-    - change the state to out of field
+    - change the state to out of fluid
     - finish logging
 
 ## bugfix: cannot enter state exceeded

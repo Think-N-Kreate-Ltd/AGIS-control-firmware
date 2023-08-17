@@ -244,7 +244,7 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
       // stop and finish the infusion
       motorHoming = true;
       enableAutoControl = false;
-      infusionState = infusionState_t::ALARM_OUT_OF_FIELD;
+      infusionState = infusionState_t::ALARM_OUT_OF_FLUID;
     }
   } else {
     timeWithNoDrop = millis();
@@ -252,7 +252,7 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
 
   // get infusion time so far:
   if ((infusionState != infusionState_t::ALARM_COMPLETED) &&
-      (infusionState != infusionState_t::ALARM_OUT_OF_FIELD) && firstDropDetected) {
+      (infusionState != infusionState_t::ALARM_OUT_OF_FLUID) && firstDropDetected) {
     infusedTime = (millis() - infusionStartTime) / 1000;  // in seconds
   }
 
@@ -329,7 +329,7 @@ void IRAM_ATTR motorControlISR() {
     } else {
       if ((infusionState == infusionState_t::NOT_STARTED) || (infusionState == infusionState_t::STARTED)
           || (infusionState == infusionState_t::ALARM_COMPLETED) || (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED)
-          || (infusionState == infusionState_t::ALARM_OUT_OF_FIELD)) {
+          || (infusionState == infusionState_t::ALARM_OUT_OF_FLUID)) {
         // for the case that use `*` to start auto ctrl, not recommended to do so
         // set all vars same as keypad infusion confirmed
         resetValues();
