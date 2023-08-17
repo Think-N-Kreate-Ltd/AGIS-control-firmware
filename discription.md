@@ -60,7 +60,7 @@
 ## some condition of infusion that already known
 - the container usually have size <3L only
 - may have intermittent infusion (adminstered over a special period of time, and at a specific interval)
-- may have a continuous infusion (delivered over a prolonged period of time, e.g. saline: serval days)
+- may have a continuous infusion (delivered over a prolonged period of time, e.g. normal saline: serval days?)
 
 ## problem
 - condition:
@@ -72,3 +72,27 @@
 - solving:
     - check in function `validate_keypad_inputs()`
     - when time = 0, not allow for auto-ctrl and msg alarm
+
+## limitation: user should not change input when doing auto-ctrl
+- details:
+    - if change input when doing auto-ctrl
+    - target DR may change
+    - volume increase rate may change
+    - target num drops will not change, which is used to change state to finish
+- solving requirement
+    - think of what can user do when started with unwanted input
+    - disable user change the target value, or can only change when some condition satisify
+
+## feature: no limitation for user to choose drop factor
+- condition:
+    - now the drip factor can only be 10, 15, 20, 60
+    - the user can only select 1 from that
+- details:
+    - user should be able to add new drip factor
+    - but it may also cause safety problems
+    - the infused volume may have error with new drip factor
+- solve:
+    - new drip factor can be added by adding a new element in array
+    - refactor the volume
+    - new drip factor cannot directly add in radio button, should update in a specific place, and a new radio button will appear after update
+    - maybe only user with access can add new drip factor
