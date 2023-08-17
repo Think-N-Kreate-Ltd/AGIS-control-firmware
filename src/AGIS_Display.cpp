@@ -176,7 +176,7 @@ void input_screen() {
   lv_obj_add_event_cb(cont1, radio_event_handler, LV_EVENT_CLICKED, &active_index_1);
 
   /*add radio button*/
-  for(int i=0; i<sizeof(dripFactor); i++) {
+  for(int i=0; i<lengthOfDF; i++) {
     lv_snprintf(buf, 16, "%d drops/mL  ", dripFactor[i]);
     radiobutton_create(cont1, buf);
   }

@@ -48,7 +48,8 @@ volatile unsigned int numDrops = 0;       // for counting the number of drops wi
 volatile unsigned int dripRate = 0;       // for calculating the drip rate
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
 volatile unsigned int dripRatePeak = 1;   // drip rate at the position when 1st drop is detected
-uint8_t dripFactor[] = {10, 15, 20, 60};  // an array to store the option of drip factor
+uint8_t dripFactor[] = {10, 15, 20, 60, 100};   // an array to store the option of drip factor
+size_t lengthOfDF = sizeof(dripFactor)/sizeof(dripFactor[0]);
 
 // var for component debouncing
 ezButton limitSwitch_Up(37);   // create ezButton object that attach to pin 37;
@@ -172,7 +173,7 @@ void IRAM_ATTR dropSensorISR() {
       // NOTE: Since we cannot do floating point calculation in interrupt,
       // we multiply the actual infused volume by 100 times to perform the integer calculation
       // Later when we need to display, divide it by 100 to get actual value.
-      for (int i=0; i<sizeof(dripFactor); i++) {
+      for (int i=0; i<lengthOfDF; i++) {
         if (dropFactor == dripFactor[i]) {
           infusedVolume_x100 = volumeCount();
         }

@@ -11,7 +11,8 @@ extern volatile unsigned int dripRate;
 extern volatile unsigned int infusedVolume_x100;
 extern volatile unsigned int infusedTime;
 
-extern uint8_t dripFactor[4];
+extern uint8_t dripFactor[];
+extern size_t lengthOfDF;
 
 extern unsigned int dropFactor;
 extern unsigned int targetVTBI;
