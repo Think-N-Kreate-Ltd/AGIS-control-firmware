@@ -551,17 +551,20 @@ bool validate_keypad_inputs() {
   }
 
   if (state) {
-    /*Submit verified inputs to autoControl*/
-    // targetVTBI = keypadInput[0];
-    // targetTotalTime = keypadInput[1]*3600 + keypadInput[2]*60;
-    targetDripRate = keypadInput[0] * dropFactor / (keypadInput[1]*60 + keypadInput[2]);
-    // targetNumDrops = targetVTBI / dropFactor;
-
-    /*set the text on top right widget*/
-    lv_obj_set_style_text_color(lv_obj_get_child(lv_obj_get_child(screenMain, 5), 1), 
-                                lv_color_hex(0x40ce00), LV_PART_MAIN);
-    lv_label_set_text_fmt(lv_obj_get_child(lv_obj_get_child(screenMain, 5), 1), 
-                          "Drip Rate: %d", targetDripRate);
+    /*get DR and display on top right widget*/
+    uint16_t time = keypadInput[1]*60 + keypadInput[2];
+    if (time == 0) {  // when user input 0 for time
+      state = false;
+      lv_label_set_text(lv_obj_get_child(lv_obj_get_child(screenMain, 5), 1), 
+                            "Time should not be 0");
+    } else {
+      targetDripRate = keypadInput[0] * dropFactor / time;
+      /*set the text on top right widget*/
+      lv_obj_set_style_text_color(lv_obj_get_child(lv_obj_get_child(screenMain, 5), 1), 
+                                  lv_color_hex(0x40ce00), LV_PART_MAIN);
+      lv_label_set_text_fmt(lv_obj_get_child(lv_obj_get_child(screenMain, 5), 1), 
+                            "Drip Rate: %d", targetDripRate);
+    }
   }
   return state;
 }

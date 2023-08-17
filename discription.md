@@ -1,5 +1,8 @@
     This branch is used for developing the usage of upper limited SW
+    This branch is also used for adding limit to user input by keypad
 
+===========================================================================
+# below are developing the usage of upper limited SW
 ## Note:
 - when the sensor sense no drop for 20s, auto-ctrl will do reposition
 - the motor will then moving up without interval until find a new drop
@@ -45,3 +48,27 @@
 - solve:
     - directly use the state `motorHoming` is not a fix, because there may still a drop after homing completed
     - add a global var `homingCompletedTime` to get the time and +200ms as the condition
+
+===========================================================================
+# below are adding limit to user input by keypad
+
+## the limit already have
+- the input fields cannot input more than 4 numbers
+- target should >=20 & <=400
+- thus, volume must <10000, time must <(10000/60=166h)
+
+## some condition of infusion that already known
+- the container usually have size <3L only
+- may have intermittent infusion (adminstered over a special period of time, and at a specific interval)
+- may have a continuous infusion (delivered over a prolonged period of time, e.g. saline: serval days)
+
+## problem
+- condition:
+    - input all input fields
+    - both hour and minutes input 0
+- details of problem:
+    - the program restart then
+    - it should because of the DR becomes inf and the program crashed
+- solving:
+    - check in function `validate_keypad_inputs()`
+    - when time = 0, not allow for auto-ctrl and msg alarm
