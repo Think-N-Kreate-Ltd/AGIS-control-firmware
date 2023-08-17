@@ -48,7 +48,7 @@ volatile unsigned int numDrops = 0;       // for counting the number of drops wi
 volatile unsigned int dripRate = 0;       // for calculating the drip rate
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
 volatile unsigned int dripRatePeak = 1;   // drip rate at the position when 1st drop is detected
-uint8_t dripFactor[4] = {10, 15, 20, 60}; // an array to store the option of drip factor
+uint8_t dripFactor[] = {10, 15, 20, 60};  // an array to store the option of drip factor
 
 // var for component debouncing
 ezButton limitSwitch_Up(37);   // create ezButton object that attach to pin 37;
@@ -611,14 +611,17 @@ void resetValues() {
 // to calculate and store the accurate volume
 // default perimeter is false, change to true to reset volume
 int volumeCount(bool reset) {
-  static int volume_x60 = 0;
+  static int volume = 0;
+  static int remainder = 0;
   if (reset) {
-    volume_x60 = 0;
+    volume = 0;
+    remainder = 0;
   } else {
-    volume_x60 += (60 / dropFactor);
+    volume += ((100+remainder) / dropFactor);
+    remainder = (100+remainder) % dropFactor;
   }
   // return the volume which is used for display
-  return 100 * volume_x60 / 60;
+  return volume;
 }
 
 void loggingData(void * parameter) {
