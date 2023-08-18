@@ -172,8 +172,9 @@ void input_screen() {
   lv_obj_t * cont1 = lv_obj_create(screenMain);
   lv_obj_set_flex_flow(cont1, LV_FLEX_FLOW_COLUMN_WRAP);
   lv_obj_set_size(cont1, lv_pct(96), lv_pct(33));
-  lv_obj_align(cont1, LV_ALIGN_OUT_TOP_LEFT, 5, 157);
+  lv_obj_align(cont1, LV_ALIGN_BOTTOM_MID, 0, -3);
   lv_obj_add_event_cb(cont1, radio_event_handler, LV_EVENT_CLICKED, &active_index_1);
+  lv_obj_set_scrollbar_mode(cont1, LV_SCROLLBAR_MODE_OFF);  /*not show scrollbars*/
 
   /*add radio button*/
   for(int i=0; i<lengthOfDF; i++) {
@@ -282,6 +283,9 @@ void monitor_screen() {
     lv_table_set_cell_value(table, i, 1, "Not started");
   }
 
+  /*cannot select table*/
+  lv_group_remove_obj(table);
+
   /*Add an event callback to to apply some custom drawing*/
   // lv_obj_add_event(table, draw_part_event_cb, LV_EVENT_DRAW_PART_BEGIN, NULL);
 }
@@ -318,6 +322,7 @@ void set_textarea(lv_obj_t *& parent, uint16_t index, lv_coord_t x, lv_coord_t y
 static void radiobutton_create(lv_obj_t * parent, const char * txt) {
   lv_obj_t * obj = lv_checkbox_create(parent);
   lv_checkbox_set_text(obj, txt);
+  lv_obj_set_width(obj, 132);
   lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE);
   lv_obj_add_style(obj, &style_radio, LV_PART_INDICATOR);
   lv_obj_add_style(obj, &style_radio_chk, LV_PART_INDICATOR | LV_STATE_CHECKED);
