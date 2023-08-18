@@ -120,9 +120,10 @@ function onWsMessage(event) {
             document.getElementById("infusion_state_value").style.color = "green"
             document.getElementById("infusion_state_value").innerHTML = "ALARM: infusion has completed";
 
-            // allow download infusion data only if it has completed
-            document.getElementById("download_infusion_data_btn").disabled = false;
-
+            // allow download infusion data only if it has data logging completed
+            setTimeout(function(){
+                document.getElementById("download_infusion_data_btn").disabled = false;
+            }, 1500);
         }
     }
     else if (infusionState === infusionState_t.ALARM_STOPPED) {

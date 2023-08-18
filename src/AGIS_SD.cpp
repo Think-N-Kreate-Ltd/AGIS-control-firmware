@@ -136,24 +136,6 @@ void newFileInit() {
 // just wait and do nothing when the infusion is paused
 // resume logging if infusion is resumed
 void logData() {
-  // // to avoid SD write latency between readings
-  // float data[8] = {infusedTime, dripRate, infusedVolume_x100 / 100.0f, current_mA, busvoltage, shuntvoltage,
-  //                     power_mW, avgCurrent_mA};
-
-  // // Write the first data to CSV record
-  // file.print(data[0]);
-
-  // // Write data to CSV record
-  // for (uint8_t i = 1; i < 8; i++) {
-  //   file.write(',');
-  //   // if (i==2) { // print the third colume with 1 d.p.
-  //   //   uint16_t x = infusedVolume_x100 / 100;
-  //   //   file.printf("%d.%d", x, infusedVolume_x100 / 10 - (x*10));
-  //   // } else {
-  //     file.print(data[i]);
-  //   // }
-  // }
-  // file.println();
 
   file.printf("%u, %u, %f, %f, %f, %f, %f, %.1f\n", infusedTime, dripRate, 
                   infusedVolume_x100 / 100.0f, current_mA, busvoltage, 
@@ -179,7 +161,10 @@ void logData() {
   }
 }
 
+// log the last data(homing), and then close the file
 void endLogging() {
+  // log the last data after homing, the timing is set in task
+  file.printf("%u, %u, %f, \ninfusion and homing completed", infusedTime, dripRate, infusedVolume_x100 / 100.0f);
   // Close file and stop.
   file.close();
   ESP_LOGI(DATA_LOGGING_TAG, "Data logging done!");

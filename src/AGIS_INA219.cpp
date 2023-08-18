@@ -22,28 +22,11 @@ void ina219SetUp() {
       delay(1);
   }
 
-  // Wire.beginTransmission(64);
-
   if (!ina219.begin()) {
     Serial.println("Failed to find INA219 chip");
     while (1) { delay(10); }
   }
-
-  // Serial.println("INA219 connected");
 }
-
-// LiquidCrystal_I2C lcd(0x27,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
-
-// void lcdSetUp() {
-//   lcd.init();
-//   lcd.clear();         
-//   lcd.backlight();      // Make sure backlight is on
-
-//   // Print a message on first line
-//   // as this msg not change here, it is place in the setup currently
-//   lcd.setCursor(2,0);   // Set cursor to character 2 on line 0
-//   lcd.print("Current:");
-// }
 
 void getIna219Data() {
   for (int x=0; x<ARRAYLENGTH; x++) { // collect data with 5 times 1 set
@@ -62,10 +45,5 @@ void getIna219Data() {
     current[x] = current_mA;
     total_current += current[x];  // update the total value
     avgCurrent_mA = total_current/ARRAYLENGTH;  // calculate the average value
-
-    // print to LCD (debug use)
-    // lcd.setCursor(2,1);   // Move cursor to character 2 on line 1
-    // lcd.print(x);
-    // vTaskDelay(100);      // the number change too fast would make it hard to see
   }
 }

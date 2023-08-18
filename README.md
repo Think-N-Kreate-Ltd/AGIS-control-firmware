@@ -6,8 +6,8 @@
 - go to http://<IPAddress>/update for OTA update
 - upload firmware.bin for main, spiffs.bin for SPIFFS files
 - GPIO36 -> EXT interrupt for reading sensor data
-- timer0 -> INT interrupt for read sensor & time measure
-- timer1 -> INT interrupt for auto control
+- timer0 -> INT interrupt for auto control
+- timer1 -> INT interrupt for motor control by keypad
 
 ## Keypad key functions:
 + number keys 0->9: numbers for input fields

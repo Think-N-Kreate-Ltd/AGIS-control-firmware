@@ -392,6 +392,10 @@ SdFat web server download file
 Real time web application
  - https://codeburst.io/polling-vs-sse-vs-websocket-how-to-choose-the-right-one-1859e4e13bd9
 
+naming for git:
+ - https://dev.to/varbsan/a-simplified-convention-for-naming-branches-and-commits-in-git-il4
+ - https://dev.to/couchcamote/git-branching-name-convention-cch
+
 ======================================
 # web page code
 <!DOCTYPE HTML>
