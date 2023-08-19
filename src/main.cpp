@@ -306,59 +306,66 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
 
 void IRAM_ATTR motorControlISR() {
   static bool pressing = false;  // check for the key is pressing or not
+  // not to control motor when doing homing
+  if (!motorHoming) {
+    // Use keypad `U` to manually move up
+    if (buttonState == buttonState_t::UP) {
+      motorOnUp();
+      pressing = true;
+    }
 
-  // Use keypad `U` to manually move up
-  if (buttonState == buttonState_t::UP) {
-    motorOnUp();
-    pressing = true;
-  }
+    // Use keypad `D` to manually move down
+    if (buttonState == buttonState_t::DOWN) {
+      motorOnDown();
+      pressing = true;
+    }
 
-  // Use keypad `D` to manually move down
-  if (buttonState == buttonState_t::DOWN) {
-    motorOnDown();
-    pressing = true;
-  }
-
-  // Use keypad `*` to pause / resume / reset the infusion
-  // ensure it will only run once when holding the key
-  // when the data is not decided, it should not do anything (the first infusion must not start by this)
-  if (buttonState == buttonState_t::ENTER && !pressing 
-      && (targetDripRate != 0) && (targetNumDrops != UINT_MAX)) {
-    // pause / resume the infusion
-    if (enableAutoControl) {
-      infusionState = infusionState_t::PAUSED;
-    } else {
-      if ((infusionState == infusionState_t::NOT_STARTED) || (infusionState == infusionState_t::STARTED)
-          || (infusionState == infusionState_t::ALARM_COMPLETED) || (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED)
-          || (infusionState == infusionState_t::ALARM_OUT_OF_FLUID)) {
-        // for the case that use `*` to start auto ctrl, not recommended to do so
-        // set all vars same as keypad infusion confirmed
-        resetValues();
-        firstDropDetected = false;
-        enableLogging = true;
+    // Use keypad `*` to pause / resume / reset the infusion
+    // ensure it will only run once when holding the key
+    // when the data is not decided, it should not do anything (the first infusion must not start by this)
+    if (buttonState == buttonState_t::ENTER && !pressing 
+        && (targetDripRate != 0) && (targetNumDrops != UINT_MAX)) {
+      // pause / resume the infusion
+      if (enableAutoControl) {
+        infusionState = infusionState_t::PAUSED;
+      } else {
+        if ((infusionState == infusionState_t::NOT_STARTED) || (infusionState == infusionState_t::STARTED)
+            || (infusionState == infusionState_t::ALARM_COMPLETED) || (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED)
+            || (infusionState == infusionState_t::ALARM_OUT_OF_FLUID)) {
+          // for the case that use `*` to start auto ctrl, not recommended to do so
+          // set all vars same as keypad infusion confirmed
+          resetValues();
+          firstDropDetected = false;
+          enableLogging = true;
+        }
+        infusionState = infusionState_t::IN_PROGRESS;
       }
-      infusionState = infusionState_t::IN_PROGRESS;
-    }
-    enableAutoControl = !enableAutoControl;
+      enableAutoControl = !enableAutoControl;
 
-    // if press it twice within 500ms, reset the infusion
-    static int recordTime;
-    if ((millis()-recordTime)<500 && ((infusionState == infusionState_t::IN_PROGRESS) 
-        || (infusionState == infusionState_t::PAUSED))) {
-      // reset the value
-      // infusionInit();
-      motorHoming = true;
-      enableAutoControl = false;
+      // if press it twice within 500ms, reset the infusion
+      static int recordTime;
+      if ((millis()-recordTime)<500 && ((infusionState == infusionState_t::IN_PROGRESS) 
+          || (infusionState == infusionState_t::PAUSED))) {
+        // reset the value
+        // infusionInit();
+        motorHoming = true;
+        enableAutoControl = false;
 
-      // stop droping and mark as complete
-      infusionState = infusionState_t::ALARM_COMPLETED;
-      /*auto control will do homing*/
-    }
-    recordTime = millis();
-    pressing = true;
-  } 
+        // stop droping and mark as complete
+        infusionState = infusionState_t::ALARM_COMPLETED;
+        /*auto control will do homing*/
+      }
+      recordTime = millis();
+      pressing = true;
+    } 
+  } else if (buttonState != buttonState_t::IDLE) {
+    // clear btn state after homing, to prevent legacy problem
+    buttonState = buttonState_t::IDLE;
+    pressing = false;
+  }
 
-  if (buttonState == buttonState_t::IDLE && pressing) {  // it will only run once each time
+  // it will only run once each time
+  if (buttonState == buttonState_t::IDLE && pressing) {
     motorOff();
     pressing = false;
   }
