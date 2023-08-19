@@ -6,6 +6,13 @@
  * HOWEVER, sleep is also so harmful
  * (check here https://stackoverflow.com/questions/8815895/why-is-thread-sleep-so-harmful)
  * thus, I avoid use of it and there are many limitations, it's normal to feel strange on some parts
+ * 
+ * LVGL cannot use justify content
+ * on the other hand, msg box itmes have width=100%
+ * thus, we need to set them one by one to custom the position of the text
+ * note: can use `lv_obj_get_width()` to find the width
+ * 
+ * screenMain index: 0-2->input field; 5-6->other use
 */
 
 #include <AGIS_Display.h>
@@ -95,6 +102,7 @@ void ask_for_wifi_enable_msgbox() {
 
   static const char * btns[] = {"Yes", "No", ""};
   lv_obj_t * wifi_box = lv_msgbox_create(screenWifi, "Enable WiFi?", NULL, btns, false);
+  lv_obj_set_width(lv_obj_get_child(wifi_box, 0), 95);
   lv_obj_add_event_cb(wifi_box, wifibox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
   lv_group_focus_obj(lv_msgbox_get_btns(wifi_box));
   lv_obj_add_state(lv_msgbox_get_btns(wifi_box), LV_STATE_FOCUS_KEY);
@@ -102,7 +110,7 @@ void ask_for_wifi_enable_msgbox() {
   lv_group_focus_freeze(grp, true);
 
   /*set the position*/
-  lv_obj_set_align(wifi_box, LV_ALIGN_CENTER);
+  lv_obj_set_flex_align(wifi_box, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_SPACE_AROUND);
   /*set the size to use 99% area, which can avoid `detected modifying dirty areas in render`*/
   lv_obj_set_size(wifi_box, lv_pct(99), lv_pct(99));
   // lv_obj_set_layout(wifi_box, LV_LAYOUT_GRID);
@@ -171,10 +179,15 @@ void input_screen() {
 
   lv_obj_t * cont1 = lv_obj_create(screenMain);
   lv_obj_set_flex_flow(cont1, LV_FLEX_FLOW_COLUMN_WRAP);
+  lv_obj_set_style_flex_main_place(cont1, LV_FLEX_ALIGN_SPACE_AROUND, 0);
+  lv_obj_set_style_flex_cross_place(cont1, LV_FLEX_ALIGN_CENTER, 0);
+  lv_obj_set_style_pad_column(cont1, 15, 0);
   lv_obj_set_size(cont1, lv_pct(96), lv_pct(33));
   lv_obj_align(cont1, LV_ALIGN_BOTTOM_MID, 0, -3);
   lv_obj_add_event_cb(cont1, radio_event_handler, LV_EVENT_CLICKED, &active_index_1);
   lv_obj_set_scrollbar_mode(cont1, LV_SCROLLBAR_MODE_OFF);  /*not show scrollbars*/
+  lv_obj_set_scroll_snap_x(cont1, LV_SCROLL_SNAP_NONE);     /*nothing change currently, just keep here as reminder*/
+  lv_obj_move_to_index(cont1, 5); /*for scrolling after wifibox close*/
 
   /*add radio button*/
   for(int i=0; i<lengthOfDF; i++) {
@@ -208,7 +221,7 @@ void input_screen() {
   lv_obj_set_style_text_color(DR_label2, lv_color_hex(0xcc0000), LV_PART_MAIN);
   lv_obj_align_to(DR_label2, DR_label1, LV_ALIGN_LEFT_MID, 0, 20);
   /*as we need to change the text of this label, we need to set index*/
-  lv_obj_move_to_index(DRWidget, 5);
+  lv_obj_move_to_index(DRWidget, 6);
   /*don't need to set for `DR_label2` as it must be 1*/
 
   /*Loads the main screen*/
@@ -220,6 +233,8 @@ void confirm_msgbox() {
   char DR_buf[25];
   sprintf(DR_buf, "Drip Rate: %d", targetDripRate);
   lv_obj_t * confirm_box = lv_msgbox_create(screenMain, DR_buf, "Confirm To Run?\n", btns, false);
+  lv_obj_set_width(lv_obj_get_child(confirm_box, 0), 160);
+  lv_obj_set_width(lv_obj_get_child(confirm_box, 1), 150);
   lv_obj_add_event_cb(confirm_box, confirmbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
   lv_group_focus_obj(lv_msgbox_get_btns(confirm_box));
   lv_obj_add_state(lv_msgbox_get_btns(confirm_box), LV_STATE_FOCUS_KEY);
@@ -227,6 +242,7 @@ void confirm_msgbox() {
 
   /*set the position*/
   lv_obj_align(confirm_box, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_set_flex_align(confirm_box, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_SPACE_AROUND);
   // lv_obj_set_width(confirm_box, 125);
   lv_obj_set_size(confirm_box, lv_pct(60), lv_pct(50));
 
@@ -239,7 +255,8 @@ void confirm_msgbox() {
 
 void remind_input_msgbox() {
   static const char * btns[] = {"Back", ""};
-  lv_obj_t * confirm_box = lv_msgbox_create(screenMain, "Plz check all fields\n", NULL, btns, false);
+  lv_obj_t * confirm_box = lv_msgbox_create(screenMain, "Plz check all fields", NULL, btns, false);
+  lv_obj_set_width(lv_obj_get_child(confirm_box, 0), 135);
   lv_obj_add_event_cb(confirm_box, confirmbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
   lv_group_focus_obj(lv_msgbox_get_btns(confirm_box));
   lv_obj_add_state(lv_msgbox_get_btns(confirm_box), LV_STATE_FOCUS_KEY);
@@ -247,8 +264,9 @@ void remind_input_msgbox() {
 
   /*set the position*/
   lv_obj_align(confirm_box, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_set_flex_align(confirm_box, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_SPACE_AROUND);
   // lv_obj_set_width(confirm_box, 125);
-  lv_obj_set_size(confirm_box, lv_pct(52), lv_pct(42));
+  lv_obj_set_size(confirm_box, lv_pct(60), lv_pct(50));
 
   /*make the background a little bit grey*/
   // lv_obj_set_style_bg_opa(screenMain, LV_OPA_70, 0);
@@ -322,7 +340,7 @@ void set_textarea(lv_obj_t *& parent, uint16_t index, lv_coord_t x, lv_coord_t y
 static void radiobutton_create(lv_obj_t * parent, const char * txt) {
   lv_obj_t * obj = lv_checkbox_create(parent);
   lv_checkbox_set_text(obj, txt);
-  lv_obj_set_width(obj, 132);
+  lv_obj_set_width(obj, lv_pct(47));
   lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE);
   lv_obj_add_style(obj, &style_radio, LV_PART_INDICATOR);
   lv_obj_add_style(obj, &style_radio_chk, LV_PART_INDICATOR | LV_STATE_CHECKED);
@@ -340,7 +358,7 @@ static void radio_event_handler(lv_event_t * e) {
   lv_obj_clear_state(old_cb, LV_STATE_CHECKED);   /*Uncheck the previous radio button*/
   lv_obj_add_state(act_cb, LV_STATE_CHECKED);     /*Uncheck the current radio button*/
 
-  *active_id = lv_obj_get_index(act_cb);          /*I don't know what it is use for*/
+  *active_id = lv_obj_get_index(act_cb);          /*record the index for unchecked next time*/
   uint16_t i = lv_obj_get_index(act_cb);          /*get the index if button*/
   dropFactor = dripFactor[i];                     /*store the drip factor selected*/
 
@@ -380,6 +398,7 @@ static void wifibox_event_cb(lv_event_t * event) {
       inMsgbox = false;
       /*go back to input screen*/
       lv_disp_load_scr(screenMain);
+      lv_obj_scroll_to_view(lv_obj_get_child(lv_obj_get_child(screenMain, 5), 0), LV_ANIM_OFF);
       /*start from looking at top VTBI input field*/
       lv_group_focus_obj(lv_obj_get_child(screenMain, VTBI_INDEX));
 
@@ -560,14 +579,14 @@ bool validate_keypad_inputs() {
     uint16_t time = keypadInput[1]*60 + keypadInput[2];
     if (time == 0) {  // when user input 0 for time
       state = false;
-      lv_label_set_text(lv_obj_get_child(lv_obj_get_child(screenMain, 5), 1), 
+      lv_label_set_text(lv_obj_get_child(lv_obj_get_child(screenMain, 6), 1), 
                             "Time should not be 0");
     } else {
       targetDripRate = keypadInput[0] * dropFactor / time;
       /*set the text on top right widget*/
-      lv_obj_set_style_text_color(lv_obj_get_child(lv_obj_get_child(screenMain, 5), 1), 
+      lv_obj_set_style_text_color(lv_obj_get_child(lv_obj_get_child(screenMain, 6), 1), 
                                   lv_color_hex(0x40ce00), LV_PART_MAIN);
-      lv_label_set_text_fmt(lv_obj_get_child(lv_obj_get_child(screenMain, 5), 1), 
+      lv_label_set_text_fmt(lv_obj_get_child(lv_obj_get_child(screenMain, 6), 1), 
                             "Drip Rate: %d", targetDripRate);
     }
   }
