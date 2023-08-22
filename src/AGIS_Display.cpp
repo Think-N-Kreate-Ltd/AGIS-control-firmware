@@ -303,6 +303,16 @@ void monitor_screen() {
 
   /*cannot select table*/
   lv_group_remove_obj(table);
+  /*move to background*/
+  lv_obj_move_background(table);
+
+  lv_obj_t * btn = lv_btn_create(screenMonitor);
+  lv_obj_add_event_cb(btn, complete_event_cb, LV_EVENT_ALL, NULL);
+  lv_obj_align(btn, LV_ALIGN_BOTTOM_MID, 0, -5);
+  lv_obj_t * btn_label = lv_label_create(btn);
+  lv_label_set_text(btn_label, "*");
+  lv_obj_center(btn_label);
+  lv_group_remove_obj(btn);
 
   /*Add an event callback to to apply some custom drawing*/
   // lv_obj_add_event(table, draw_part_event_cb, LV_EVENT_DRAW_PART_BEGIN, NULL);
@@ -434,22 +444,29 @@ static void confirmbox_event_cb(lv_event_t * event) {
         lv_group_focus_obj(screenMain);
         lv_obj_scroll_to(screenMain, 0, 0, LV_ANIM_OFF);
       } else if (txt == "Yes") {
-        Serial.print(txt);
         /*Submit verified inputs to autoControl*/
         targetVTBI = keypadInput[0];
         targetTotalTime = keypadInput[1]*3600 + keypadInput[2]*60;
         // targetDripRate = targetVTBI * dropFactor / (keypadInput[1]*60 + keypadInput[2]);
         targetNumDrops = targetVTBI * dropFactor;
-        Serial.print(", drop factor=");
         /*go to monitor screen, and start infusion*/
         lv_disp_load_scr(screenMonitor);
         keypadInfusionConfirmed = true;
         screenState = false;
         /*avoid carshing. In fact, it is better to reduce the workload on INT*/
-        Serial.println(dropFactor);
         vTaskDelay(100);
       } else {/*I don't know how to go to this condition*/}
     }
+  }
+}
+
+static void complete_event_cb(lv_event_t * event) {
+  lv_event_code_t code = lv_event_get_code(event);
+  if (code == LV_EVENT_PRESSED) {
+    // lv_group_focus_freeze(grp, false);
+    // lv_group_remove_obj(lv_obj_get_child(screenMonitor, 1));
+    buttonState = buttonState_t::ENTER;
+    ESP_LOGI(TFT_TAG, "Count as click `*` once");
   }
 }
 
@@ -544,6 +561,20 @@ void infusion_monitoring_cb(lv_timer_t * timer) {
     lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 2, 1, "%d.%02d", infusedVolume_x100/100, infusedVolume_x100%100);
     lv_table_set_cell_value_fmt(lv_obj_get_child(screenMonitor, 0), 3, 1, "%02d:%02d:%02d", infusedTime/3600, infusedTime%3600/60, infusedTime%60);
     lv_table_set_cell_value(lv_obj_get_child(screenMonitor, 0), 4, 1, getInfusionState(infusionState));
+    /*while doing auto, user can only press `Finish` btn*/
+    static bool inputState = true;
+    if (inputState) {
+      if (infusionState == infusionState_t::IN_PROGRESS) {
+        lv_group_add_obj(grp, lv_obj_get_child(screenMonitor, 1));
+        lv_group_focus_obj(lv_obj_get_child(screenMonitor, 1));
+        lv_group_focus_freeze(grp, true);
+        inputState = false;
+      }
+    } else if (infusionState == infusionState_t::ALARM_COMPLETED || infusionState == infusionState_t::ALARM_OUT_OF_FLUID) {
+      lv_group_focus_freeze(grp, false);
+      lv_group_remove_obj(lv_obj_get_child(screenMonitor, 1));
+      inputState = true;
+    }
   }
 }
 

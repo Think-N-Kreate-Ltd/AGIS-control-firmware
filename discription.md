@@ -80,8 +80,23 @@
     - volume increase rate may change
     - target num drops will not change, which is used to change state to finish
 - solving requirement
-    - think of what can user do when started with unwanted input
+    - think of what can user do when started with unwanted input <- use `*` to stop immediately
     - disable user change the target value, or can only change when some condition satisify
+- solving method:
+    1. allow user input but will not submit and change
+        - pre-input and can show change when `restart` <- not recommended
+        - need one more set of var to store values <- can use struct but also need extra memory
+        - need to pass `enableAutoControl` or add many state (as DF is set to change immediately to use direct control for infusion)
+    2. cannot input when doing auto-ctrl
+        - add a lock btn and freeze on it, the user cannot go to input field
+        - need to find a pos to place the btn <- need to redesign the UI
+        - when to finish it
+- solving: use method (1)
+    - add a btn on mon-scr, which will work as pressing `*` when pressed
+    - cannot focus on the btn when not in auto-ctrl
+    - when auto-ctrl, the user can only focus on the btn, which can block the user from input other values
+    - nearly no extra mamory is used
+    - the UI / text of the btn may need to change in the future (Note: text in the btn cannot scroll)
 
 ## feature: no limitation for user to choose drop factor
 - condition:
@@ -96,3 +111,21 @@
     - refactor the volume
     - new drip factor cannot directly add in radio button, should update in a specific place, and a new radio button will appear after update
     - maybe only user with access can add new drip factor
+
+===========================================================================
+# below are some hot fix
+## fix: control motor will postpone homing
+- condition:
+    - when doing homing
+    - at that time, the motor speed is set to very high
+    - the time for hoimg should be should be short
+    - means that user are not able to enter all input and run the auto-ctrl
+    - but can directly control motor at that time
+- details:
+    - user can control the motor when doing homing (keypad move up/down)
+    - the motor will then be overrided to move up/down
+    - in fact, it cause no problem as the motor still doing homing after control finish, once homing is started, the will never be stopped until touch lower limited SW
+    - besides, it is expected that the nurse will not do that as there is no reason for them to do so
+    - However, we still don't want it to happen
+- solve:
+    - disable the motor control by keypad when doing homing
