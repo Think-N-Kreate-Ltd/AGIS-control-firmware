@@ -441,8 +441,9 @@ static void confirmbox_event_cb(lv_event_t * event) {
 
       if(txt == "Back") {
         /*go back to input screen*/
-        lv_group_focus_obj(screenMain);
+        lv_group_focus_obj(lv_obj_get_child(screenMain, VTBI_INDEX));
         lv_obj_scroll_to(screenMain, 0, 0, LV_ANIM_OFF);
+        lv_obj_scroll_to_view(lv_obj_get_child(lv_obj_get_child(screenMain, 5), 0), LV_ANIM_OFF);
       } else if (txt == "Yes") {
         /*Submit verified inputs to autoControl*/
         targetVTBI = keypadInput[0];
@@ -521,17 +522,19 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
     else if (key == 'G') {
       /*not to pop up the message box if input missed or in monitor screen*/
       /*also avoid pop up the msgbox twice*/
-      if (allInputs && screenState && !inMsgbox) {
-        if ((targetDripRate >= 20) && (targetDripRate <= 400)) {
-          /*pop up a message box to confirm*/
-          confirm_msgbox();
+      if (screenState && !inMsgbox) {
+        if (allInputs) {
+          if ((targetDripRate >= 20) && (targetDripRate <= 600)) {
+            /*pop up a message box to confirm*/
+            confirm_msgbox();
+          } else {
+            /*pop up a message box to alarm the input is so strange*/
+            remind_input_msgbox();
+          }
         } else {
-          /*pop up a message box to alarm the input is so strange*/
+          /*pop up a message box to ask for inputs*/
           remind_input_msgbox();
         }
-      } else {
-        /*pop up a message box to ask for inputs*/
-        remind_input_msgbox();
       }
     }
     else {

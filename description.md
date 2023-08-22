@@ -129,3 +129,14 @@
     - However, we still don't want it to happen
 - solve:
     - disable the motor control by keypad when doing homing
+
+## fix: the comfirm msgbox pop up when in monitor screen
+- condition and detail:
+    - while in monitor screen, press F2, go back to input screen, msgbox pop up
+    - because the newly added remind msgbox is outside the condition
+- solve:
+    - put the msgbox back to the condition
+- extra problem: after press `back` btn, DF widget will scroll to right and focus on 100mL
+- solve: add focus and scroll it back
+
+## fix: the btn in monitor, press any key will trigger that
