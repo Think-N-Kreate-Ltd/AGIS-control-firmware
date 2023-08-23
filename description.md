@@ -58,8 +58,8 @@
 
 ## some condition of infusion that already known
 - the container usually have size <3L only
-- may have intermittent infusion (adminstered over a special period of time, and at a specific interval)
-- may have a continuous infusion (delivered over a prolonged period of time, e.g. normal saline: serval days?)
+- may have intermittent infusion (administered over a special period of time, and at a specific interval)
+- may have a continuous infusion (delivered over a prolonged period of time, e.g. normal saline: several days?)
 
 ## problem
 - condition:
@@ -94,7 +94,7 @@
     - add a btn on mon-scr, which will work as pressing `*` when pressed
     - cannot focus on the btn when not in auto-ctrl
     - when auto-ctrl, the user can only focus on the btn, which can block the user from input other values
-    - nearly no extra mamory is used
+    - nearly no extra memory is used
     - the UI / text of the btn may need to change in the future (Note: text in the btn cannot scroll)
 
 ## feature: no limitation for user to choose drop factor
@@ -127,7 +127,7 @@
 - condition:
     - when doing homing
     - at that time, the motor speed is set to very high
-    - the time for hoimg should be should be short
+    - the time for homing should be should be short
     - means that user are not able to enter all input and run the auto-ctrl
     - but can directly control motor at that time
 - details:
@@ -139,7 +139,7 @@
 - solve:
     - disable the motor control by keypad when doing homing
 
-## fix: the comfirm msgbox pop up when in monitor screen
+## fix: the confirm msgbox pop up when in monitor screen
 - condition and detail:
     - while in monitor screen, press F2, go back to input screen, msgbox pop up
     - because the newly added remind msgbox is outside the condition
@@ -155,8 +155,8 @@
 ## fix: state directly go to exceeded
 - condition:
     - after finish the infusion
-    - state will not go to completed, but will go to exceedede directly
-    - even fnish the infusion by `*` gives the same result
+    - state will not go to completed, but will go to exceeded directly
+    - even finish the infusion by `*` gives the same result
 - details:
     - caused by the condition that go to exceeded, one condition is measure the time and >=200
     - but the measured time is not recorded yet when doing homing
