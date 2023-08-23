@@ -24,9 +24,6 @@
 
 // state for checking the wifibox, false=not enable
 volatile bool wifiStart = NULL;
-// a special state to lock the event change
-// seems no method to reset the event state (`lv_obj_remove_event_cb` have problem and cannot use)
-bool enterClicked;
 // the state of the msgbox, true=in msgbox. for switching the use of key `L` `R`
 // also use for preventing msgbox pop up twice
 bool inMsgbox;
@@ -404,7 +401,7 @@ static void wifibox_event_cb(lv_event_t * event) {
   lv_event_code_t code = lv_event_get_code(event);
   lv_obj_t * confirm_box = lv_event_get_current_target(event);
 
-  if(code == LV_EVENT_VALUE_CHANGED && enterClicked) { /*is sent by the buttons if one of them is clicked*/
+  if(code == LV_EVENT_VALUE_CHANGED) { /*is sent by the buttons if one of them is clicked*/
     const char * txt = lv_msgbox_get_active_btn_text(confirm_box);  /*get the button value*/
     if(txt){
       /*close the msgbox*/
@@ -432,7 +429,7 @@ static void confirmbox_event_cb(lv_event_t * event) {
   lv_event_code_t code = lv_event_get_code(event);
   lv_obj_t * confirm_box = lv_event_get_current_target(event);
 
-  if(code == LV_EVENT_VALUE_CHANGED && enterClicked) { /*is sent by the buttons if one of them is clicked*/
+  if(code == LV_EVENT_VALUE_CHANGED) { /*is sent by the buttons if one of them is clicked*/
     const char * txt = lv_msgbox_get_active_btn_text(confirm_box);  /*get the button value*/
     if(txt){
       /*close the msgbox*/
@@ -482,7 +479,6 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
     Serial.write(key);
     if (key == 'E') {
       data->key = LV_KEY_ENTER;
-      enterClicked = true;
     }
     else if (key == 'C') {
       // data->key = LV_KEY_ESC;
@@ -551,7 +547,6 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
   else if (keypad.getState() == 0) {  // when keypad pressing is released
     data->state = LV_INDEV_STATE_RELEASED;
     data->key = 0x00; /*reset key value and do nothing*/
-    enterClicked = false;
     // stop the motor control
     if (buttonState != buttonState_t::IDLE) {
       buttonState = buttonState_t::IDLE;
@@ -597,7 +592,6 @@ void closeWifiBox() {
   // lv_obj_del(screenWifi);      /*cannot delete any object*/
   lv_disp_load_scr(screenMain);   /*go back to input screen*/
   lv_group_focus_obj(lv_obj_get_child(screenMain, VTBI_INDEX)); /*focus to input field*/
-  enterClicked = false;
   inMsgbox = false;
   // pthread_mutex_unlock(&lvgl_mutex);
   vTaskDelay(50);                 /*avoid crashing, 30 should be enough*/

@@ -141,3 +141,4 @@
 
 ## fix: the btn in monitor, press any key will trigger that
 - see issue #42: https://github.com/Think-N-Kreate-Ltd/AGIS-control-firmware/issues/42
+- follow up change: remove the state for msgbox `enterClicked` which is use to block the last event
