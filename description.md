@@ -140,3 +140,4 @@
 - solve: add focus and scroll it back
 
 ## fix: the btn in monitor, press any key will trigger that
+- see issue #42: https://github.com/Think-N-Kreate-Ltd/AGIS-control-firmware/issues/42

@@ -12,6 +12,11 @@
  * thus, we need to set them one by one to custom the position of the text
  * note: can use `lv_obj_get_width()` to find the width
  * 
+ * when using a custom keyboard you need to remove the old event handler. 
+ * otherwise both event handler will be called, 
+ * thus inputing 2 characters each time you click once
+ * (check here https://github.com/lvgl/lvgl/issues/2274)
+ * 
  * screenMain index: 0-2->input field; 5-6->other use
 */
 
@@ -538,13 +543,14 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
       }
     }
     else {
-      data->key = key;  /*should not enter here*/
+      data->key = key;  /*for getting other keys (0-9)*/
     }
 
     data->state = LV_INDEV_STATE_PRESSED;
   }
   else if (keypad.getState() == 0) {  // when keypad pressing is released
     data->state = LV_INDEV_STATE_RELEASED;
+    data->key = 0x00; /*reset key value and do nothing*/
     enterClicked = false;
     // stop the motor control
     if (buttonState != buttonState_t::IDLE) {
