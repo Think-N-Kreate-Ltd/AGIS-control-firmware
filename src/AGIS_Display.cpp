@@ -525,13 +525,8 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
       /*also avoid pop up the msgbox twice*/
       if (screenState && !inMsgbox) {
         if (allInputs) {
-          if ((targetDripRate >= 20) && (targetDripRate <= 600)) {
-            /*pop up a message box to confirm*/
-            confirm_msgbox();
-          } else {
-            /*pop up a message box to alarm the input is so strange*/
-            remind_input_msgbox();
-          }
+          /*pop up a message box to confirm*/
+          confirm_msgbox();
         } else {
           /*pop up a message box to ask for inputs*/
           remind_input_msgbox();
@@ -608,21 +603,32 @@ bool validate_keypad_inputs() {
     state = false;
   }
 
-  if (state) {
-    /*get DR and display on top right widget*/
-    uint16_t time = keypadInput[1]*60 + keypadInput[2];
-    if (time == 0) {  // when user input 0 for time
+  /*check for valid input*/
+  uint16_t time = keypadInput[1]*60 + keypadInput[2];
+  if (time == 0) {  // when user input 0 for time
+    state = false;
+    lv_label_set_text(lv_obj_get_child(lv_obj_get_child(screenMain, 6), 1), "Time should not be 0");
+  } else {
+    targetDripRate = keypadInput[0] * dropFactor / time;
+    if (targetDripRate <= 20) {
       state = false;
-      lv_label_set_text(lv_obj_get_child(lv_obj_get_child(screenMain, 6), 1), 
-                            "Time should not be 0");
-    } else {
-      targetDripRate = keypadInput[0] * dropFactor / time;
-      /*set the text on top right widget*/
-      lv_obj_set_style_text_color(lv_obj_get_child(lv_obj_get_child(screenMain, 6), 1), 
-                                  lv_color_hex(0x40ce00), LV_PART_MAIN);
-      lv_label_set_text_fmt(lv_obj_get_child(lv_obj_get_child(screenMain, 6), 1), 
-                            "Drip Rate: %d", targetDripRate);
-    }
+      lv_label_set_text(lv_obj_get_child(lv_obj_get_child(screenMain, 6), 1), "Drip Rate too small");
+    } else if (targetDripRate >= 600) {
+      state = false;
+      lv_label_set_text(lv_obj_get_child(lv_obj_get_child(screenMain, 6), 1), "Drip Rate too large");
+    } 
+  }
+
+  /*get DR and display on top right widget*/
+  if (!state) { /*also need to reset the color to red, for second input*/
+    lv_obj_set_style_text_color(lv_obj_get_child(lv_obj_get_child(screenMain, 6), 1), 
+                                lv_color_hex(0xcc0000), LV_PART_MAIN);
+  } else {
+    /*set the text on top right widget*/
+    lv_obj_set_style_text_color(lv_obj_get_child(lv_obj_get_child(screenMain, 6), 1), 
+                                lv_color_hex(0x40ce00), LV_PART_MAIN);
+    lv_label_set_text_fmt(lv_obj_get_child(lv_obj_get_child(screenMain, 6), 1), 
+                          "Drip Rate: %d", targetDripRate);
   }
   return state;
 }

@@ -54,8 +54,7 @@
 
 ## the limit already have
 - the input fields cannot input more than 4 numbers
-- target should >=20 & <=400
-- thus, volume must <10000, time must <(10000/60=166h)
+- target DR should >=20 & <=400
 
 ## some condition of infusion that already known
 - the container usually have size <3L only
@@ -109,8 +108,18 @@
 - solve:
     - new drip factor can be added by adding a new element in array
     - refactor the volume
-    - new drip factor cannot directly add in radio button, should update in a specific place, and a new radio button will appear after update
-    - maybe only user with access can add new drip factor
+    - new drip factor cannot directly add in radio button, should update in a specific place, and a new radio button will appear after update <- not finish
+    - maybe only user with access can add new drip factor <- not finish
+
+## limitation: update target DR limit to <=20 and >=600
+- condition:
+    - user can have a auto-ctrl with DR range 20-400
+    - 400 may be not enough
+    - when user cannot start auto-ctrl because of DR, there is no msg telling them the reason
+- change:
+    - the user can have auto-ctrl with DR up to 600
+    - the msg on top right will change to show the reason of not allowing auto-ctrl
+    - after the msg is green colored, it can change back to red if input have problem
 
 ===========================================================================
 # below are some hot fix
