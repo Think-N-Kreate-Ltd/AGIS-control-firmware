@@ -151,3 +151,15 @@
 ## fix: the btn in monitor, press any key will trigger that
 - see issue #42: https://github.com/Think-N-Kreate-Ltd/AGIS-control-firmware/issues/42
 - follow up change: remove the state for msgbox `enterClicked` which is use to block the last event
+
+## fix: state directly go to exceeded
+- condition:
+    - after finish the infusion
+    - state will not go to completed, but will go to exceedede directly
+    - even fnish the infusion by `*` gives the same result
+- details:
+    - caused by the condition that go to exceeded, one condition is measure the time and >=200
+    - but the measured time is not recorded yet when doing homing
+    - thus, while doing homing, the time of last homing time is used, which cause the measured time always >=200
+- solve:
+    - add one more state to block it when doing homing

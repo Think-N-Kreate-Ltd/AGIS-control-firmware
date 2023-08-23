@@ -188,7 +188,7 @@ void IRAM_ATTR dropSensorISR() {
         enableAutoControl = false;
         motorHoming = true;
       
-      } else if ((infusionState == infusionState_t::ALARM_COMPLETED) && ((millis() - homingCompletedTime) >= 200)) {
+      } else if ((infusionState == infusionState_t::ALARM_COMPLETED) && ((millis() - homingCompletedTime) >= 200) && !motorHoming) {
         // when finish infusion, it will go homing first, that time may also have drops
         // for those drop, should not let the state go to exceeded
         infusionState = infusionState_t::ALARM_VOLUME_EXCEEDED;
