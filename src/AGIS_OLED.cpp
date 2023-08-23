@@ -30,6 +30,9 @@ void oledSetUp() {
     display.clearDisplay();
     display.display();
   }
+  // setting of the display
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
 #else
   if(!display.begin(SSD1306_SWITCHCAPVCC)) {
     ESP_LOGE(OLED_TAG, "SSD1306 allocation failed");

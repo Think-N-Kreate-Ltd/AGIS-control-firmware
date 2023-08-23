@@ -700,22 +700,17 @@ void tftDisplay(void * arg) {
 void oledDisplay(void * arg) {
   for(;;) {
     display.clearDisplay();
-    display.setTextColor(SSD1306_WHITE);
 
     /*show gtt/m on the left side of display*/
-    display.setTextSize(2);
     display.setCursor(0, 15);
     display.printf("%d\n", dripRate);
-    display.setTextSize(2);
     display.setCursor(0, 40);
     display.printf("gtt/m\n");
 
     /*show mL/h on the right side of display*/
-    display.setTextSize(2);
     display.setCursor(80, 15);
     // Convert from drops/min to mL/h:
     display.printf("%d\n", dripRate * (60 / dropFactor));
-    display.setTextSize(2);
     display.setCursor(80, 40);
     display.printf("mL/h\n");
 
