@@ -608,7 +608,7 @@ bool validate_keypad_inputs() {
   if (time == 0) {  // when user input 0 for time
     state = false;
     lv_label_set_text(lv_obj_get_child(lv_obj_get_child(screenMain, 6), 1), "Time should not be 0");
-  } else {
+  } else if (state) {
     targetDripRate = keypadInput[0] * dropFactor / time;
     if (targetDripRate <= 20) {
       state = false;
