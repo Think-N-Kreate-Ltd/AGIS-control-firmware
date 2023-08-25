@@ -15,13 +15,13 @@
 #include <ESPAsyncWebServer.h>
 #include <SPI.h>
 #include "SdFat.h"
-#include <LittleFS.h>
 #include <WiFi.h>
 #include <ezButton.h>
 #include <limits.h>
 #include <ArduinoJson.h>
 #include "AsyncElegantOTA.h"  // define after <ESPAsyncWebServer.h>
 #include <AGIS_Commons.h>
+#include <AGIS_FS.h>
 #include <AGIS_OLED.h>
 #include <AGIS_Types.h>       // user defined data types
 #include <AGIS_Utilities.h>
@@ -760,6 +760,8 @@ void enableWifi(void * arg) {
     ESP_LOGE(LITTLE_FS_TAG, "An Error has occurred while mounting LittleFS");
     return;
   }
+  writeFile(LittleFS, "/data/drip_factor.txt", "10,15,20,60,100,120,");
+  readDF(LittleFS, "/data/drip_factor.txt");
 
   // Init Websocket
   initWebSocket();
