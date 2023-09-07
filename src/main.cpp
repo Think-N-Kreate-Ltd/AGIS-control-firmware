@@ -692,7 +692,7 @@ void getI2CData(void * arg) {
 
 void tftDisplay(void * arg) {
   // write and read DF, and get the number of elements
-  writeFile2(LittleFS, "/data/drip_factor.txt", "10,15,20,60,90,120,");
+  // writeFile2(LittleFS, "/data/drip_factor.txt", "10,15,20,60,90,120,");
   readDF(LittleFS, "/data/drip_factor.txt");
 
   // get the screen object
