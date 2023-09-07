@@ -694,7 +694,7 @@ void tftDisplay(void * arg) {
   // write and read DF, and get the number of elements
   writeFile2(LittleFS, "/data/drip_factor.txt", "10,15,20,60,90,120,");
   readDF(LittleFS, "/data/drip_factor.txt");
-  
+
   // get the screen object
   input_screen();
   vTaskDelay(20);  // avoid CPU crashing
@@ -720,7 +720,7 @@ void oledDisplay(void * arg) {
     /*show mL/h on the right side of display*/
     display.setCursor(80, 15);
     // Convert from drops/min to mL/h:
-    display.printf("%d\n", dripRate * (60 / dropFactor));
+    display.printf("%d\n", dripRate * 60 / dropFactor);
     display.setCursor(80, 40);
     display.printf("mL/h\n");
 
