@@ -595,12 +595,15 @@ void closeWifiBox() {
 
 bool validate_keypad_inputs() {
   bool state = true;
+  /*check for text area input all entered*/
   for (int i=0; i<3; i++){
     if (keypadInput[i] == -1) {
       state = false;
     }
   }
-  if (dropFactor > 100) {
+  /*check for the radio btn is pressed*/
+  /*as the condition here is not checking the input is normal is not, don't need to compare with array*/
+  if (dropFactor > 500) {
     state = false;
   }
 
