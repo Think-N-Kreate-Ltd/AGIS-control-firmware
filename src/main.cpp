@@ -383,7 +383,13 @@ void setup() {
   oledSetUp();
   
   useSdCard();  // compulsorily change to communicate with SD
-  sdCardSetUp();      
+  sdCardSetUp();
+
+  // Initialize LittleFS
+  if (!LittleFS.begin(true)) {
+    ESP_LOGE(LITTLE_FS_TAG, "An Error has occurred while mounting LittleFS");
+    return;
+  }
 
   // setup for sensor interrupt
   attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
@@ -685,6 +691,10 @@ void getI2CData(void * arg) {
 }
 
 void tftDisplay(void * arg) {
+  // write and read DF, and get the number of elements
+  writeFile2(LittleFS, "/data/drip_factor.txt", "10,15,20,60,90,120,");
+  readDF(LittleFS, "/data/drip_factor.txt");
+  
   // get the screen object
   input_screen();
   vTaskDelay(20);  // avoid CPU crashing
@@ -754,14 +764,6 @@ void enableWifi(void * arg) {
 
   // print the IP address of the web page
   ESP_LOGI(WIFI_TAG, "IP Address: %s", WiFi.localIP().toString());
-
-  // Initialize LittleFS
-  if (!LittleFS.begin(true)) {
-    ESP_LOGE(LITTLE_FS_TAG, "An Error has occurred while mounting LittleFS");
-    return;
-  }
-  writeFile(LittleFS, "/data/drip_factor.txt", "10,15,20,60,100,120,");
-  readDF(LittleFS, "/data/drip_factor.txt");
 
   // Init Websocket
   initWebSocket();

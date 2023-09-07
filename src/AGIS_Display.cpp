@@ -192,6 +192,7 @@ void input_screen() {
   lv_obj_move_to_index(cont1, 5); /*for scrolling after wifibox close*/
 
   /*add radio button*/
+  Serial.println(lengthOfDF);
   for(int i=0; i<lengthOfDF; i++) {
     lv_snprintf(buf, 16, "%d drops/mL  ", dripFactor[i]);
     radiobutton_create(cont1, buf);

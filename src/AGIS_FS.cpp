@@ -111,28 +111,24 @@ void readDF(fs::FS &fs, const char * path){
   uint8_t count = 0;
   uint8_t i = 0;
 
-  Serial.println("- read from file:");
   while(file.available()){
     char c = file.read();
     if (c == 44) {  // read the comma
-      Serial.println("");
-      Serial.printf("the %d element is %s\n", count, DF);
       *(dripFactor + count) = atoi(DF);
       count++;
       i = 0;
-      // Serial.println(DF);
       strcpy(DF, "");  // reset DF to NULL to store the next reading
     } else {  
-      Serial.print(c);
       DF[i] = c;
       ++i;
     }
   }
   file.close();
-  Serial.println(count);
   for (uint8_t j=0; j<count; ++j) {
-    Serial.printf("the %d element is %d\n", j, *(dripFactor + j));
+    Serial.printf("the %d element of DF is %d\n", j, *(dripFactor + j));
   }
+  // store the number of elements
+  lengthOfDF = count;
 }
 
 // to delete all files in a dir (not include dir)
