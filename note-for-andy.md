@@ -359,6 +359,9 @@ struct
 pointer and array
  - https://www.w3schools.com/c/c_pointers_arrays.php
 
+array size and length
+ - https://stackoverflow.com/questions/37538/how-do-i-determine-the-size-of-my-array-in-c
+
 may use for button
  - https://www.w3schools.com/howto/howto_css_animate_buttons.asp
  - https://www.w3schools.com/howto/howto_css_switch.asp

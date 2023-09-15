@@ -48,7 +48,8 @@ volatile unsigned int numDrops = 0;       // for counting the number of drops wi
 volatile unsigned int dripRate = 0;       // for calculating the drip rate
 volatile unsigned int timeBtw2Drops = UINT_MAX; // i.e. no more drop recently
 volatile unsigned int dripRatePeak = 1;   // drip rate at the position when 1st drop is detected
-uint8_t dripFactor[4] = {10, 15, 20, 60}; // an array to store the option of drip factor
+uint8_t dripFactor[] = {10, 15, 20, 60, 100};   // an array to store the option of drip factor
+size_t lengthOfDF = sizeof(dripFactor)/sizeof(dripFactor[0]);
 
 // var for component debouncing
 ezButton limitSwitch_Up(37);   // create ezButton object that attach to pin 37;
@@ -69,7 +70,7 @@ volatile unsigned int infusedVolume_x100 = 0;  // 100 times larger than actual v
 volatile unsigned int infusedTime = 0;         // unit: seconds
 volatile unsigned long infusionStartTime = 0;
 
-// main state that check the infusion and will pass between files
+// main state that check the infusion and commonly used
 volatile char dropState = 'F';           // stating the condition of drop, 'T'=true(have drop currently), 'F'=false(for telling sensor LED should dark), 'W'=waiting(Sensor LED not blinked yet, but drop leave the sensor region)
 volatile bool enableAutoControl = false; // to enable AutoControl() or not
 volatile bool enableLogging = false;     // true when (start) doing logging
@@ -77,6 +78,7 @@ volatile bool firstDropDetected = false; // to check when we receive the 1st dro
 buttonState_t buttonState = buttonState_t::IDLE;
 infusionState_t infusionState = infusionState_t::NOT_STARTED;
 volatile bool motorHoming = true;   // will directly go to homing when true
+volatile int homingCompletedTime;   // the time that homing completed 
 
 // To reduce the sensitive of autoControlISR()
 // i.e. (targetDripRate +/-3) is good enough
@@ -171,7 +173,7 @@ void IRAM_ATTR dropSensorISR() {
       // NOTE: Since we cannot do floating point calculation in interrupt,
       // we multiply the actual infused volume by 100 times to perform the integer calculation
       // Later when we need to display, divide it by 100 to get actual value.
-      for (int i=0; i<sizeof(dripFactor); i++) {
+      for (int i=0; i<lengthOfDF; i++) {
         if (dropFactor == dripFactor[i]) {
           infusedVolume_x100 = volumeCount();
         }
@@ -185,14 +187,11 @@ void IRAM_ATTR dropSensorISR() {
         // finish auto ctrl
         enableAutoControl = false;
         motorHoming = true;
-
-      } else if (!motorHoming) {
-        // when infusion has completed but we still detect drop
+      
+      } else if ((infusionState == infusionState_t::ALARM_COMPLETED) && ((millis() - homingCompletedTime) >= 200) && !motorHoming) {
         // when finish infusion, it will go homing first, that time may also have drops
-        int recordTime = millis();
-        if ((infusionState == infusionState_t::ALARM_COMPLETED) && ((millis()-recordTime)>200)) {
-          infusionState = infusionState_t::ALARM_VOLUME_EXCEEDED;
-        }
+        // for those drop, should not let the state go to exceeded
+        infusionState = infusionState_t::ALARM_VOLUME_EXCEEDED;
       }
 
       // get dripRatePeak, i.e. drip rate when 1st drop is detected
@@ -239,12 +238,22 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
         infusionState = infusionState_t::ALARM_STOPPED;
       }
     }
+  } else if (infusionState == infusionState_t::ALARM_STOPPED) {
+    if ((limitSwitch_Up.getStateRaw() == 0) && ((millis() - timeWithNoDrop) >= 28000)) {
+      // reset the time to ensure that statement here will only run once
+      timeWithNoDrop = millis();
+      // stop and finish the infusion
+      motorHoming = true;
+      enableAutoControl = false;
+      infusionState = infusionState_t::ALARM_OUT_OF_FLUID;
+    }
   } else {
     timeWithNoDrop = millis();
   }
 
   // get infusion time so far:
-  if ((infusionState != infusionState_t::ALARM_COMPLETED) && firstDropDetected) {
+  if ((infusionState != infusionState_t::ALARM_COMPLETED) &&
+      (infusionState != infusionState_t::ALARM_OUT_OF_FLUID) && firstDropDetected) {
     infusedTime = (millis() - infusionStartTime) / 1000;  // in seconds
   }
 
@@ -258,8 +267,7 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
     motorOnPeriod = true;  // move freely, no interval
   }
 
-  if (enableAutoControl && motorOnPeriod && (targetDripRate != 0) &&
-      (infusionState != infusionState_t::ALARM_COMPLETED)) {
+  if (enableAutoControl && motorOnPeriod && (targetDripRate != 0)) {
     // if currently SLOWER than set value -> speed up, i.e. move up
     if (dripRate < (targetDripRate - AUTO_CONTROL_ALLOW_RANGE)) {
       motorOnUp();
@@ -272,7 +280,7 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
     else {
       motorOff();
     }
-  } else if ((infusionState != infusionState_t::ALARM_COMPLETED) && enableAutoControl) {
+  } else if ( enableAutoControl) {
     motorOff();
   }
 
@@ -298,58 +306,66 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
 
 void IRAM_ATTR motorControlISR() {
   static bool pressing = false;  // check for the key is pressing or not
+  // not to control motor when doing homing
+  if (!motorHoming) {
+    // Use keypad `U` to manually move up
+    if (buttonState == buttonState_t::UP) {
+      motorOnUp();
+      pressing = true;
+    }
 
-  // Use keypad `U` to manually move up
-  if (buttonState == buttonState_t::UP) {
-    motorOnUp();
-    pressing = true;
-  }
+    // Use keypad `D` to manually move down
+    if (buttonState == buttonState_t::DOWN) {
+      motorOnDown();
+      pressing = true;
+    }
 
-  // Use keypad `D` to manually move down
-  if (buttonState == buttonState_t::DOWN) {
-    motorOnDown();
-    pressing = true;
-  }
-
-  // Use keypad `*` to pause / resume / reset the infusion
-  // ensure it will only run once when holding the key
-  // when the data is not decided, it should not do anything (the first infusion must not start by this)
-  if (buttonState == buttonState_t::ENTER && !pressing 
-      && (targetDripRate != 0) && (targetNumDrops != UINT_MAX)) {
-    // pause / resume the infusion
-    if (enableAutoControl) {
-      infusionState = infusionState_t::PAUSED;
-    } else {
-      if ((infusionState == infusionState_t::NOT_STARTED) || (infusionState == infusionState_t::STARTED)
-          || (infusionState == infusionState_t::ALARM_COMPLETED) || (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED)) {
-        // for the case that use `*` to start auto ctrl, not recommended to do so
-        // set all vars same as keypad infusion confirmed
-        resetValues();
-        firstDropDetected = false;
-        enableLogging = true;
+    // Use keypad `*` to pause / resume / reset the infusion
+    // ensure it will only run once when holding the key
+    // when the data is not decided, it should not do anything (the first infusion must not start by this)
+    if (buttonState == buttonState_t::ENTER && !pressing 
+        && (targetDripRate != 0) && (targetNumDrops != UINT_MAX)) {
+      // pause / resume the infusion
+      if (enableAutoControl) {
+        infusionState = infusionState_t::PAUSED;
+      } else {
+        if ((infusionState == infusionState_t::NOT_STARTED) || (infusionState == infusionState_t::STARTED)
+            || (infusionState == infusionState_t::ALARM_COMPLETED) || (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED)
+            || (infusionState == infusionState_t::ALARM_OUT_OF_FLUID)) {
+          // for the case that use `*` to start auto ctrl, not recommended to do so
+          // set all vars same as keypad infusion confirmed
+          resetValues();
+          firstDropDetected = false;
+          enableLogging = true;
+        }
+        infusionState = infusionState_t::IN_PROGRESS;
       }
-      infusionState = infusionState_t::IN_PROGRESS;
-    }
-    enableAutoControl = !enableAutoControl;
+      enableAutoControl = !enableAutoControl;
 
-    // if press it twice within 500ms, reset the infusion
-    static int recordTime;
-    if ((millis()-recordTime)<500 && ((infusionState == infusionState_t::IN_PROGRESS) 
-        || (infusionState == infusionState_t::PAUSED))) {
-      // reset the value
-      // infusionInit();
-      motorHoming = true;
-      enableAutoControl = false;
+      // if press it twice within 500ms, reset the infusion
+      static int recordTime;
+      if ((millis()-recordTime)<500 && ((infusionState == infusionState_t::IN_PROGRESS) 
+          || (infusionState == infusionState_t::PAUSED))) {
+        // reset the value
+        // infusionInit();
+        motorHoming = true;
+        enableAutoControl = false;
 
-      // stop droping and mark as complete
-      infusionState = infusionState_t::ALARM_COMPLETED;
-      /*auto control will do homing*/
-    }
-    recordTime = millis();
-    pressing = true;
-  } 
+        // stop droping and mark as complete
+        infusionState = infusionState_t::ALARM_COMPLETED;
+        /*auto control will do homing*/
+      }
+      recordTime = millis();
+      pressing = true;
+    } 
+  } else if (buttonState != buttonState_t::IDLE) {
+    // clear btn state after homing, to prevent legacy problem
+    buttonState = buttonState_t::IDLE;
+    pressing = false;
+  }
 
-  if (buttonState == buttonState_t::IDLE && pressing) {  // it will only run once each time
+  // it will only run once each time
+  if (buttonState == buttonState_t::IDLE && pressing) {
     motorOff();
     pressing = false;
   }
@@ -443,11 +459,6 @@ void setup() {
               NULL,           // parameter to pass
               0,              // task priority, 0-24, 24 highest priority
               NULL);          // task handle
-
-
-  if (!motorHoming) {  // NOTE: only for debugging
-    Serial.println("homing completed, can move the motor now");
-  }
 }
 
 void loop() {}
@@ -608,14 +619,17 @@ void resetValues() {
 // to calculate and store the accurate volume
 // default perimeter is false, change to true to reset volume
 int volumeCount(bool reset) {
-  static int volume_x60 = 0;
+  static int volume = 0;
+  static int remainder = 0;
   if (reset) {
-    volume_x60 = 0;
+    volume = 0;
+    remainder = 0;
   } else {
-    volume_x60 += (60 / dropFactor);
+    volume += ((100+remainder) / dropFactor);
+    remainder = (100+remainder) % dropFactor;
   }
   // return the volume which is used for display
-  return 100 * volume_x60 / 60;
+  return volume;
 }
 
 void loggingData(void * parameter) {
@@ -638,7 +652,17 @@ void loggingData(void * parameter) {
     }
 
     // only run once when finish
-    if ((infusionState == infusionState_t::ALARM_COMPLETED) && finishLogging) {
+    /**condition of state is not needed here because:
+     * 1. the state `finishLogging` will only change after condition enablelogging
+     *    where that condition will only satsify when auto-ctrl
+     * 2. under the condition, it will keep doing the while loop(logging)
+     *    as a result, it will not change the value of `finishLogging` until logging finish
+     * 3. `finishLogging` will change back to false after run statements once
+     * To conclude, `finishLogging` will only not be true when state is:
+     *              not started, started, in-progress, paused, stopped
+     *              thus, add state as a condition to check it is redundant
+    */
+    if (/*(infusionState == infusionState_t::ALARM_COMPLETED) &&*/ finishLogging) {
       while (motorHoming) {
         // wait for homing complete to log the last data
         vTaskDelay(200);
@@ -676,22 +700,17 @@ void tftDisplay(void * arg) {
 void oledDisplay(void * arg) {
   for(;;) {
     display.clearDisplay();
-    display.setTextColor(SSD1306_WHITE);
 
     /*show gtt/m on the left side of display*/
-    display.setTextSize(2);
     display.setCursor(0, 15);
     display.printf("%d\n", dripRate);
-    display.setTextSize(2);
     display.setCursor(0, 40);
     display.printf("gtt/m\n");
 
     /*show mL/h on the right side of display*/
-    display.setTextSize(2);
     display.setCursor(80, 15);
     // Convert from drops/min to mL/h:
     display.printf("%d\n", dripRate * (60 / dropFactor));
-    display.setTextSize(2);
     display.setCursor(80, 40);
     display.printf("mL/h\n");
 
@@ -819,6 +838,7 @@ void homingRollerClamp(void * arg) {
     if (limitSwitch_Down.getStateRaw() == 0) {  // touched
       motorHoming = false;
       motorOff();
+      homingCompletedTime = millis();
     } else {
       // motor move down
       analogWrite(MOTOR_CTRL_PIN_2, 191); // Value: 0->255

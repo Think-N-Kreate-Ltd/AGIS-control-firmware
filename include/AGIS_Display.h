@@ -43,6 +43,7 @@ static void radio_event_handler(lv_event_t * e);
 static void textarea_event_cb(lv_event_t * event);
 static void wifibox_event_cb(lv_event_t * event);
 static void confirmbox_event_cb(lv_event_t * event);
+static void complete_event_cb(lv_event_t * event);
 void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data);
 
 // timer for monitoring display

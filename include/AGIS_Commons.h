@@ -11,7 +11,8 @@ extern volatile unsigned int dripRate;
 extern volatile unsigned int infusedVolume_x100;
 extern volatile unsigned int infusedTime;
 
-extern uint8_t dripFactor[4];
+extern uint8_t dripFactor[];
+extern size_t lengthOfDF;
 
 extern unsigned int dropFactor;
 extern unsigned int targetVTBI;
@@ -20,12 +21,13 @@ extern unsigned int targetDripRate;
 extern unsigned int targetNumDrops;
 extern infusionState_t infusionState;
 
-static const char* DATA_LOGGING_TAG = "DATA_LOGGING";
+static const char* DATA_LOGGING_TAG = "DATA LOGGING";
 static const char* KEYPAD_TAG = "KEYPAD";
 static const char* WEBSOCKET_TAG = "WEBSOCKET";
-static const char* LITTLE_FS_TAG = "LITTLE_FS";
+static const char* LITTLE_FS_TAG = "LITTLE FS";
 static const char* WIFI_TAG = "WIFI";
 static const char* OLED_TAG = "OLED";
+static const char* TFT_TAG = "TFT DISPLAY";
 
 // extern char *logFilePath;
 // extern const char* ntpServer;
