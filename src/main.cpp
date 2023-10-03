@@ -267,21 +267,23 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
     motorOnPeriod = true;  // move freely, no interval
   }
 
-  if (enableAutoControl && motorOnPeriod && (targetDripRate != 0)) {
-    // if currently SLOWER than set value -> speed up, i.e. move up
-    if (dripRate < (targetDripRate - AUTO_CONTROL_ALLOW_RANGE)) {
-      motorOnUp();
-    }
-    // if currently FASTER than set value -> slow down, i.e. move down
-    else if (dripRate > (targetDripRate + AUTO_CONTROL_ALLOW_RANGE)) {
-      motorOnDown();
-    }
-    // otherwise, current drip rate is in allowed range -> stop motor
-    else {
+  if (enableAutoControl) {
+    if (motorOnPeriod) {
+      // if currently SLOWER than set value -> speed up, i.e. move up
+      if (dripRate < (targetDripRate - AUTO_CONTROL_ALLOW_RANGE)) {
+        motorOnUp();
+      }
+      // if currently FASTER than set value -> slow down, i.e. move down
+      else if (dripRate > (targetDripRate + AUTO_CONTROL_ALLOW_RANGE)) {
+        motorOnDown();
+      }
+      // otherwise, current drip rate is in allowed range -> stop motor
+      // else {
+      //   motorOff();
+      // }
+    } else {
       motorOff();
     }
-  } else if ( enableAutoControl) {
-    motorOff();
   }
 
   // find the interval to next motor period
@@ -692,7 +694,7 @@ void getI2CData(void * arg) {
 
 void tftDisplay(void * arg) {
   // write and read DF, and get the number of elements
-  // writeFile2(LittleFS, "/data/drip_factor.txt", "10,15,20,60,90,120,");
+  writeFile2(LittleFS, "/data/drip_factor.txt", "10,15,20,60,105,90,");
   readDF(LittleFS, "/data/drip_factor.txt");
 
   // get the screen object
