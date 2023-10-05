@@ -398,6 +398,12 @@ SdFat web server download file
 Real time web application
  - https://codeburst.io/polling-vs-sse-vs-websocket-how-to-choose-the-right-one-1859e4e13bd9
 
+Faster writing speed to file:
+ - https://hackingmajenkoblog.wordpress.com/2016/03/25/fast-efficient-data-storage-on-an-arduino/
+ - read speed will be slower
+ - data is not human readable
+ - cannot use in Fat(?)
+
 SQLite
 
 naming for git:

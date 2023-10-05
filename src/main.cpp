@@ -688,7 +688,19 @@ void loggingData(void * parameter) {
 void getI2CData(void * arg) {
   for (;;) {
     getIna219Data();
-    vTaskDelay(449);
+    // vTaskDelay(449);
+
+    static bool powerState = true;  // true when power is enough to drive the motor
+    if (powerState) {
+      if (busvoltage<=10) {
+        endLogging();
+        ESP_LOGW("POWER FAILURE", "not enough power to run thr motor");
+        powerState = false;
+      }
+    } else if (busvoltage>10) {
+        ESP_LOGI("POWER FAILURE", "get enough power to run thr motor now");
+        powerState = true;
+    }
   }
 }
 
