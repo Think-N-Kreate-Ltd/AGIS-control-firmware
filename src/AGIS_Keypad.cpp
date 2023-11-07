@@ -36,7 +36,7 @@ char getKey() {
     Serial.print(key);
   } else {
     key = '\0';
-    // Serial.println("there is no key pressed");
+    Serial.println("there is no key pressed");
   }
   return key;
 }
