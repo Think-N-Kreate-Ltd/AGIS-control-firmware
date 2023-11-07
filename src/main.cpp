@@ -54,7 +54,6 @@ size_t lengthOfDF = sizeof(dripFactor)/sizeof(dripFactor[0]);
 // var for component debouncing
 ezButton limitSwitch_Up(37);   // create ezButton object that attach to pin 37;
 ezButton limitSwitch_Down(38); // create ezButton object that attach to pin 38;
-ezButton dropSensor(DROP_SENSOR_PIN);     // create ezButton object that attach to pin 36;
 // var for reading PWM value, for controlling motor
 volatile int PWMValue = 0; // PWM value to control the speed of motor
 
@@ -131,7 +130,7 @@ void IRAM_ATTR dropSensorISR() {
 
   // in fact, the interrupt will only be called when state change
   // just one more protection to prevent calling twice when state doesn't change
-  int dropSensorState = dropSensor.getStateRaw();
+  int dropSensorState = digitalRead(DROP_SENSOR_PIN);
   if (lastState != dropSensorState) {
     lastState = dropSensorState;
     // call when drop detected
