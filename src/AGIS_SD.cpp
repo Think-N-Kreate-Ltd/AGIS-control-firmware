@@ -142,9 +142,9 @@ void logData() {
                   shuntvoltage, power_mW, avgCurrent_mA);
 
   // Force data to SD and update the directory entry to avoid data loss.
-  if (!file.sync() || file.getWriteError()) {
-    sd.errorHalt("write error");
-  }
+  // if (!file.sync() || file.getWriteError()) {
+  //   sd.errorHalt("write error");
+  // }
 
   vTaskDelay(999); // wait for next data logging
 
