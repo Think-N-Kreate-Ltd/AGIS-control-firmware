@@ -17,7 +17,6 @@
 #include "SdFat.h"
 #include <LittleFS.h>
 #include <WiFi.h>
-#include <ezButton.h>
 #include <limits.h>
 #include <ArduinoJson.h>
 #include "AsyncElegantOTA.h"  // define after <ESPAsyncWebServer.h>
