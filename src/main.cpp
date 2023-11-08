@@ -51,9 +51,6 @@ volatile unsigned int dripRatePeak = 1;   // drip rate at the position when 1st 
 uint8_t dripFactor[] = {10, 15, 20, 60, 100};   // an array to store the option of drip factor
 size_t lengthOfDF = sizeof(dripFactor)/sizeof(dripFactor[0]);
 
-// var for component debouncing
-ezButton limitSwitch_Up(37);   // create ezButton object that attach to pin 37;
-ezButton limitSwitch_Down(38); // create ezButton object that attach to pin 38;
 // var for reading PWM value, for controlling motor
 volatile int PWMValue = 0; // PWM value to control the speed of motor
 
@@ -238,7 +235,7 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
       }
     }
   } else if (infusionState == infusionState_t::ALARM_STOPPED) {
-    if ((limitSwitch_Up.getStateRaw() == 0) && ((millis() - timeWithNoDrop) >= 28000)) {
+    if ((getPinState(LS_UP_PIN) == 0) && ((millis() - timeWithNoDrop) >= 28000)) {
       // reset the time to ensure that statement here will only run once
       timeWithNoDrop = millis();
       // stop and finish the infusion
@@ -463,9 +460,7 @@ void setup() {
 void loop() {}
 
 void motorOnUp() {
-  limitSwitch_Up.loop();   // MUST call the loop() function first
-
-  if (limitSwitch_Up.getState()) { // untouched
+  if (getPinState(LS_UP_PIN)) { // untouched
     // Read PWM value
     PWMValue = analogRead(PWM_PIN);
 
@@ -478,9 +473,7 @@ void motorOnUp() {
 }
 
 void motorOnDown() {
-  limitSwitch_Down.loop();   // MUST call the loop() function first
-
-  if (limitSwitch_Down.getState()) { // untouched
+  if (getPinState(LS_DOWN_PIN)) { // untouched
     // Read PWM value
     PWMValue = analogRead(PWM_PIN);
 
@@ -834,7 +827,7 @@ void otherLittleWorks(void * arg) {
 
 void homingRollerClamp(void * arg) {
   for(;;) {
-    if (limitSwitch_Down.getStateRaw() == 0) {  // touched
+    if (getPinState(LS_DOWN_PIN) == 0) {  // touched
       motorHoming = false;
       motorOff();
       homingCompletedTime = millis();

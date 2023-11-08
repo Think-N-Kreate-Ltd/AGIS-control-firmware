@@ -22,6 +22,14 @@ void sx1905SetUp() {
 
   // setting on keypad
   io.keypad(KEYPAD_ROW_NUM, KEYPAD_COLUMN_NUM, SLEEP_TIME, SCAN_TIME, DEBOUNCE_TIME);
+
+  // setting on limited SW
+  io.pinMode(LS_UP_PIN, INPUT);
+  io.pinMode(LS_DOWN_PIN, INPUT);
+
+  io.debounceTime(LS_DEBOUNCE_TIME);
+  io.debouncePin(LS_UP_PIN);
+  io.debouncePin(LS_DOWN_PIN);
 }
 
 // get the key if keypad is pressing, and NULL if not
@@ -39,6 +47,17 @@ char getKey() {
     // Serial.println("there is no key pressed");
   }
   return key;
+}
+
+// get the state (HIGH/LOW) for input pin in SX1905
+// without debouncing currently 
+// as motor should stop if touched, so there is no meaning for doing debouncing
+bool getPinState(uint8_t pinNum) {
+  if (io.digitalRead(pinNum) == HIGH) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 bool keypadInfusionConfirmed = false;
