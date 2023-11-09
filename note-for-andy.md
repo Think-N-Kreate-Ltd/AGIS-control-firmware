@@ -362,6 +362,9 @@ pointer and array
 array size and length
  - https://stackoverflow.com/questions/37538/how-do-i-determine-the-size-of-my-array-in-c
 
+Dynamic Memory Allocation
+ - https://www.geeksforgeeks.org/dynamic-memory-allocation-in-c-using-malloc-calloc-free-and-realloc/
+
 may use for button
  - https://www.w3schools.com/howto/howto_css_animate_buttons.asp
  - https://www.w3schools.com/howto/howto_css_switch.asp
@@ -394,6 +397,14 @@ SdFat web server download file
 
 Real time web application
  - https://codeburst.io/polling-vs-sse-vs-websocket-how-to-choose-the-right-one-1859e4e13bd9
+
+Faster writing speed to file:
+ - https://hackingmajenkoblog.wordpress.com/2016/03/25/fast-efficient-data-storage-on-an-arduino/
+ - read speed will be slower
+ - data is not human readable
+ - cannot use in Fat(?)
+
+SQLite
 
 naming for git:
  - https://dev.to/varbsan/a-simplified-convention-for-naming-branches-and-commits-in-git-il4

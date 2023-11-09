@@ -15,12 +15,12 @@
 #include <ESPAsyncWebServer.h>
 #include <SPI.h>
 #include "SdFat.h"
-#include <LittleFS.h>
 #include <WiFi.h>
 #include <limits.h>
 #include <ArduinoJson.h>
 #include "AsyncElegantOTA.h"  // define after <ESPAsyncWebServer.h>
 #include <AGIS_Commons.h>
+#include <AGIS_FS.h>
 #include <AGIS_OLED.h>
 #include <AGIS_Types.h>       // user defined data types
 #include <AGIS_Utilities.h>
@@ -262,21 +262,23 @@ void IRAM_ATTR autoControlISR() { // timer1 interrupt, for auto control motor
     motorOnPeriod = true;  // move freely, no interval
   }
 
-  if (enableAutoControl && motorOnPeriod && (targetDripRate != 0)) {
-    // if currently SLOWER than set value -> speed up, i.e. move up
-    if (dripRate < (targetDripRate - AUTO_CONTROL_ALLOW_RANGE)) {
-      motorOnUp();
-    }
-    // if currently FASTER than set value -> slow down, i.e. move down
-    else if (dripRate > (targetDripRate + AUTO_CONTROL_ALLOW_RANGE)) {
-      motorOnDown();
-    }
-    // otherwise, current drip rate is in allowed range -> stop motor
-    else {
+  if (enableAutoControl) {
+    if (motorOnPeriod) {
+      // if currently SLOWER than set value -> speed up, i.e. move up
+      if (dripRate < (targetDripRate - AUTO_CONTROL_ALLOW_RANGE)) {
+        motorOnUp();
+      }
+      // if currently FASTER than set value -> slow down, i.e. move down
+      else if (dripRate > (targetDripRate + AUTO_CONTROL_ALLOW_RANGE)) {
+        motorOnDown();
+      }
+      // otherwise, current drip rate is in allowed range -> stop motor
+      // else {
+      //   motorOff();
+      // }
+    } else {
       motorOff();
     }
-  } else if ( enableAutoControl) {
-    motorOff();
   }
 
   // find the interval to next motor period
@@ -378,7 +380,13 @@ void setup() {
   oledSetUp();
   
   useSdCard();  // compulsorily change to communicate with SD
-  sdCardSetUp();      
+  sdCardSetUp();
+
+  // Initialize LittleFS
+  if (!LittleFS.begin(true)) {
+    ESP_LOGE(LITTLE_FS_TAG, "An Error has occurred while mounting LittleFS");
+    return;
+  }
 
   // setup for sensor interrupt
   attachInterrupt(DROP_SENSOR_PIN, &dropSensorISR, CHANGE);  // call interrupt when state change
@@ -671,11 +679,27 @@ void loggingData(void * parameter) {
 void getI2CData(void * arg) {
   for (;;) {
     getIna219Data();
-    vTaskDelay(449);
+    // vTaskDelay(449);
+
+    static bool powerState = true;  // true when power is enough to drive the motor
+    if (powerState) {
+      if (busvoltage<=10) {
+        endLogging();
+        ESP_LOGW("POWER FAILURE", "not enough power to run thr motor");
+        powerState = false;
+      }
+    } else if (busvoltage>10) {
+        ESP_LOGI("POWER FAILURE", "get enough power to run thr motor now");
+        powerState = true;
+    }
   }
 }
 
 void tftDisplay(void * arg) {
+  // write and read DF, and get the number of elements
+  writeFile2(LittleFS, "/data/drip_factor.txt", "10,15,20,60,105,90,");
+  readDF(LittleFS, "/data/drip_factor.txt");
+
   // get the screen object
   input_screen();
   vTaskDelay(20);  // avoid CPU crashing
@@ -701,7 +725,7 @@ void oledDisplay(void * arg) {
     /*show mL/h on the right side of display*/
     display.setCursor(80, 15);
     // Convert from drops/min to mL/h:
-    display.printf("%d\n", dripRate * (60 / dropFactor));
+    display.printf("%d\n", dripRate * 60 / dropFactor);
     display.setCursor(80, 40);
     display.printf("mL/h\n");
 
@@ -745,12 +769,6 @@ void enableWifi(void * arg) {
 
   // print the IP address of the web page
   ESP_LOGI(WIFI_TAG, "IP Address: %s", WiFi.localIP().toString());
-
-  // Initialize LittleFS
-  if (!LittleFS.begin(true)) {
-    ESP_LOGE(LITTLE_FS_TAG, "An Error has occurred while mounting LittleFS");
-    return;
-  }
 
   // Init Websocket
   initWebSocket();

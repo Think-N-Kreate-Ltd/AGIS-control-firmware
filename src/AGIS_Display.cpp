@@ -192,6 +192,7 @@ void input_screen() {
   lv_obj_move_to_index(cont1, 5); /*for scrolling after wifibox close*/
 
   /*add radio button*/
+  Serial.println(lengthOfDF);
   for(int i=0; i<lengthOfDF; i++) {
     lv_snprintf(buf, 16, "%d drops/mL  ", dripFactor[i]);
     radiobutton_create(cont1, buf);
@@ -594,12 +595,15 @@ void closeWifiBox() {
 
 bool validate_keypad_inputs() {
   bool state = true;
+  /*check for text area input all entered*/
   for (int i=0; i<3; i++){
     if (keypadInput[i] == -1) {
       state = false;
     }
   }
-  if (dropFactor > 100) {
+  /*check for the radio btn is pressed*/
+  /*as the condition here is not checking the input is normal is not, don't need to compare with array*/
+  if (dropFactor > 500) {
     state = false;
   }
 
