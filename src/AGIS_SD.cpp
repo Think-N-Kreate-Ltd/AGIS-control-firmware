@@ -9,6 +9,33 @@ SdFat sd;
 // Log file.
 SdFile file;
 
+// the NTP time
+// move to global to use in declaring the time
+struct tm timeinfo;
+
+//------------------------------------------------------------------------------
+// call back for file timestamps
+void dateTime(uint16_t* date, uint16_t* time) {
+  if(!getLocalTime(&timeinfo)){
+    ESP_LOGE(DATA_LOGGING_TAG, "Failed to obtain time");
+    // return;  // not to return as it just use for sd card timing
+  } else {
+    char yr[5], month[3], day[3], hr[3], min[3], sec[3];
+    strftime(yr , 5, "%Y", &timeinfo);
+    strftime(month , 3, "%m", &timeinfo);
+    strftime(day , 3, "%d", &timeinfo);
+    // return date using FAT_DATE macro to format fields
+    *date = FAT_DATE((atoi(yr)), atoi(month), atoi(day));
+
+    strftime(hr , 3, "%H", &timeinfo);
+    strftime(min , 3, "%M", &timeinfo);
+    strftime(sec , 3, "%S", &timeinfo);
+    // return time using FAT_TIME macro to format fields
+    *time = FAT_TIME(atoi(hr), atoi(min), atoi(sec));
+  }
+}
+//------------------------------------------------------------------------------
+
 char today[4];     // var for storing the weekday of today
 char datetime[11]; // var for storing the date time
 char fileName[32]; // var for storing the path of file
@@ -35,7 +62,7 @@ void getTime() {
     // config time logging with NTP server
     configTime(28800, 0, "pool.ntp.org");  // 60x60x8=28800, +8h for Hong Kong
 
-    struct tm timeinfo;
+    // struct tm timeinfo; // move to global to use in declaring the time
     if(!getLocalTime(&timeinfo)){
       ESP_LOGE(DATA_LOGGING_TAG, "Failed to obtain time");
       // return;  // not to return as users can choose to enable wifi or not
@@ -85,6 +112,9 @@ void rmOldData() {
 
 void sdCardSetUp() {
   SPI.begin(SD_SCK, SD_MISO, SD_MOSI, TFT_CS);
+
+  // set date time callback function
+  SdFile::dateTimeCallback(dateTime);
 
   // Initialize at the highest speed supported by the board that is
   // not over 50 MHz. Try a lower speed if SPI errors occur.
@@ -142,9 +172,9 @@ void logData() {
                   shuntvoltage, power_mW, avgCurrent_mA);
 
   // Force data to SD and update the directory entry to avoid data loss.
-  if (!file.sync() || file.getWriteError()) {
-    sd.errorHalt("write error");
-  }
+  // if (!file.sync() || file.getWriteError()) {
+  //   sd.errorHalt("write error");
+  // }
 
   vTaskDelay(999); // wait for next data logging
 
@@ -196,5 +226,6 @@ void loadFromSdCard(AsyncWebServerRequest *& request) {
   response->addHeader("Cache-Control", "no-cache");
   response->addHeader("Content-Disposition", "attachment; filename=" + String(fileName));
   response->addHeader("Access-Control-Allow-Origin", "*");
+  // response->addHeader("Last-Modified", datetime);
   request->send(response);
 } 
