@@ -1,4 +1,6 @@
 #include <AGIS_Keypad.h>
+#include <Wire.h>
+#include <SparkFunSX1509.h>
 #include <AGIS_Commons.h>
 
 SX1509 io;
@@ -24,26 +26,48 @@ void sx1905SetUp() {
   io.keypad(KEYPAD_ROW_NUM, KEYPAD_COLUMN_NUM, SLEEP_TIME, SCAN_TIME, DEBOUNCE_TIME);
 
   // setting on limited SW
-  io.pinMode(LS_UP_PIN, INPUT);
-  io.pinMode(LS_DOWN_PIN, INPUT);
+  // io.pinMode(LS_UP_PIN, INPUT);
+  // io.pinMode(LS_DOWN_PIN, INPUT);
 
-  io.debounceTime(LS_DEBOUNCE_TIME);
-  io.debouncePin(LS_UP_PIN);
-  io.debouncePin(LS_DOWN_PIN);
+  // io.debounceTime(LS_DEBOUNCE_TIME);
+  // io.debouncePin(LS_UP_PIN);
+  // io.debouncePin(LS_DOWN_PIN);
 }
 
 // get the key if keypad is pressing, and NULL if not
 char getKey() {
-  uint16_t keyData = io.readKeypad();
-  char key;
-  if (keyData) {
-    byte row = io.getRow(keyData);
-    byte col = io.getCol(keyData);
+  uint16_t keyData = io.readKeyData();  // get raw data
+  char key; // var to store the key, use to return (can remove)
+  static char lastKey;  // use for error checking
+  if (keyData) {  // in fact, this is a double check, not in need
+    // decode the raw data by ourselves, to reduce the time spend
+    uint8_t rowRaw = keyData % 256;
+    uint8_t row = 0;
+    while (rowRaw >= 2) { // same as !=1
+      rowRaw = rowRaw >> 1;
+      ++row;
+    }
+    uint8_t colRaw = (keyData / 256);
+    uint8_t col = 0;
+    while (colRaw >= 2) { // same as !=1
+      colRaw = colRaw >> 1;
+      ++col;
+    }
 
+    // get the key from matrix (2 dimensional array)
     key = keyMap[row][col];
+
+    // as there are still lots of noise, we should do the error check by ourselves
+    // in fact, we just need the first return value is accurate
+    if (key != lastKey) {
+      lastKey = key;
+      key = '\0';
+      Serial.println("skip");
+    }
     Serial.print(key);
   } else {
     key = '\0';
+    lastKey = '\0'; // also reset last key for next error check
     // Serial.println("there is no key pressed");
   }
   return key;

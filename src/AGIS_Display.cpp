@@ -474,9 +474,9 @@ static void complete_event_cb(lv_event_t * event) {
   }
 }
 
-void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
+void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data) {
   uint8_t key = getKey();
-  if(key) {
+  if (key != '\0') {
     Serial.write(key);
     if (key == 'E') {
       data->key = LV_KEY_ENTER;
@@ -540,7 +540,7 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data){
 
     data->state = LV_INDEV_STATE_PRESSED;
   }
-  else if (io.readKeypad() == 0) {  // when keypad pressing is released
+  else if (key == '\0') {  // when keypad pressing is released
     data->state = LV_INDEV_STATE_RELEASED;
     data->key = 0x00; /*reset key value and do nothing*/
     // stop the motor control
