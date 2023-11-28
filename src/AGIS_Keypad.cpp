@@ -22,16 +22,17 @@ void sx1905SetUp() {
     return;
   }
 
+  // setting on limited SW
+  // must init before keypad
+  io.pinMode(LS_UP_PIN, INPUT);
+  io.pinMode(LS_DOWN_PIN, INPUT);
+
+  io.debounceTime(LS_DEBOUNCE_TIME);
+  io.debouncePin(LS_UP_PIN);
+  io.debouncePin(LS_DOWN_PIN);
+
   // setting on keypad
   io.keypad(KEYPAD_ROW_NUM, KEYPAD_COLUMN_NUM, SLEEP_TIME, SCAN_TIME, DEBOUNCE_TIME);
-
-  // setting on limited SW
-  // io.pinMode(LS_UP_PIN, INPUT);
-  // io.pinMode(LS_DOWN_PIN, INPUT);
-
-  // io.debounceTime(LS_DEBOUNCE_TIME);
-  // io.debouncePin(LS_UP_PIN);
-  // io.debouncePin(LS_DOWN_PIN);
 }
 
 // get the key if keypad is pressing, and NULL if not
