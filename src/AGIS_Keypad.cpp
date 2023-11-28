@@ -69,12 +69,10 @@ char getKey() {
       } else {
         key = lastKey;
       }
-      Serial.println("skip");
     } else {
       // only count as pressing when get the correct key
       pressState = true;
     }
-    Serial.print(key);
   } else {
     if (lastKey == '\0') { // to reset once only
       key = '\0';

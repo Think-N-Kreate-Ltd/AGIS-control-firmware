@@ -478,8 +478,9 @@ static void complete_event_cb(lv_event_t * event) {
 }
 
 void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data) {
+  static bool keyState = false; /*for solving duration problem*/
   uint8_t key = getKey();
-  if (key != '\0') {
+  if (key != '\0' &&  keyState != LV_INDEV_STATE_PRESSED) {
     Serial.write(key);
     if (key == 'E') {
       data->key = LV_KEY_ENTER;
@@ -542,10 +543,11 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data) {
     }
 
     data->state = LV_INDEV_STATE_PRESSED;
+    keyState = LV_INDEV_STATE_PRESSED;
   }
   else if (key == '\0') {  // when keypad pressing is released
     data->state = LV_INDEV_STATE_RELEASED;
-    Serial.println("released");
+    keyState = LV_INDEV_STATE_RELEASED;
     data->key = 0x00; /*reset key value and do nothing*/
     // stop the motor control
     if (buttonState != buttonState_t::IDLE) {
