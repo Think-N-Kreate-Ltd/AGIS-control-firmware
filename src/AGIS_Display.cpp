@@ -29,6 +29,9 @@ volatile bool wifiStart = NULL;
 bool inMsgbox;
 // the state of the screen, true=input screen, false=monitor screen
 bool screenState = true;
+// the state that shows the user press start or not
+// will not go to true if starting requirement is not fulfilled
+bool keypadInfusionConfirmed = false;
 // check for whether all text area are filled
 bool allInputs = false;
 // an array to store the option of drip factor
@@ -542,6 +545,7 @@ void keypad_read(lv_indev_drv_t * drv, lv_indev_data_t * data) {
   }
   else if (key == '\0') {  // when keypad pressing is released
     data->state = LV_INDEV_STATE_RELEASED;
+    Serial.println("released");
     data->key = 0x00; /*reset key value and do nothing*/
     // stop the motor control
     if (buttonState != buttonState_t::IDLE) {

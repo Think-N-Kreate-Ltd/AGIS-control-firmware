@@ -38,7 +38,8 @@ void sx1905SetUp() {
 char getKey() {
   uint16_t keyData = io.readKeyData();  // get raw data
   char key; // var to store the key, use to return (can remove)
-  static char lastKey;  // use for error checking
+  static char lastKey;    // use for error checking
+  static bool pressState; // use for error checking
   if (keyData) {  // in fact, this is a double check, not in need
     // decode the raw data by ourselves, to reduce the time spend
     uint8_t rowRaw = keyData % 256;
@@ -61,14 +62,25 @@ char getKey() {
     // in fact, we just need the first return value is accurate
     if (key != lastKey) {
       lastKey = key;
-      key = '\0';
+      // we want the first key be null to prevent error
+      // we also want don't want the error key set to null, as it will stop keypad state
+      if (!pressState) {
+        key = '\0';
+      } else {
+        key = lastKey;
+      }
       Serial.println("skip");
+    } else {
+      // only count as pressing when get the correct key
+      pressState = true;
     }
     Serial.print(key);
   } else {
-    key = '\0';
-    lastKey = '\0'; // also reset last key for next error check
-    // Serial.println("there is no key pressed");
+    if (lastKey == '\0') { // to reset once only
+      key = '\0';
+      pressState = false;
+    }
+    lastKey = '\0'; // as there is no key pressed last time
   }
   return key;
 }
@@ -83,5 +95,3 @@ bool getPinState(uint8_t pinNum) {
     return false;
   }
 }
-
-bool keypadInfusionConfirmed = false;
