@@ -333,7 +333,8 @@ void IRAM_ATTR motorControlISR() {
       } else {
         if ((infusionState == infusionState_t::NOT_STARTED) || (infusionState == infusionState_t::STARTED)
             || (infusionState == infusionState_t::ALARM_COMPLETED) || (infusionState == infusionState_t::ALARM_VOLUME_EXCEEDED)
-            || (infusionState == infusionState_t::ALARM_OUT_OF_FLUID)) {
+            || (infusionState == infusionState_t::ALARM_OUT_OF_FLUID) /*|| (infusionState == infusionState_t::ALARM_LOW_BATTERY)*/ 
+            || (infusionState == infusionState_t::ALARM_ABNORMAL_CURRENT) || (infusionState == infusionState_t::ALARM_OTHER)) {
           // for the case that use `*` to start auto ctrl, not recommended to do so
           // set all vars same as keypad infusion confirmed
           resetValues();
@@ -690,23 +691,31 @@ void getI2CData(void * arg) {
     getIna219Data();
     // vTaskDelay(449);
 
+    // return fail when low battery
     static bool powerState = true;  // true when power is enough to drive the motor
     if (powerState) {
       if (busvoltage<=10) {
         endLogging();
-        ESP_LOGW("POWER FAILURE", "not enough power to run thr motor");
+        infusionState = infusionState_t::ALARM_LOW_BATTERY; // it is a special alarm, which will not reset infusion
+        ESP_LOGW("POWER FAILURE", "not enough power to run the motor");
         powerState = false;
       }
     } else if (busvoltage>10) {
-        ESP_LOGI("POWER FAILURE", "get enough power to run thr motor now");
+        ESP_LOGI("POWER FAILURE", "get enough power to run the motor now");
         powerState = true;
+    }
+
+    // return fail when abnormal current
+    if (avgCurrent_mA >= 200) { // TODO: determine this number
+      infusionState = infusionState_t::ALARM_ABNORMAL_CURRENT;
+      ESP_LOGE(POWER_TAG, "fail reason: current:%5.2f", avgCurrent_mA);
     }
   }
 }
 
 void tftDisplay(void * arg) {
   // write and read DF, and get the number of elements
-  writeFile2(LittleFS, "/data/drip_factor.txt", "10,15,20,60,105,90,");
+  writeFile2(LittleFS, "/data/drip_factor.txt", "10,15,20,60,");
   readDF(LittleFS, "/data/drip_factor.txt");
 
   // get the screen object

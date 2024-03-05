@@ -14,7 +14,10 @@ enum class infusionState_t {
   ALARM_COMPLETED,       // when infusion has completed, i.e. infusedVolume_x100 reaches the target volume
   ALARM_STOPPED,         // when infusion stopped unexpectly, it's likely to have a problem
   ALARM_VOLUME_EXCEEDED, // when infusion has completed but we still detect drops
-  ALARM_OUT_OF_FLUID     // when container running out of medication
+  ALARM_OUT_OF_FLUID,    // when container running out of medication
+  ALARM_LOW_BATTERY,     // when the power supply is less than 10V
+  ALARM_ABNORMAL_CURRENT,// when abnormal current detected
+  ALARM_OTHER            // used for marking (when adding new alarm, can shift+alt+F12 this state to add alarm)
   // add more states here when needed
 };
 

@@ -28,6 +28,7 @@ static const char* LITTLE_FS_TAG = "LITTLE FS";
 static const char* WIFI_TAG = "WIFI";
 static const char* OLED_TAG = "OLED";
 static const char* TFT_TAG = "TFT DISPLAY";
+static const char* POWER_TAG = "POWER FAILURE";
 
 // extern char *logFilePath;
 // extern const char* ntpServer;

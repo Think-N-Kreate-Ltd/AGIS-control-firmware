@@ -18,6 +18,10 @@ const char *getInfusionState(infusionState_t state) {
     return "ALARM_EXCEEDED";
   case infusionState_t::ALARM_OUT_OF_FLUID:
     return "ALARM_OUT_OF_FLUID";
+  case infusionState_t::ALARM_LOW_BATTERY:
+    return "ALARM_LOW_BATTERY";
+  case infusionState_t::ALARM_ABNORMAL_CURRENT:
+    return "ALARM_ABNORMAL_CURRENT";
   default:
     return "Undefined infusion state";
     break;
