@@ -379,8 +379,10 @@ void setup() {
   ina219SetUp();
   oledSetUp();
   
-  useSdCard();  // compulsorily change to communicate with SD
-  sdCardSetUp();
+  // useSdCard();  // compulsorily change to communicate with SD
+  // sdCardSetUp();
+
+  sx1905SetUp();
 
   // Initialize LittleFS
   if (!LittleFS.begin(true)) {
@@ -409,20 +411,20 @@ void setup() {
   display_init();
 
   /*Create a task for data logging*/
-  xTaskCreate(loggingData,       /* Task function. */
-              "Data Logging",    /* String with name of task. */
-              4096,              /* Stack size in bytes. */
-              NULL,              /* Parameter passed as input of the task */
-              4,                 /* Priority of the task. */
-              NULL);             /* Task handle. */
+  // xTaskCreate(loggingData,       /* Task function. */
+  //             "Data Logging",    /* String with name of task. */
+  //             4096,              /* Stack size in bytes. */
+  //             NULL,              /* Parameter passed as input of the task */
+  //             4,                 /* Priority of the task. */
+  //             NULL);             /* Task handle. */
 
   // I2C is too slow that cannot use interrupt
-  xTaskCreate(getI2CData,     // function that should be called
-              "Get I2C Data", // name of the task (debug use)
-              4096,           // stack size
-              NULL,           // parameter to pass
-              1,              // task priority, 0-24, 24 highest priority
-              NULL);          // task handle
+  // xTaskCreate(getI2CData,     // function that should be called
+  //             "Get I2C Data", // name of the task (debug use)
+  //             4096,           // stack size
+  //             NULL,           // parameter to pass
+  //             1,              // task priority, 0-24, 24 highest priority
+  //             NULL);          // task handle
   
   // Create a task for TFT display
   xTaskCreate(tftDisplay,       // function that should be called
@@ -790,7 +792,7 @@ void enableWifi(void * arg) {
   server.begin();
 
   // remove sd card old data
-  rmOldData();
+  // rmOldData();
 
   /*NOTE: The idle task is responsible for freeing the RTOS kernel allocated memory from tasks that have been deleted.
     It is therefore important that the idle task is not starved of microcontroller processing time if your application makes any calls to vTaskDelete ().
