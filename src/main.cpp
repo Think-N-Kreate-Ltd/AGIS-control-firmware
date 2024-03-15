@@ -695,7 +695,7 @@ void getI2CData(void * arg) {
     static bool powerState = true;  // true when power is enough to drive the motor
     if (powerState) {
       if (busvoltage<=10) {
-        endLogging();
+        // endLogging();
         infusionState = infusionState_t::ALARM_LOW_BATTERY; // it is a special alarm, which will not reset infusion
         ESP_LOGW("POWER FAILURE", "not enough power to run the motor");
         powerState = false;

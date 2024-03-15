@@ -46,4 +46,5 @@ void getIna219Data() {
     total_current += current[x];  // update the total value
     avgCurrent_mA = total_current/ARRAYLENGTH;  // calculate the average value
   }
+  // Serial.printf("avg current is %3.3f, bus voltage is %3.3f\n", avgCurrent_mA, busvoltage);
 }
